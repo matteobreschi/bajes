@@ -52,9 +52,17 @@ For more details, visit [`conifg_example`](docs/config_example.ini).
 
 If you find *bajes* useful in your research, please include the following citation in your publication,
 
-    (work in progress)
+    @article{Bajes:2021,
+             author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
+             title          = "{\tt bajes}: Bayesian inference of multimessenger astrophysical data, 
+                              methods and application to gravitational-waves",
+             eprint         = "XXXX.YYYYY",
+             archivePrefix  = "arXiv",
+             primaryClass   = "gr-qc",
+             month          = "2",
+             year           = "2021"}
     
-See [`CONTRIBUTING`](CONTRIBUTING.md) for more information.
+See [`CREDITS`](CREDITS.md) for more information.
 
 ## Acknowledgement
 

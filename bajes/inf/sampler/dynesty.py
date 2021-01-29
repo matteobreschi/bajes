@@ -271,7 +271,7 @@ class SamplerNest(object):
 
         # add live points to nested samples
         logger.info("Adding live points in nested samples")
-        self.sampler.add_final_live()
+        self.sampler.add_final_live(print_progress=False)
 
         # final store inference
         self.store_inference()

@@ -3,9 +3,29 @@
 *bajes* has been developed by Matteo Breschi 
 at Friedrich-Schiller-Universität Jena with the contribution of 
 Rossella Gamba and Sebastiano Bernuzzi. 
-If you use this pipeline, please include the following citation in your references:
+If you use this software, please include the following citation:
 
-    bibtex
+    @article{Bajes:2021,
+             author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
+             title          = "{\tt bajes}: Bayesian inference of multimessenger astrophysical data, 
+                              methods and application to gravitational-waves",
+             eprint         = "XXXX.YYYYY",
+             archivePrefix  = "arXiv",
+             primaryClass   = "gr-qc",
+             month          = "2",
+             year           = "2021"}
+
+The posterior samples computed with the *bajes* pipeline of the GW events presented in GWTC-1 are available on [`Zenodo`](https://zenodo.org/record/4476594#.YBQcl3dKhQJ). If you use these data, please include the following citation:
+
+    @misc{bajes_eob_catalog,
+          author    = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
+          title     = "{\tt bajes}: Bayesian inference of multimessenger astrophysical data, 
+                      methods and application to gravitational-waves",
+          month     = jan,
+          year      = 2021,
+          publisher = {Zenodo},
+          doi       = {10.5281/zenodo.4476594},
+          url       = {https://doi.org/10.5281/zenodo.4476594}s}
 
 In order to perform the sampling, *bajes* relies on external libraries,
 * `cpnest`, parallel nested sapling, https://github.com/johnveitch/cpnest
@@ -21,7 +41,8 @@ If you use one of the following gravitational-wave approximants, please provide 
 * `NRPM`: M. Breschi et al., https://arxiv.org/abs/1908.11418
 * `MLGW`: S. Schmidt and W. Del Pozzo, https://arxiv.org/abs/2011.01958
 * `NRSur7dq4`: V. Varma et al., https://arxiv.org/abs/1905.09300
-* `NRHybSur3dq8`(`Tidal`): V. Varma et al., https://arxiv.org/abs/1812.07865
+* `NRHybSur3dq8`: V. Varma et al., https://arxiv.org/abs/1812.07865
+* `NRHybSur3dq8Tidal`: K. Barkett et al., https://arxiv.org/abs/1911.10440
 * `TaylorF2_5.5PN`: F. Messina et al., https://arxiv.org/abs/1904.09558 
     * `7.5PNTides` are taken from T. Damour et al., https://arxiv.org/abs/1203.4352
     * `7.5PNTides2020` corresponds to Q. Henry et al., https://arxiv.org/abs/2005.13367 
