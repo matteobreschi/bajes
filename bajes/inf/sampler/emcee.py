@@ -347,7 +347,7 @@ class SamplerMCMC(emcee.EnsembleSampler):
     def update_sampler(self):
     
         # compute acceptance
-        acc = np.sum(self.backend.accepted)/self.nwalkers/self.backend.iteration
+        acc = (self.backend.accepted).sum()/self.nwalkers/self.backend.iteration
         
         # compute logLs
         this_logL   = np.array(self.backend.get_last_sample().log_prob)

@@ -45,7 +45,7 @@ setup(# metadata
       long_description_content_type="text/x-rst",
       author='Matteo Breschi, Rossella Gambda, Sebastiano Bernuzzi',
       author_email='matteo.breschi@uni-jena.de',
-      url='https://git.tpi.uni-jena.de/mbreschi/bajes',
+      url='https://github.com/matteobreschi/bajes',
       license='MIT',
       
       # list of packages and dirs
@@ -60,8 +60,7 @@ setup(# metadata
                    'bajes/pipe/scripts/bajes_postproc.py'],
       
       # include data
-      package_data={"bajes": ["pipe/data/GIT_REVISION.txt",
-                              "pipe/data/gw/asd/events/*/*.txt",
+      package_data={"bajes": ["pipe/data/gw/asd/events/*/*.txt",
                               "pipe/data/gw/asd/design/*.txt",
                               "pipe/data/gw/spcal/events/*/*.txt",
                               "pipe/data/kn/filter/AT2017gfo/*.txt",

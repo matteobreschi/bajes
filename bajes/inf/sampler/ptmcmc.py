@@ -463,9 +463,9 @@ class SamplerPTMCMC(ParentSampler):
         logger.debug("Setting updated printings...")
 
         # compute acceptance
-        acc_T0  = np.sum(self.nprop_accepted[self._T0])/self.nwalkers/self._time
-        acc_all = np.sum(self.nprop_accepted)/self.nwalkers/self._ntemps/self._time
-        swp_acc = np.sum(self.nswap_accepted/self.nswap)/self._ntemps
+        acc_T0  = (self.nprop_accepted[self._T0]).sum()/self.nwalkers/self._time
+        acc_all = (self.nprop_accepted).sum()/self.nwalkers/self._ntemps/self._time
+        swp_acc = (self.nswap_accepted/self.nswap).sum()/self._ntemps
 
         # compute logLs
         this_logL       = np.array(self._loglikelihood0[self._T0])

@@ -46,20 +46,19 @@ For more details, visit [`conifg_example`](docs/config_example.ini).
 
 ## Credits
 
-*bajes* is developed by Matteo Breschi at the Friedrich-Schiller-Universität Jena with the contribution of:
-* Rossella Gamba
-* Sebastiano Bernuzzi
+*bajes* is developed by Matteo Breschi at the Friedrich-Schiller-Universität Jena with 
+the contribution of Rossella Gamba and Sebastiano Bernuzzi.
 
 If you find *bajes* useful in your research, please include the following citation in your publication,
 
     @article{Bajes:2021,
              author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
-             title          = "{\tt bajes}: Bayesian inference of multimessenger astrophysical data, 
+             title          = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data, 
                               methods and application to gravitational-waves",
-             eprint         = "XXXX.YYYYY",
+             eprint         = "2102.00017",
              archivePrefix  = "arXiv",
              primaryClass   = "gr-qc",
-             month          = "2",
+             month          = "1",
              year           = "2021"}
     
 See [`CREDITS`](CREDITS.md) for more information.

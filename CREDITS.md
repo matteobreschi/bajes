@@ -1,4 +1,4 @@
-# Contributing
+# Credits
 
 *bajes* has been developed by Matteo Breschi 
 at Friedrich-Schiller-Universität Jena with the contribution of 
@@ -7,19 +7,19 @@ If you use this software, please include the following citation:
 
     @article{Bajes:2021,
              author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
-             title          = "{\tt bajes}: Bayesian inference of multimessenger astrophysical data, 
+             title          = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data, 
                               methods and application to gravitational-waves",
-             eprint         = "XXXX.YYYYY",
+             eprint         = "2102.00017",
              archivePrefix  = "arXiv",
              primaryClass   = "gr-qc",
-             month          = "2",
+             month          = "1",
              year           = "2021"}
 
-The posterior samples computed with the *bajes* pipeline of the GW events presented in GWTC-1 are available on [`Zenodo`](https://zenodo.org/record/4476594#.YBQcl3dKhQJ). If you use these data, please include the following citation:
+The posterior samples computed with the *bajes* pipeline of the gravitational-wave events presented in GWTC-1 are available on [`Zenodo`](https://zenodo.org/record/4476594#.YBQcl3dKhQJ). If you use these data, please include the following citation:
 
     @misc{bajes_eob_catalog,
           author    = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
-          title     = "{\tt bajes}: Bayesian inference of multimessenger astrophysical data, 
+          title     = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data, 
                       methods and application to gravitational-waves",
           month     = jan,
           year      = 2021,

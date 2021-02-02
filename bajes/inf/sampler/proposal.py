@@ -54,7 +54,7 @@ def _init_proposal_methods(priors, props=None, **kwargs):
             _weights.append(props[ki])
 
     # rescale weights
-    _weights = np.array(_weights)/np.sum(_weights)
+    _weights = np.array(_weights)/sum(_weights)
 
     return _proposals, _weights
 
@@ -497,8 +497,8 @@ class SliceProposal(object):
 
             eta         = np.array([self.direction_vector_cov(mean, cov) for _ in range(Ns)])
             q, Ne, Nc   = self.slice_proposal(np.array(s), p, eta, model)
-            self.Ne_cov += np.sum(Ne)
-            self.Nc_cov += np.sum(Nc)
+            self.Ne_cov += (Ne).sum()
+            self.Nc_cov += (Nc).sum()
 
             self.tune_mu_cov()
     
@@ -541,8 +541,8 @@ class SliceProposal(object):
 
             eta         = np.array([self.direction_vector_dif(c) for _ in range(Ns)])
             q, Ne, Nc   = self.slice_proposal(np.array(s), p, eta, model)
-            self.Ne_dif += np.sum(Ne)
-            self.Nc_dif += np.sum(Nc)
+            self.Ne_dif += (Ne).sum()
+            self.Nc_dif += (Nc).sum()
 
             self.tune_mu_dif()
 
