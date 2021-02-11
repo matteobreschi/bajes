@@ -348,7 +348,7 @@ def get_parameter_distribution_from_string(name, type, min, max, kwargs):
             raise AttributeError("Please include 'deg' in key-word arguments for power-law probability density ({} parameter).".format(name))
         if kwargs['deg'] == -1:
             raise AttributeError("Unable to set power-law distribution with degree -1 for {} parameter. Please use log-uniform distribution.".format(name))
-        if kwargs['min'] < 0:
+        if min < 0:
             raise AttributeError("Unable to set power-law distribution for {} parameter, power-law prior does not support negative bounds.".format(name))
         from . import PowerLawProbability
         return PowerLawProbability(min=min, max=max, deg=kwargs['deg'])
@@ -356,7 +356,7 @@ def get_parameter_distribution_from_string(name, type, min, max, kwargs):
     elif type == 'triangular':
         if 'mode' not in list(kwargs.keys()):
             raise AttributeError("Please include 'mode' in key-word arguments for triangular probability density ({} parameter).".format(name))
-        if kwargs['mode'] > kwargs['max'] or kwargs['mode'] < kwargs['min'] :
+        if kwargs['mode'] > max or kwargs['mode'] < min :
             raise AttributeError("Unable to set triangular distribution for {} parameter, mode for triangular prior is outside prior bounds.".format(name))
         from . import TriangularProbability
         return TriangularProbability(min=min, max=max, mode=kwargs['mode'])
@@ -421,12 +421,20 @@ def initialize_param_from_func(name, min, max, func, kwarg={}, ngrid=2000, kind=
     
     # check monotonicity
     if np.sum(np.diff(cdf)<0):
-        raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, cumulative prior is not monotonic.".format(name))
+        
+        # recompute CDF using trapezoidal rule
+        dx  = ax[1] - ax[0]
+        exp_pdf = np.exp(pdf)
+        cdf = [np.trapz(exp_pdf[:(i+1)], dx = dx) for i in range(ngrid)]
+
+        # recheck monotonicity
+        if np.sum(np.diff(cdf)<0):
+            raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, cumulative prior is not monotonic.".format(name))
 
     # check NaNs
     if np.sum(np.isnan(cdf))+np.sum(np.isnan(pdf)):
         raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, NaN occured.".format(name))
-    
+
     # check Infs
     if np.sum(np.isinf(cdf)):
         raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, Inf occured.".format(name))

@@ -389,7 +389,7 @@ class Detector(object):
             return lagging(proj_wave, int(round(delay*self.srate)))
 
         elif tag == 'freq':
-            raise RunTimeError("time-domain projection not already implemented for frequency-domain waveforms")
+            raise RuntimeError("time-domain projection not already implemented for frequency-domain waveforms")
 
     def store_measurement(self, series, noise,
                           nspcal=0, spcal_freqs=None,
