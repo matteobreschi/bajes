@@ -1,19 +1,14 @@
 from __future__ import division, unicode_literals, absolute_import
 import numpy as np
-import signal
-import tracemalloc
-import os
 
 import logging
 logger = logging.getLogger(__name__)
 
 import dynesty
-
 from dynesty.utils import unitcheck
 
+from . import SamplerBody
 from ..utils import estimate_nmcmc, list_2_dict
-from ...pipe import data_container, display_memory_usage
-
 
 def void():
     pass
@@ -71,127 +66,82 @@ def get_prior_samples_dynesty(nlive, ndim, like_fn, ptform_fn):
 
     return [np.array(u), np.array(v), np.array(logl)]
 
-class SamplerNest(object):
+class SamplerDynesty(SamplerBody):
     
-    def __init__(self, posterior,
-                 nlive, tolerance=0.1, ncheckpoint=0,
-                 # bounding
-                 bound_method='multi', vol_check=8., vol_dec=0.5,
-                 # update
-                 bootstrap=0, enlarge=1.5, facc=0.5, update_interval=None,
-                 # proposal
-                 proposals=None, nact = 5., maxmcmc=4096, minmcmc=32,
-                 # first update
-                 first_min_ncall = None, first_min_eff = 10,
-                 # others
-                 nprocs=None, pool=None, use_slice=False, use_gw=False,
-                 outdir='./', resume='/resume.pkl', seed=None, **kwargs):
+    def __initialize__(self, posterior,
+                       nlive, tolerance=0.1,
+                       # bounding
+                       bound_method='multi', vol_check=8., vol_dec=0.5,
+                       # update
+                       bootstrap=0, enlarge=1.5, facc=0.5, update_interval=None,
+                       # proposal
+                       proposals=None, nact = 5., maxmcmc=4096, minmcmc=32,
+                       # first update
+                       first_min_ncall = None, first_min_eff = 10,
+                       # parallelization
+                       nprocs=None, pool=None,
+                       **kwargs):
         
-        self.resume = resume
-        self.outdir = outdir
 
-        # restore inference from existing container
-        if os.path.exists(self.outdir + self.resume):
-            self.restore_inference(pool)
-    
-        # initialize a new inference
-        else:
+        # initialize nested parameters
+        self.nlive          = nlive
+        self.tol            = tolerance
             
-            # initialize signal
-            try:
-                signal.signal(signal.SIGTERM,   self.store_inference_and_exit)
-                signal.signal(signal.SIGINT,    self.store_inference_and_exit)
-                signal.signal(signal.SIGALRM,   self.store_inference_and_exit)
-            except AttributeError:
-                logger.warning("Impossible to set signal attributes.")
-
-            # initialize nested parameters
-            self.nlive          = nlive
-            self.tol            = tolerance
+        # auxiliary arguments
+        self.log_prior_fn = posterior.log_prior
             
-            # auxiliary arguments
-            self.names = posterior.prior.names
-            self.ndim  = len(self.names)
-            self.log_prior_fn = posterior.log_prior
-            
-            if ncheckpoint == 0:
-                # disable resume
-                logger.info("Disabling checkpoint ...")
-                self.ncheckpoint = 100 # print step
-                self.store_flag = False
-            else:
-                # enable resume
-                logger.info("Enabling checkpoint ...")
-                self.ncheckpoint = ncheckpoint
-                self.store_flag = True
-            
-            # initialize seed
-            if seed == None:
-                import time
-                self.seed = int(time.time())
-            else:
-                self.seed = seed
-            np.random.seed(self.seed)
-            
-            if self.nlive < self.ndim*(self.ndim-1)//2:
-                logger.warning("Given number of live points < Ndim*(Ndim-1)/2. This may generate problems in the exploration of the parameters space.")
+        # warnings
+        if self.nlive < self.ndim*(self.ndim-1)//2:
+            logger.warning("Given number of live points < Ndim*(Ndim-1)/2. This may generate problems in the exploration of the parameters space.")
 
-            # set up periodic and reflective boundaries
-            periodic_inds   = np.concatenate(np.where(np.array(posterior.prior.periodics) == 1))
-            reflective_inds = np.concatenate(np.where(np.array(posterior.prior.periodics) == 0))
+        # set up periodic and reflective boundaries
+        periodic_inds   = np.concatenate(np.where(np.array(posterior.prior.periodics) == 1))
+        reflective_inds = np.concatenate(np.where(np.array(posterior.prior.periodics) == 0))
 
-            # initialize proposals
-            if proposals == None:
-                logger.info("Initializing proposal methods ...")
-                proposals = initialize_proposals(maxmcmc, minmcmc, nact)
+        # initialize proposals
+        if proposals == None:
+            logger.info("Initializing proposal methods ...")
+            proposals = initialize_proposals(maxmcmc, minmcmc, nact)
 
-            if first_min_ncall == None:
-                first_min_ncall = 2 * nlive
-            
-            if nprocs == None:
-                nprocs = 1
-            
-            # initialize keyword args for dynesty
-            sampler_kwargs  = { 'ndim':         self.ndim,
-                                'nlive':        nlive,
-                                'bound':        bound_method,
-                                'sample':       'rwalk',
-                                'periodic':     periodic_inds,
-                                'reflective':   reflective_inds,
-                                'facc':         facc,
-                                'vol_check':    vol_check,
-                                'vol_dec':      vol_dec,
-                                'walks':        minmcmc,
-                                'enlarge':      enlarge,
-                                'bootstrap':    bootstrap,
-                                'pool':         pool,
-                                'queue_size':   max(nprocs-1,1),
-                                'update_interval': update_interval,
-                                'first_update': {'min_ncall':first_min_ncall, 'min_eff': first_min_eff},
-                                'use_pool':     {'prior_transform': True,'loglikelihood': True, 'propose_point': True,'update_bound': True}
-                                }
-            
-            like_fn         = posterior.log_like
-            ptform_fn       = posterior.prior_transform
-            self.sampler    = self.initialize_sampler(like_fn, ptform_fn, sampler_kwargs)
+        # check additional sampler arguments
+        if first_min_ncall == None:
+            first_min_ncall = 2 * nlive
+        if nprocs == None:
+            nprocs = 1
 
-            # clean up sampler
-            del self.sampler.cite
-            del self.sampler.kwargs['cite']
-            self.sampler.rstate = np.random
+        # initialize keyword args for dynesty
+        sampler_kwargs  = { 'ndim':         self.ndim,
+                            'nlive':        nlive,
+                            'bound':        bound_method,
+                            'sample':       'rwalk',
+                            'periodic':     periodic_inds,
+                            'reflective':   reflective_inds,
+                            'facc':         facc,
+                            'vol_check':    vol_check,
+                            'vol_dec':      vol_dec,
+                            'walks':        minmcmc,
+                            'enlarge':      enlarge,
+                            'bootstrap':    bootstrap,
+                            'pool':         pool,
+                            'queue_size':   max(nprocs-1,1),
+                            'update_interval': update_interval,
+                            'first_update': {'min_ncall':first_min_ncall, 'min_eff': first_min_eff},
+                            'use_pool':     {'prior_transform': True,'loglikelihood': True, 'propose_point': True,'update_bound': True}
+                            }
 
-            # set proposal
-            self.sampler.evolve_point = proposals.propose
+        like_fn         = posterior.log_like
+        ptform_fn       = posterior.prior_transform
+        self.sampler    = self._initialize_sampler(like_fn, ptform_fn, sampler_kwargs)
 
-    def __getstate__(self):
-        self_dict = self.__dict__.copy()
-#        if 'sampler' in list(self_dict.keys()):
-#            self_dict['sampler'].pool   = None
-#            self_dict['sampler'].M      = None
-#            self_dict['sampler'].rstate = None
-        return self_dict
+        # clean up sampler
+        del self.sampler.cite
+        del self.sampler.kwargs['cite']
+        self.sampler.rstate = np.random
 
-    def initialize_sampler(self, like_fn, ptform_fn, kwargs):
+        # set proposal
+        self.sampler.evolve_point = proposals.propose
+
+    def _initialize_sampler(self, like_fn, ptform_fn, kwargs):
         # extract prior samples, ensuring finite logL
         logger.info("Extracting prior samples ...")
         live_points = get_prior_samples_dynesty(kwargs['nlive'], kwargs['ndim'], like_fn, ptform_fn)
@@ -204,87 +154,49 @@ class SamplerNest(object):
         del sampler._UPDATE
         return sampler
             
-    def store_inference_and_exit(self, signum=None, frame=None):
-        # exit function when signal is revealed
-        logger.info("Run interrupted by signal {}, checkpoint and exit.".format(signum))
-        os._exit(signum)
-            
-    def restore_inference(self, pool):
-
-        # extract container
-        logger.info("Restoring inference from existing container ...")
-        dc                  = data_container(self.outdir + self.resume)
-        container           = dc.load()
-        
-        # sampler check
-        if container.tag != 'nest':
-            logger.error("Container carries a {} inference, while NEST was requested.".format(container.tag.upper()))
-            raise AttributeError("Container carries a {} inference, while NEST was requested.".format(container.tag.upper()))
-
-        previous_inference  = container.inference
-
-        # extract previous variables and methods
-        for kw in list(previous_inference.__dict__.keys()):
-            self.__setattr__(kw, previous_inference.__dict__[kw])
+    def __restore__(self, pool, **kwargs):
 
         # re-initialize pool
-        self.sampler.pool   = pool
-        self.sampler.M      = pool.map
+        if pool == None:
+            self.sampler.pool   = pool
+            self.sampler.M      = map
+        else:
+            self.sampler.pool   = pool
+            self.sampler.M      = pool.map
 
-        # re-initialize seed
-        if self.seed == None:
-            import time
-            self.seed = int(time.time())
-        np.random.seed(self.seed)
+        # re-initialize random
         self.sampler.rstate = np.random
 
-        # re-initialize signal
-        try:
-            signal.signal(signal.SIGTERM,   self.store_inference_and_exit)
-            signal.signal(signal.SIGINT,    self.store_inference_and_exit)
-            signal.signal(signal.SIGALRM,   self.store_inference_and_exit)
-        except AttributeError:
-            logger.warning("Impossible to set signal attributes.")
-                
-    def store_inference(self):
-        # save inference in pickle file
-        dc = data_container(self.outdir+self.resume)
-        dc.store('tag', 'nest')
-        dc.store('inference', self)
-        dc.save()
-
-    def run(self):
+    def __run__(self):
         
         # run the sampler
-        logger.info("Running {} live points ...".format(self.nlive))
-        
         for results in self.sampler.sample(dlogz=self.tol,save_samples=True,add_live=False):
             
             if self.sampler.it%self.ncheckpoint==0:
-                
-                (worst, ustar, vstar, loglstar, logvol, logwt, logz, logzvar, h, nc, worst_it, boundidx, bounditer, eff, delta_logz) = results
-                self.update_sampler([eff/100.,nc,loglstar,logz,h,delta_logz])
-    
-                if tracemalloc.is_tracing():
-                    display_memory_usage(tracemalloc.take_snapshot())
-                    tracemalloc.clear_traces()
+                self._last_iter = results
+                self.update()
 
         # add live points to nested samples
-        logger.info("Adding live points in nested samples")
+        logger.info("Adding live points in nested samples ...")
         self.sampler.add_final_live(print_progress=False)
 
         # final store inference
-        self.store_inference()
+        self.store()
 
-    def update_sampler(self, args):
+    def __update__(self):
 
-        acc, nc, logl, logz, h, d_logz = args
-
-        # store inference
-        if self.store_flag:
-            self.store_inference()
-
-        logger.info(" - it : {:d} - eff : {:.3f} - ncall : {:.0f} - logL : {:.3g} - logLmax : {:.3g} - logZ : {:.3g} - H : {:.3g} - dlogZ : {:.3g}".format(self.sampler.it,acc,nc,logl,np.max(self.sampler.live_logl),logz,h,d_logz))
+        (worst, ustar, vstar, loglstar, logvol, logwt, logz, logzvar, h, nc, worst_it, boundidx, bounditer, eff, delta_logz) = self._last_iter
+        
+        args = {'it' :      self.sampler.it,
+                'eff' :     '{:.2f}%'.format(eff),
+                'nc' :      nc,
+                #'logL' :    '{:.3f}'.format(loglstar),
+                'logLmax' : '{:.3f}'.format(np.max(self.sampler.live_logl)),
+                'logZ' :    '{:.3f}'.format(logz),
+                'H' :       '{:.2f}'.format(h),
+                'dZ' :      '{:.3f}'.format(delta_logz)}
+        
+        return args
 
     def get_posterior(self):
         
@@ -297,9 +209,6 @@ class SamplerNest(object):
         wt = []
         scale = np.array(self.sampler.saved_scale)
         for i in range(len(self.nested_samples)):
-            
-            # start appending from the first update
-            # if scale[i] < 1. :
             
             this_params = list_2_dict(self.nested_samples[i], self.names)
             logpr       = self.log_prior_fn(this_params)
@@ -346,48 +255,37 @@ class SamplerNest(object):
     def make_plots(self):
         
         try:
-            import matplotlib.pyplot as plt
-        except Exception:
-            logger.warning("Impossible to produce standard plots. Cannot import matplotlib.")
-                
-        try:
-
-            fig = plt.figure()
-            plt.plot(self.results.logvol, self.results.logl)
-            plt.xlim(( np.min(self.results.logvol),np.max(self.results.logvol) ))
-            plt.ylim((0.,1.1*(np.max(self.results.logl))))
-            plt.ylabel('lnL - lnZnoise')
-            plt.xlabel('lnX')
-            plt.savefig(self.outdir+'/lnL_lnX.png', dpi=200)
-
-            plt.close()
         
-            fig = plt.figure()
-            plt.fill_between(self.results.logvol, self.logBF-self.logZerr, self.logBF+self.logZerr, alpha=0.6, color='royalblue')
-            plt.plot(self.results.logvol, self.logBF, color='navy', label='logBF')
-            plt.plot(self.results.logvol, self.results.logl, color='slateblue', label='logL', ls='--')
-            plt.xlim(( np.min(self.results.logvol),np.max(self.results.logvol) ))
+            from dynesty import plotting as dyplot
+            import matplotlib.pyplot as plt
             
-            ylim_max = np.max([ np.max(self.logBF) ,np.max(self.results.logl)])
-            plt.ylim((0.,1.2*ylim_max))
-            plt.xlabel('logX')
-            plt.savefig(self.outdir+'/lnBF_lnX.png', dpi=200)
+            from ...pipe import ensure_dir
+            import os
+            auxdir = os.path.join(self.outdir,'dynesty')
+            ensure_dir(auxdir)
             
-            plt.close()
+            fig, axes = dyplot.runplot(self.results)
+            plt.savefig(auxdir+'/runplot.png', dpi=200)
+        
+            fig, axes = dyplot.traceplot(self.results, show_titles=True, labels=self.names)
+            plt.savefig(auxdir+'/traceplot.png', dpi=200)
+        
+            fig, axes = dyplot.cornerplot(self.results, color='royalblue', show_titles=True, labels=self.names)
+            plt.savefig(auxdir+'/cornerplot.png', dpi=200)
 
-        except Exception:
-            pass
+        except ImportError:
+            logger.warning("Unable to produce standard plots, check if matplotlib is installed.")
 
-class SamplerDyNest(SamplerNest):
+class SamplerDynestyDynamic(SamplerDynesty):
     
-    def __init__(self, posterior, nbatch=512, **kwargs):
+    def __initialize__(self, posterior, nbatch=512, **kwargs):
 
         # initialize dynamic nested parameters
         self.nbatch      = nbatch
         self.init_flag   = False
 
         # initialize dynesty inference
-        super(SamplerDyNest, self).__init__(posterior, **kwargs)
+        super(SamplerDynestyDynamic, self).__initialize__(posterior, **kwargs)
     
         # extract prior samples, ensuring finite logL
         logger.info("Extracting prior samples ...")
@@ -396,108 +294,37 @@ class SamplerDyNest(SamplerNest):
         # set customized proposal
         dynesty.dynesty._SAMPLING["rwalk"] = self.sampler.evolve_point
         dynesty.nestedsamplers._SAMPLING["rwalk"] = self.sampler.evolve_point
-    
-    def __getstate__(self):
-        # get __dict__ of parent class
-        inher_dict  = SamplerNest.__getstate__(self)
-        # get __dict__ of this class
-        self_dict   = self.__dict__.copy()
-        # merge them
-        full_dict   = {**inher_dict, **self_dict}
-
-#        if 'sampler' in list(full_dict.keys()):
-#            full_dict['sampler'].pool   = None
-#            full_dict['sampler'].M      = None
-#            full_dict['sampler'].rstate = None
-
-        return full_dict
         
-    def initialize_sampler(self, like_fn, ptform_fn, kwargs):
+    def _initialize_sampler(self, like_fn, ptform_fn, kwargs):
         logger.info("Initializing nested sampler ...")
         return dynesty.DynamicNestedSampler(like_fn, ptform_fn, **kwargs)
     
-    def restore_inference(self, pool):
+    def __getstate__(self):
+        state   = self.__dict__.copy()
+        state['sampler'].pool   = None
+        state['sampler'].M      = None
+        state['sampler'].rstate = None
+        return state
 
-        # extract container
-        logger.info("Restoring inference from existing container ...")
-        dc                  = data_container(self.outdir + self.resume)
-        container           = dc.load()
-
-        # sampler check
-        if container.tag != 'dynest':
-            logger.error("Container carries a {} inference, while DYNEST was requested.".format(container.tag.upper()))
-            raise AttributeError("Container carries a {} inference, while DYNEST was requested.".format(container.tag.upper()))
-
-        previous_inference  = container.inference
-
-        # extract previous variables and methods
-        for kw in list(previous_inference.__dict__.keys()):
-            self.__setattr__(kw, previous_inference.__dict__[kw])
-
-        # re-initialize pool
-        self.sampler.pool   = pool
-        self.sampler.M      = pool.map
-
-        # re-initialize seed
-        if self.seed == None:
-            import time
-            self.seed = int(time.time())
-        np.random.seed(self.seed)
-        self.sampler.rstate = np.random
-
-        # re-initialize signal
-        try:
-            signal.signal(signal.SIGTERM,   self.store_inference_and_exit)
-            signal.signal(signal.SIGINT,    self.store_inference_and_exit)
-            signal.signal(signal.SIGALRM,   self.store_inference_and_exit)
-        except AttributeError:
-            logger.warning("Impossible to set signal attributes.")
-
-    def store_inference(self):
-        # save inference in pickle file
-        dc = data_container(self.outdir+self.resume)
-        dc.store('tag', 'dynest')
-        dc.store('inference', self)
-        dc.save()
-    
-    def update_sampler(self, args):
-        
-        acc, nc, logl, logz, h, d_logz = args
-
-        # store inference
-        if self.store_flag:
-            self.store_inference()
-
-        logger.info(" - it : {:d} - eff : {:.3f} - ncall : {:.0f} - logL : {:.3g} - logLmax : {:.3g} - logZ : {:.3g} - H : {:.3g} - dlogZ : {:.3g}".format(self.sampler.it,acc,nc,logl,np.max(self.sampler.live_logl),logz,h,d_logz))
-
-    def run(self):
-        
-        logger.info("Running {} live points ...".format(self.nlive))
+    def __run__(self):
         
         # perform initial sampling if necessary
         if not self.init_flag:
-            self.run_nested_initial()
+            self._run_nested_initial()
         
         logger.info("Completing initial sampling ...")
         logger.info("Running batches with {} live points ...".format(self.nbatch))
-        self.run_batches()
+        self._run_batches()
 
         # final store inference
-        self.store_inference()
+        self.store()
             
-    def store_current_live_points(self):
+    def _store_current_live_points(self):
+        self.p0 = [self.sampler.sampler.live_u,
+                   self.sampler.sampler.live_v,
+                   self.sampler.sampler.live_logl]
 
-        # Sorting remaining live points.
-        lsort_idx = np.argsort(self.sampler.sampler.live_logl)
-
-        # Add contributions from the remaining live points in order
-        # from the lowest to the highest log-likelihoods.
-        live_u = [self.sampler.sampler.live_u[i] for i in lsort_idx]
-        live_v = [self.sampler.sampler.live_v[i] for i in lsort_idx]
-        live_l = [self.sampler.sampler.live_logl[i] for i in lsort_idx]
-        self.p0 = [np.array(live_u),np.array(live_v),np.array(live_l)]
-
-    def run_nested_initial(self):
+    def _run_nested_initial(self):
         
         # check if a non-empty set of live points already exist
         if len(self.p0) == 0:
@@ -513,20 +340,30 @@ class SamplerDyNest(SamplerNest):
         # Baseline run.
         for results in self.sampler.sample_initial(nlive=self.nlive, dlogz=self.tol, live_points=live_points):
             if self.sampler.it%self.ncheckpoint==0:
-                self.store_current_live_points()
-                (worst, ustar, vstar, loglstar, logvol, logwt, logz, logzvar, h, nc, worst_it, boundidx, bounditer, eff, delta_logz) = results
-                self.update_sampler([eff/100.,nc,loglstar,logz,h,delta_logz])
-
-                if tracemalloc.is_tracing():
-                    display_memory_usage(tracemalloc.take_snapshot())
-                    tracemalloc.clear_traces()
+                self._store_current_live_points()
+                self._last_iter = results
+                self.update()
 
         # Store inference at the end of initial sampling
         self.init_flag = True
-        (worst, ustar, vstar, loglstar, logvol, logwt, logz, logzvar, h, nc, worst_it, boundidx, bounditer, eff, delta_logz) = results
-        self.update_sampler([eff/100.,nc,loglstar,logz,h,delta_logz])
+        self._last_iter = results
+        self.update()
 
-    def run_batches(self):
+    def __update_batches__(self):
+
+        (worst, ustar, vstar, loglstar, nc, worst_it, boundidx, bounditer, eff) = results
+
+        args = {'it' :      self.sampler.it,
+                'eff' :     '{:.2f}'.format(eff),
+                'nc' :      nc,
+                #'logL' :   '{:.3f}'.format(loglstar),
+                'logLmax' : '{:.3f}'.format(np.max(self.sampler.live_logl))}
+        return args
+
+    def _run_batches(self):
+        
+        # use new updating
+        self.__update__ = self.__update_batches__
         
         logger.info("Adding batches to the sampling ...")
         from dynesty.dynamicsampler import stopping_function, weight_function
@@ -537,15 +374,9 @@ class SamplerDyNest(SamplerNest):
             if not stop:
                 logl_bounds = weight_function(self.sampler.results)  # derive bounds
                 for results in self.sampler.sample_batch(nlive_new=self.nbatch, logl_bounds=logl_bounds):
-                    
                     if self.sampler.it%self.ncheckpoint==0:
-                        
-                        (worst, ustar, vstar, loglstar, nc, worst_it, boundidx, bounditer, eff) = results
-                        self.update_sampler([eff/100.,nc,loglstar,self.sampler.results.logz[-1],0.,self.sampler.results.logzerr[-1]])
-            
-                        if tracemalloc.is_tracing():
-                            display_memory_usage(tracemalloc.take_snapshot())
-                            tracemalloc.clear_traces()
+                        self._last_iter = results
+                        self.update()
 
                 self.sampler.combine_runs()  # add new samples to previous results
             else:

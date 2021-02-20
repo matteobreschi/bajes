@@ -397,7 +397,8 @@ def get_parameter_distribution_from_string(name, type, min, max, kwargs):
         return NormalProbability(min=min, max=max, mu=kwargs['mu'], sigma=kwargs['sigma'])
 
     else:
-        raise AttributeError("Unable to set probability distribution for {} parameter. Unknown distribution {}.".format(name, type))
+        from . import __known_probs__
+        raise AttributeError("Unable to set probability distribution for {} parameter. Unknown distribution {}, please use one of the followings: {}".format(name, type, __known_probs__))
 
 def wrap_exp_log_prior(x, f, kw):
     return np.exp(f(x, **kw))
@@ -423,9 +424,10 @@ def initialize_param_from_func(name, min, max, func, kwarg={}, ngrid=2000, kind=
     if np.sum(np.diff(cdf)<0):
         
         # recompute CDF using trapezoidal rule
-        dx  = ax[1] - ax[0]
+        # obs. cruder approximation but improves discontinuity
+        dx      = ax[1] - ax[0]
         exp_pdf = np.exp(pdf)
-        cdf = [np.trapz(exp_pdf[:(i+1)], dx = dx) for i in range(ngrid)]
+        cdf     = [np.trapz(exp_pdf[:(i+1)], dx = dx) for i in range(ngrid)]
 
         # recheck monotonicity
         if np.sum(np.diff(cdf)<0):

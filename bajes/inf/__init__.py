@@ -6,7 +6,7 @@ import numpy as np
 from .prior import Prior, Parameter, JointPrior
 from .likelihood import Likelihood, Posterior, JointLikelihood
 
-__known_samplers__     = ['mcmc', 'ptmcmc', 'nest', 'dynest', 'cpnest']
+__known_samplers__     = ['emcee', 'ptmcmc', 'cpnest', 'ultranest', 'dynesty', 'dynesty-dyn']
 
 def Sampler(engine, model, **kwargs):
     """
@@ -41,20 +41,22 @@ def Sampler(engine, model, **kwargs):
     else:
         raise ValueError("Unable to define {} sampler. The model should be a bajes.inf.likelihood.Posterior object or a list containing [bajes.inf.prior.Prior, bajes.inf.likelihood.Likelihood]".format(engine))
 
-    if engine == 'mcmc':
+    if engine == 'emcee':
         from .sampler.emcee import SamplerMCMC as sampler
     elif engine == 'ptmcmc':
         from .sampler.ptmcmc import SamplerPTMCMC as sampler
     elif engine == 'cpnest':
-        from .sampler.cpnest import SamplerCPNest as sampler
-    elif engine == 'nest':
-        from .sampler.dynesty import SamplerNest as sampler
-    elif engine == 'dynest':
-        from .sampler.dynesty import SamplerDyNest as sampler
+        from .sampler.cpnest import _WrapSamplerCPNest as sampler
+    elif engine == 'dynesty':
+        from .sampler.dynesty import SamplerDynesty as sampler
+    elif engine == 'dynesty-dyn':
+        from .sampler.dynesty import SamplerDynestyDynamic as sampler
+    elif engine == 'ultranest':
+        from .sampler.ultranest import SamplerUltraNest as sampler
     else:
-        raise ValueError("Unable to define {} sampler. Please use mcmc, ptmcmc, nest, cpnest or dynest.".format(engine))
+        raise ValueError("Unable to define {} sampler. Please use one of the following: {}".format(engine, ', '.join(__known_samplers__)))
 
-    return sampler(posterior, **kwargs)
+    return sampler(engine, posterior, **kwargs)
 
 # namedtuple for customized probability
 

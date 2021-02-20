@@ -96,7 +96,7 @@ def init_core(opts):
     
     return opts, post
 
-def finalize(logger, inference):
+def finalize(inference):
     
     import matplotlib
     matplotlib.use('Agg')
@@ -164,5 +164,5 @@ if __name__ == "__main__":
         tracemalloc.stop()
 
     # produce posteriors
-    finalize(logger, inference)
+    finalize(inference)
 

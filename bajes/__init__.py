@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals
 __import__("pkg_resources").declare_namespace(__name__)
 
 __version__ = '0.1.0'
-__doc__     = "bajes [baɪɛs], Bayesian Jenaer Software. Python package for Bayesian inference developed at Friedrich-Schiller-Universtät Jena and specialized in the analysis of gravitational-wave and multi-messenger transients. The software is designed to be state-of-art, simple-to-use and light-weighted with minimal dependencies on external libraries. The source code with instruction and documentation can be found at https://git.tpi.uni-jena.de/mbreschi/bajes and https://github.com/matteobreschi/bajes"
+__doc__     = "bajes [baɪɛs], Bayesian Jenaer Software. Python package for Bayesian inference developed at Friedrich-Schiller-Universtät Jena and specialized in the analysis of gravitational-wave and multi-messenger transients. The software is designed to be state-of-art, simple-to-use and light-weighted with minimal dependencies on external libraries. The source code with instruction and documentation can be found at https://github.com/matteobreschi/bajes"
 
 # defining useful constant (SI)
 MSUN_SI         = 1.9885469549614615e+30    # mass of the sun [kg]

@@ -1,5 +1,34 @@
 from __future__ import division, unicode_literals, absolute_import
 
+def _check_mpi(is_mpi):
+
+    multi_task  = False
+    is_mpi      = bool(is_mpi)
+    rank        = 0
+    size        = 1
+
+    try:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        size = comm.Get_size()
+        rank = comm.Get_rank()
+        if size > 1 :
+            multi_task = True
+    except Exception:
+        pass
+
+    if is_mpi != multi_task:
+        
+        if is_mpi == False and multi_task == True:
+            logger.error("Revealed active MPI routine, please include the additional flag --mpi to the command string to use MPI parallelization.")
+            raise AttributeError("Revealed active MPI routine, please include the additional flag --mpi to the command string to use MPI parallelization.")
+
+        elif is_mpi == True and multi_task == False:
+            logger.error("Requested MPI parallelization but only one process is active, please make sure you are using an MPI runner (i.e. mpiexec or mpirun) with the correct settings.")
+            raise AttributeError("Requested MPI parallelization but only one process is active, please make sure you are using an MPI runner (i.e. mpiexec or mpirun) with the correct settings.")
+
+    return rank, size
+
 def _head(logger, engine, nprocs):
 
     import os
@@ -46,15 +75,19 @@ def main():
     opts, args = parse_main_options()
 
     # retreive absolute paths
-    opts.prior = os.path.abspath(opts.prior)
-    opts.like = os.path.abspath(opts.like)
+    opts.prior  = os.path.abspath(opts.prior)
+    opts.like   = os.path.abspath(opts.like)
     opts.outdir = os.path.abspath(opts.outdir)
 
     # ensure output directory
     ensure_dir(opts.outdir)
 
     # set logger
-    logger = set_logger(outdir=opts.outdir, label='bajes', silence=opts.silence)
+    if opts.debug:
+        logger = set_logger(outdir=opts.outdir, level='DEBUG', silence=opts.silence)
+        logger.debug("Using logger with debugging mode")
+    else:
+        logger = set_logger(outdir=opts.outdir, silence=opts.silence)
     _head(logger, opts.engine, opts.nprocs)
 
     # get likelihood module
@@ -143,17 +176,31 @@ def main():
                 'proposals_kwargs' : {'use_gw': False, 'use_slice': opts.use_slice}
                 }
 
+    # check parallelization
+    kwargs['rank'], size = _check_mpi(opts.mpi)
+
     # check for cpnest
     if opts.engine == 'cpnest':
+        # set opts.nprocs to None in order to avoid parallel pool
+        # cpnest treats parallel processes internally
+        opts.nprocs = None
         if opts.mpi :
             logger.warning("MPI parallelization not available with cpnest, turning the flag off. You are currently running many copies of the same routine.")
         opts.mpi = False
+        Pool, close_pool = None, None
 
-    # initialize parallel pool
+    # set parallel pool if needed
     if opts.mpi:
-        from .pipe import initialize_mpi_pool
-        Pool, close_pool = initialize_mpi_pool(opts.nprocs)
+        
+        if opts.engine == 'ultranest':
+            # ultranest has a customized MPI interface
+            Pool, close_pool = None, None
+        else:
+            from .pipe import initialize_mpi_pool
+            Pool, close_pool = initialize_mpi_pool(opts.nprocs)
+
     else:
+        
         if opts.nprocs == None: opts.nprocs = 1
         if opts.nprocs >= 2:
             from .pipe import initialize_mthr_pool
@@ -161,18 +208,33 @@ def main():
         else:
             Pool, close_pool = None, None
 
-    # initialize sampler
+    # checking sampler
     logger.info("Initializing sampler ...")
-    if opts.engine not in ['mcmc', 'ptmcmc', 'cpnest', 'nest', 'dynest']:
-        logger.error("Invalid string for engine. Please use one of the following engines: 'cpnest' , 'nest' , 'dynest' , 'mcmc', 'ptmcmc'.")
-        raise AttributeError("Invalid string for engine. Please use one of the following engines: 'cpnest' , 'nest' , 'dynest' , 'mcmc', 'ptmcmc'.")
+    from .inf import __known_samplers__
+    if opts.engine not in __known_samplers__:
+        logger.error("Invalid string for engine. Please use one of the following: {}".format(__known_samplers__))
+        raise AttributeError("Invalid string for engine. Please use one of the following: {}".format(__known_samplers__))
 
     # running
     if Pool == None:
         
+        # set multithreading pools for each MPI process
+        if opts.engine == 'ultranest' and opts.mpi:
+            
+            threads_per_node = opts.nprocs//size
+            
+            if threads_per_node < 2 :
+                logger.debug("Estimated number of threads per MPI process is lower than 2, disabling vectorization for ultranest.")
+            else:
+                logger.debug("Running {} MPI processes with {} threads per task.".format(size, threads_per_node))
+                from .pipe import initialize_mthr_pool
+                Pool, close_pool = initialize_mthr_pool(threads_per_node)
+                kwargs['pool'] = Pool
+        
         sampler = Sampler(opts.engine, [lk, pr], **kwargs)
         sampler.run()
         sampler.get_posterior()
+        sampler.make_plots()
 
     else:
 
@@ -184,10 +246,10 @@ def main():
                     sys.exit(0)
 
             kwargs['pool'] = pool
-            kwargs['pool'] = pool
             sampler = Sampler(opts.engine, [lk, pr], **kwargs)
             sampler.run()
             sampler.get_posterior()
+            sampler.make_plots()
 
             close_pool(pool)
 

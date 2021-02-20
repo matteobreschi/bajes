@@ -52,6 +52,7 @@ def write_executable(outdir, config, string1, string2, string3):
         # set SLURM variables
         nnodes  = 1
         ntasks  = 1
+        ncpu    = int(config['pipe']['nprocs'])
         
         # setting string for core command
         srun_string_core = srun_string
@@ -60,40 +61,47 @@ def write_executable(outdir, config, string1, string2, string3):
         if 'mpi' not in list_keys_in_pipe:
             config['pipe']['mpi'] = 0
         
-        # if mpi is True
+        # set n-nodes if mpi is on
         if int(config['pipe']['mpi']):
-            
-            # if mpi=1, nprocs == ntasks
-            ntasks          = config['pipe']['nprocs']
-            
-            if 'mpi-type' in list_keys_in_pipe:
-                which_mpi = config['pipe']['mpi-type']
-            else:
-                which_mpi = 'pmi2'
-            
-            # set up core string
-            srun_string_core    += '-n $SLURM_NTASKS --mpi={} '.format(which_mpi)
             
             try:
                 nnodes = config['pipe']['nnodes']
             except KeyError:
-                logger.warning("Unable to read number of nodes, missing argument. Setting number of nodes equal to 1.")
+                logger.warning("Requested MPI parallelization but number of nodes is missing. Setting number of nodes equal to 1.")
                 nnodes = 1
-    
-        # get cpu_per_task
+        
+        # set n-tasks
         if 'cpu-per-task' in list_keys_in_pipe:
-            cpu_per_task = config['pipe']['cpu-per-task']
+            cpu_per_task = int(config['pipe']['cpu-per-task'])
+            ntasks       = ncpu/cpu_per_task
         else:
             if int(config['pipe']['mpi']):
-                # if MPI, default is 1 cpu per task
+                logger.warning("Using MPI parallelization without setting cpu-per-task. The default is cpu-per-task = 1")
+                ntasks = ncpu
                 cpu_per_task = 1
             else:
-                # if multithreads, default is 1 cpu per thread
-                cpu_per_task = config['pipe']['nprocs']
-                    
-        # compute number of tasks per node
-        mpi_per_node = int(np.float(ntasks)/np.float(nnodes))
-        
+                cpu_per_task = ncpu
+
+        # check
+        if not int(config['pipe']['mpi']) and ntasks>1:
+            logger.error("MPI parallelization is not requested but number of tasks is greater than 1. Please check your settings.")
+            raise BajesPipeError("MPI parallelization is not requested but number of tasks is greater than 1. Please check your settings.")
+
+        # update command
+        if int(config['pipe']['mpi']):
+
+            # set mpi_per_node
+            mpi_per_node =  int(ntasks)/int(nnodes)
+
+            # get mpi
+            if 'mpi-type' in list_keys_in_pipe:
+                which_mpi = config['pipe']['mpi-type']
+            else:
+                which_mpi = 'pmi2'
+
+            # set up core string
+            srun_string_core    += '-n $SLURM_NTASKS --mpi={} '.format(which_mpi)
+
         # writing slurm configuation 
         execfile.write('#!/bin/bash'+'\n')
         execfile.write('#SBATCH --job-name={}'.format(config['pipe']['jobname'])+'\n')
@@ -110,7 +118,6 @@ def write_executable(outdir, config, string1, string2, string3):
         
         execfile.write('#SBATCH --time={}'.format(config['pipe']['walltime'])+'\n')
         execfile.write('#SBATCH --nodes={}'.format(nnodes)+'\n')
-        # execfile.write('#SBATCH --ntasks={}'.format(ntasks)+'\n')
         execfile.write('#SBATCH --ntasks-per-node={}'.format(mpi_per_node)+'\n')
         execfile.write('#SBATCH --cpus-per-task={}'.format(cpu_per_task)+'\n')
 
@@ -333,8 +340,30 @@ def write_run_string(config, tags, outdir):
         if 'poolsize' in list_keys_in_sampler:
             run_string += '--poolsize {} '.format(config['sampler']['poolsize'])
 
+    elif config['sampler']['engine'] == 'ultranest':
 
-    elif config['sampler']['engine'] == 'nest' or config['sampler']['engine'] == 'dynest':
+        run_string += '--engine {} '.format(config['sampler']['engine'])
+        run_string += '--nlive {} '.format(config['sampler']['nlive'])
+        
+        if 'tolerance' in list_keys_in_sampler:
+            run_string += '--tol {} '.format(config['sampler']['tolerance'])
+
+        if 'maxmcmc' in list_keys_in_sampler:
+            run_string += '--maxmcmc {} '.format(config['sampler']['maxmcmc'])
+
+        if 'minmcmc' in list_keys_in_sampler:
+            run_string += '--minmcmc {} '.format(config['sampler']['minmcmc'])
+
+        if 'nout' in list_keys_in_sampler:
+            run_string += '--nout {} '.format(config['sampler']['nout'])
+
+        if 'dkl' in list_keys_in_sampler:
+            run_string += '--dkl {} '.format(config['sampler']['dkl'])
+
+        if 'z-frac' in list_keys_in_sampler:
+            run_string += '--z-frac {} '.format(config['sampler']['z-frac'])
+
+    elif config['sampler']['engine'] == 'dynesty' or config['sampler']['engine'] == 'dynesty-dyn':
 
         run_string += '--engine {} '.format(config['sampler']['engine'])
         run_string += '--nlive {} '.format(config['sampler']['nlive'])
@@ -354,7 +383,7 @@ def write_run_string(config, tags, outdir):
         if 'nact' in list_keys_in_sampler:
             run_string += '--nact {} '.format(config['sampler']['nact'])
     
-    elif config['sampler']['engine'] == 'mcmc' or config['sampler']['engine'] == 'ptmcmc':
+    elif config['sampler']['engine'] == 'emcee' or config['sampler']['engine'] == 'ptmcmc':
 
         run_string += '--engine {} '.format(config['sampler']['engine'])
         run_string += '--nwalk {} '.format(config['sampler']['nwalk'])
@@ -374,7 +403,8 @@ def write_run_string(config, tags, outdir):
             run_string += '--tmax {} '.format(config['sampler']['tmax'])
 
     else:
-        logger.error("Invalid string for engine. Plese use one of the following:\n* 'cpnest' for nested sampling with cpnest;\n* 'nest' for nested sampling with dynesty;\n* 'dynest' for dynamic nested sampling with dynesty;\n* 'mcmc' for mcmc with emcee;\n* 'ptmcmc' for parallel tempering mcmc.")
+        from bajes.inf import __known_samplers__
+        logger.error("Invalid string for sampler engine. Plese use one of the following: {}".format(__known_samplers__))
         raise BajesPipeError("Invalid string for engine.")
     
     run_string += '--nprocs {} '.format(config['pipe']['nprocs'])
@@ -391,7 +421,7 @@ def write_run_string(config, tags, outdir):
         run_string += '--checkpoint {} '.format(config['sampler']['ncheck'])
 
     if 'slice' in list_keys_in_sampler:
-        if config['sampler']['engine'] == 'nest' or config['sampler']['engine'] == 'dynest' or config['sampler']['engine'] == 'ptmcmc':
+        if 'dynesty' in config['sampler']['engine'] or config['sampler']['engine'] == 'ptmcmc':
             logger.warning("Unable to use slice proposal with requested sampler. Option not implemented or already existing.")
         else:
             if int(config['sampler']['slice']):

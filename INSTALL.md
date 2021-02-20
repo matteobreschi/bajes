@@ -3,16 +3,16 @@
 *bajes* is compatible with Python v3.7 or higher.
 Before the installation, please check that the required Python modules are provided,
 
-    numpy, scipy, astropy, mpi4py
+    astropy, numpy, scipy
     
 If you are interested in using the provided pipeline for gravitational-wave and multi-messenger
 transients, the software requires additional modules,
 
-    gwpy, matplotlib, corner
+    corner, gwpy, matplotlib, mpi4py
     
 an the samplers,
 
-    cpnest, dynesty, emcee
+    cpnest, dynesty, emcee, ultranest
 
 All these packages can be easily installed via `pip`.
 
@@ -26,12 +26,10 @@ The *bajes* installation is performed with `setuptools` running the command,
     
         sudo -E python setup.py install
     
-During this execution, the routine estimates the path of the *bajes*
-repository, then be sure you are running the install from the  same directory.
 Once *bajes* is installed, it is possible to perform Bayesian inference on arbitrary models (see [`inf_tutorial`](docs/inf_tutorial.ipynb))
 and to execute the provided pipeline with a configuration file (see [`conifg_example`](docs/conifg_example.ini)).
 
-Depending on the required gravitational-wave approximants,
+In order to execute the gravitational-wave pipeline routines,
 the user should install some further packages:
 * [`TEOBResumS`](https://bitbucket.org/eob_ihes/teobresums)
 * [`GWSurrogate`](https://pypi.org/project/gwsurrogate/)

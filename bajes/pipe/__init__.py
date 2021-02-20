@@ -24,14 +24,14 @@ logger = logging.getLogger(__name__)
 
 def set_logger(label=None, outdir=None, level='INFO', silence=True):
 
-    datefmt = '%m-%d-%Y %H:%M:%S'
-    if level.upper() == 'DEBUG':
-        fmt     = '%(levelname)s [%(asctime)s.%(msecs)04d]: %(message)s'
-    else:
-        fmt     = '%(levelname)s [%(asctime)s]: %(message)s'
-
     if label == None:
         label = 'bajes'
+
+    datefmt = '%m-%d-%Y %H:%M:%S'
+    if level.upper() == 'DEBUG':
+        fmt     = '%(levelname)s [{}] [%(asctime)s.%(msecs)04d]: %(message)s'.format(label)
+    else:
+        fmt     = '%(levelname)s [{}] [%(asctime)s]: %(message)s'.format(label)
 
     # initialize logger
     logger = logging.getLogger(label)
@@ -235,6 +235,17 @@ class data_container(object):
         self.__dict__[name] = data
 
     def save(self):
+        
+        # check stored objects, if file exists
+        if os.path.exists(self.filename):
+            
+            _stored     = self.load()
+            _current    = list(self.__dict__.keys())
+            _old        = {ki: _stored.__dict__[ki] for ki in list(_stored.__dict__.keys()) if ki not in _current }
+            
+            # join old and new data
+            self.__dict__ = {**self.__dict__, **_old}
+        
         # save objects into filename
         f = open(self.filename, 'wb')
         pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -243,31 +254,38 @@ class data_container(object):
     def load(self):
         # load from existing filename
         f = open(self.filename, 'rb')
-        n = pickle.load(f)
-        f.close()
-        return n
+        try:
+            n = pickle.load(f)
+            f.close()
+            return n
+        except Exception:
+            return None
 
 # pipeline/core methods
 
 def parse_main_options():
 
+    from .. import __version__, __doc__
+    from ..inf import __known_samplers__
     import optparse as op
-    parser=op.OptionParser()
+    
+    usage   = "python -m bajes [options]\n"+"Version: bajes {}".format(__version__)
+    parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
 
     # Choose the engine
-    parser.add_option('-p', '--prior',  dest='prior',       type='string',  help='path to prior file')
+    parser.add_option('-p', '--prior',  dest='prior',       type='string',  help='path to prior file (configuration file)')
 
     # Choose the engine
-    parser.add_option('-l', '--like',   dest='like',        type='string',  help='path to likelihood function method (python file)')
+    parser.add_option('-l', '--like',   dest='like',        type='string',  help='path to likelihood function (python file)')
 
     # Choose the engine
-    parser.add_option('-s', '--sampler', dest='engine',      default='nest', type='string',  help='sampler engine name, nest or mcmc')
+    parser.add_option('-s', '--sampler', dest='engine',      default='dynesty', type='string',  help='sampler engine name, {}'.format(__known_samplers__))
 
     # Parallelization option (only multiprocessing)
-    parser.add_option('-n', '--nprocs',       dest='nprocs',    default=None,   type='int', help='number of processes in the pool')
+    parser.add_option('-n', '--nprocs',       dest='nprocs',    default=None,   type='int', help='number of parallel processes')
 
     # output
-    parser.add_option('-o', '--outdir', default='./',       type='string',  dest='outdir',  help='directory for output')
+    parser.add_option('-o', '--outdir', default='./',       type='string',  dest='outdir',  help='output directory')
 
     # Nested sampling options
     parser.add_option('--nlive',        dest='nlive',       default=1024,   type='int',     help='[nest] number of live points')
@@ -275,19 +293,21 @@ def parse_main_options():
     parser.add_option('--maxmcmc',      dest='maxmcmc',     default=4096,   type='int',     help='[nest] maximum number of mcmc iterations')
     parser.add_option('--minmcmc',      dest='minmcmc',     default=32,     type='int',     help='[nest] minimum number of mcmc iterations')
     parser.add_option('--poolsize',     dest='poolsize',    default=2048,   type='int',     help='[nest] number of sample in the pool (cpnest)')
-    parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='[nest] number of live points for batch (dynest)')
-    parser.add_option('--nact',         dest='nact',        default=5,      type='int',     help='[nest] sub-chain safe factor (nest and dynest)')
+    parser.add_option('--nact',         dest='nact',        default=5,      type='int',     help='[nest] sub-chain safe factor (dynesty)')
+    parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='[nest] number of live points for batch (dynesty-dyn)')
+    parser.add_option('--dkl',          dest='dkl',         default=0.5,    type='float',   help='[nest] target KL divergence (ultranest)')
+    parser.add_option('--z-frac',       dest='z_frac',      default=None,   type='float',   help='[nest] remaining Z fraction (ultranest)')
     
     # MCMC options
     parser.add_option('--nout',         dest='nout',        default=10000,  type='int',     help='[mcmc] number of posterior samples')
     parser.add_option('--nwalk',        dest='nwalk',       default=256,    type='int',     help='[mcmc] number of parallel walkers')
     parser.add_option('--nburn',        dest='nburn',       default=5000,    type='int',    help='[mcmc] numebr of burn-in iterations')
-    parser.add_option('--ntemp',        dest='ntemps',      default=8,      type='int',     help='[mcmc] number of tempered ensambles')
-    parser.add_option('--tmax',         dest='tmax',        default=None,   type='float',   help='[mcmc] maximum temperature scale, default inf')
+    parser.add_option('--ntemp',        dest='ntemps',      default=8,      type='int',     help='[mcmc] number of tempered ensambles (ptmcmc)')
+    parser.add_option('--tmax',         dest='tmax',        default=None,   type='float',   help='[mcmc] maximum temperature scale, default inf (ptmcmc)')
 
     # Others
-    parser.add_option('--priorgrid',    dest='priorgrid',   default=1000,   type='int',             help='number of nodes for prior interpolators, default 1000')
-    parser.add_option('--use-slice',    dest='use_slice',   default=False,  action="store_true",    help='use slice proposal, for mcmc or cpnest')
+    parser.add_option('--priorgrid',    dest='priorgrid',   default=1000,   type='int',             help='number of nodes for prior interpolators (if needed)')
+    parser.add_option('--use-slice',    dest='use_slice',   default=False,  action="store_true",    help='use slice proposal (emcee or cpnest)')
     parser.add_option('--checkpoint',   dest='ncheck',      default=0,      type='int',             help='number of periodic checkpoints')
     parser.add_option('--seed',         dest='seed',        default=None,   type='int',             help='seed for the pseudo-random generator')
     parser.add_option('--mpi',         dest='mpi',        default=False,  action="store_true",      help='use MPI parallelization')
@@ -301,8 +321,12 @@ def parse_main_options():
 
 def parse_core_options():
 
+    from .. import __version__, __doc__
+    from ..inf import __known_samplers__
     import optparse as op
-    parser=op.OptionParser()
+    
+    usage   = "bajes_core.py [options]"+"Version: bajes {}".format(__version__)
+    parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
 
     # KN/GW tag
     parser.add_option('--tag',          dest='tags',        type='string',  action="append",    default=[],    help='Tag for data messenger, i.e. gw or kn')
@@ -311,10 +335,10 @@ def parse_core_options():
     parser.add_option('--t-gps',        dest='t_gps',       type='float',   help='GPS time: for GW, center value of time axis; for KN, initial value of time axis')
 
     # Choose the engine
-    parser.add_option('--engine',       dest='engine',      default='nest', type='string',  help='sampler engine name, nest or mcmc')
+    parser.add_option('--engine',       dest='engine',      default='dynesty', type='string',  help='sampler engine name, {}'.format(__known_samplers__))
 
     # Prior grid interpolators
-    parser.add_option('--priorgrid',    dest='priorgrid',   default=1000,   type='int',     help='number of nodes for prior interpolators, default 1000')
+    parser.add_option('--priorgrid',    dest='priorgrid',   default=1000,   type='int',     help='number of nodes for prior interpolators (if needed)')
 
     # Nested sampling options
     parser.add_option('--nlive',        dest='nlive',       default=1024,   type='int',     help='number of live points')
@@ -322,15 +346,17 @@ def parse_core_options():
     parser.add_option('--maxmcmc',      dest='maxmcmc',     default=4096,   type='int',     help='maximum number of mcmc iterations')
     parser.add_option('--minmcmc',      dest='minmcmc',     default=32,     type='int',     help='minimum number of mcmc iterations')
     parser.add_option('--poolsize',     dest='poolsize',    default=2048,   type='int',     help='number of sample in the pool (cpnest)')
-    parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='number of live points for batch (dynest)')
-    parser.add_option('--nact',         dest='nact',        default=5,      type='int',     help='sub-chain safe factor (nest and dynest)')
-
+    parser.add_option('--nact',         dest='nact',        default=5,      type='int',     help='sub-chain safe factor (dynesty)')
+    parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='number of live points for batch (dynesty-dyn)')
+    parser.add_option('--dkl',          dest='dkl',         default=0.5,    type='float',   help='target KL divergence (ultranest)')
+    parser.add_option('--z-frac',       dest='z_frac',      default=None,   type='float',   help='remaining Z fraction (ultranest)')
+    
     # MCMC options
     parser.add_option('--nout',         dest='nout',        default=4000,   type='int',     help='number of posterior samples')
     parser.add_option('--nwalk',        dest='nwalk',       default=256,    type='int',     help='number of parallel walkers')
     parser.add_option('--nburn',        dest='nburn',       default=15000,  type='int',     help='numebr of burn-in iterations')
-    parser.add_option('--ntemp',        dest='ntemps',      default=8,      type='int',     help='number of tempered ensambles')
-    parser.add_option('--tmax',         dest='tmax',        default=None,   type='float',   help='maximum temperature scale, default inf')
+    parser.add_option('--ntemp',        dest='ntemps',      default=8,      type='int',     help='number of tempered ensambles (ptmcmc)')
+    parser.add_option('--tmax',         dest='tmax',        default=None,   type='float',   help='maximum temperature scale, default inf (ptmcmc)')
 
     # Distance information
     parser.add_option('--dist-flag',    dest='dist_flag',       default='vol',  type='string',                      help='distance prior flag (options: vol, log, com, src)')
@@ -351,7 +377,7 @@ def parse_core_options():
     parser.add_option('--fast-mpi',     dest='fast_mpi',        default=False,  action="store_true",    help='enable fast MPI communication')
 
     # Others
-    parser.add_option('--use-slice',        dest='use_slice',   default=False,  action="store_true",    help='use slice proposal, for mcmc or cpnest')
+    parser.add_option('--use-slice',        dest='use_slice',   default=False,  action="store_true",    help='use slice proposal (emcee or cpnest)')
     parser.add_option('--checkpoint',       dest='ncheck',      default=0,      type='int',             help='number of periodic checkpoints')
     parser.add_option('--seed',             dest='seed',        default=None,   type='int',             help='seed for the pseudo-random chain')
     parser.add_option('--debug',            dest='debug',       default=False,  action="store_true",    help='use debugging mode for logger')
@@ -462,7 +488,7 @@ def parse_core_options():
     return opts,args
 
 
-def init_sampler(posterior, pool, opts, proposals=None):
+def init_sampler(posterior, pool, opts, proposals=None, rank=0):
     
     from ..inf import Sampler
 
@@ -480,6 +506,8 @@ def init_sampler(posterior, pool, opts, proposals=None):
                 'nburn':        opts.nburn,
                 'nout':         opts.nout,
                 'nact':         opts.nact,
+                'dkl':          opts.dkl,
+                'z_frac':       opts.z_frac,
                 'ntemps':       opts.ntemps,
                 'nprocs':       opts.nprocs,
                 'pool':         pool,
@@ -487,12 +515,9 @@ def init_sampler(posterior, pool, opts, proposals=None):
                 'ncheckpoint':  opts.ncheck,
                 'outdir':       opts.outdir,
                 'proposals':    proposals,
+                'rank':         rank,
                 'proposals_kwargs' : {'use_gw': opts.use_gw, 'use_slice': opts.use_slice}
                 }
-
-    if opts.engine not in ['mcmc', 'ptmcmc', 'cpnest', 'nest', 'dynest']:
-        logger.error("Invalid string for engine. Please use one of the following engines: 'cpnest' , 'nest' , 'dynest' , 'mcmc', 'ptmcmc'.")
-        raise ValueError()
 
     return Sampler(opts.engine, posterior, **kwargs)
 
@@ -500,7 +525,7 @@ def init_proposal(engine, post, use_slice=False, use_gw=False, maxmcmc=4096, min
     
     logger.info("Initializing proposal methods ...")
 
-    if engine == 'mcmc':
+    if engine == 'emcee':
         from ..inf.sampler.emcee import initialize_proposals
         return initialize_proposals(post.like, post.prior, use_slice=use_slice, use_gw=use_gw)
 
@@ -512,10 +537,12 @@ def init_proposal(engine, post, use_slice=False, use_gw=False, maxmcmc=4096, min
         from ..inf.sampler.cpnest import initialize_proposals
         return initialize_proposals(post, use_slice=use_slice, use_gw=use_gw)
 
-    elif engine == 'nest' or engine=='dynest':
+    elif 'dynesty' in engine:
         from ..inf.sampler.dynesty import initialize_proposals
         return initialize_proposals(maxmcmc=maxmcmc, minmcmc=minmcmc, nact=nact)
 
+    elif engine == 'ultranest':
+        return None
 
 def get_likelihood_and_prior(opts):
 

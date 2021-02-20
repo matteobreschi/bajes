@@ -49,7 +49,7 @@ For more details, visit [`conifg_example`](docs/config_example.ini).
 *bajes* is developed by Matteo Breschi at the Friedrich-Schiller-Universität Jena with 
 the contribution of Rossella Gamba and Sebastiano Bernuzzi.
 
-If you find *bajes* useful in your research, please include the following citation in your publication,
+If you find *bajes* useful in your research, please include the following [citation](https://arxiv.org/abs/2102.00017) in your publication,
 
     @article{Bajes:2021,
              author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
@@ -69,6 +69,7 @@ See [`CREDITS`](CREDITS.md) for more information.
 * [`cpnest`](https://johnveitch.github.io/cpnest/)
 * [`dynesty`](https://dynesty.readthedocs.io/)
 * [`emcee`](https://emcee.readthedocs.io/)
+* [`ultranest`](https://johannesbuchner.github.io/UltraNest/)
 
 and the gravitational-wave analysis packages,
 * [`bilby`](https://lscsoft.docs.ligo.org/bilby/)
