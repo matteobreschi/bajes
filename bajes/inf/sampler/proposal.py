@@ -81,9 +81,13 @@ class WalkProposal(object):
         self.subset = subset
     
     def get_proposal(self, s, c, p, model):
-        c   = np.concatenate(c, axis=0)
-        q   = list(model.map_fn(random_walk, zip(s,repeat(c), repeat(self.subset))))
-        return np.array(q), np.zeros(len(q), dtype=np.float64)
+        try:
+            c   = np.concatenate(c, axis=0)
+            q   = list(model.map_fn(random_walk, zip(s,repeat(c), repeat(self.subset))))
+            return np.array(q), np.zeros(len(q), dtype=np.float64)
+        except Exception as e:
+            logger.error("Cannot take a larger sample than population when 'replace=False'. Increase the number of samples.")
+            raise ValueError("Cannot take a larger sample than population when 'replace=False'. Increase the number of samples.")
 
 def stretching(args):
     s, c, a = args

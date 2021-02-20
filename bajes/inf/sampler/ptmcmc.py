@@ -14,15 +14,16 @@ except ImportError:
 
 from itertools import repeat
 
+from . import SamplerBody
 from ..utils import apply_bounds, autocorr_integrated_time, thermodynamic_integration_log_evidence
-from ...pipe import data_container, eval_func_tuple, display_memory_usage
+from ...pipe import eval_func_tuple
 from .proposal import ModelTuple, _init_proposal_methods
 
 def initialize_proposals(like, priors, use_slice=False, use_gw=False):
 
     props = {'eig': 25., 'dif': 25., 'str': 20., 'wlk': 15., 'kde': 10., 'pri': 5.}
     prop_kwargs  = {}
-    
+
     if use_slice:
         props['slc'] = 30.
 
@@ -175,30 +176,31 @@ class BajesPTMCMCProposal(object):
 
     def propose(self, s, c, p, model):
         Nt  = len(s)
-        _p  = np.random.choice(self._proposals, size=Nt, p=self._weights)
+        _p  = model.random.choice(self._proposals, size=Nt, p=self._weights)
         q_f = [fn.get_proposal(si, [ci], pi, model) for fn, si, ci, pi in zip(_p,s,c,p)]
         q_f = list(zip(*q_f))
         return q_f[0], q_f[1]
 
-class ParentSampler(object):
+class _PTMCMC(object):
 
-    def __init__(self, nwalkers, dim, logl, logp,
+    def __init__(self, nwalkers, posterior, proposal,
                  ntemps=None, Tmax=None, betas=None,
-                 threads=1, pool=None,
-                 loglargs=[], logpargs=[],
-                 loglkwargs={}, logpkwargs={},
                  adaptation_lag=10000, adaptation_time=100,
-                 random=None):
+                 random=None, pool=None):
 
         if random is None:
             self._random = np.random.mtrand.RandomState()
         else:
             self._random = random
 
-        self.nwalkers = nwalkers
-        self.dim = dim
+        self.nwalkers        = nwalkers
+        self.dim             = len(posterior.prior.names)
         self.adaptation_time = adaptation_time
-        self.adaptation_lag = adaptation_lag
+        self.adaptation_lag  = adaptation_lag
+
+        # set boundaries
+        self._period_reflect_list   = posterior.prior.periodics
+        self._bounds                = posterior.prior.bounds
 
         # Set temperature ladder.  Append beta=0 to generated ladder.
         if betas is not None:
@@ -211,18 +213,29 @@ class ParentSampler(object):
 
         if self.nwalkers % 2 != 0:
             raise ValueError('The number of walkers must be even.')
-        if self.nwalkers < 2 * self.dim:
-            raise ValueError('The number of walkers must be greater than ``2*dimension``.')
 
+        # get pool and map
         self.pool = pool
-        self.reset()
 
-    def reset(self, random=None, betas=None, time=None):
+        if self.pool == None:
+            self.mapf = map
+        else:
+            self.mapf = self.pool.map
+
+        # avoid default function wrapper
+        self._likeprior = posterior.log_likeprior
+
+        # set proposals
+        self._proposal = proposal
+
+        # initialize sampler arguments
+        self.__start__()
+
+    def __start__(self):
         """
-        Clear the ``time``, ``chain``, ``logposterior``,
+        Instantiate the ``time``, ``chain``, ``logposterior``,
         ``loglikelihood``,  ``acceptance_fraction``,
         ``tswap_acceptance_fraction`` stored properties.
-
         """
 
         # Reset chain.
@@ -242,8 +255,6 @@ class ParentSampler(object):
         self._p0 = None
         self._logposterior0 = None
         self._loglikelihood0 = None
-        if betas is not None:
-            self._betas = betas
 
         self.nswap = np.zeros(self.ntemps, dtype=np.float)
         self.nswap_accepted = np.zeros(self.ntemps, dtype=np.float)
@@ -251,287 +262,38 @@ class ParentSampler(object):
         self.nprop = np.zeros((self.ntemps, self.nwalkers), dtype=np.float)
         self.nprop_accepted = np.zeros((self.ntemps, self.nwalkers), dtype=np.float)
 
-        if random is not None:
-            self._random = random
-        if time is not None:
-            self._time = time
-
-class SamplerPTMCMC(ParentSampler):
-
-    def __init__(self, posterior, nwalk, ntemps, tmax=None,
-                 nburn=10000, nout=8000,
-                 proposals=None,
-                 proposals_kwargs={'use_slice': False, 'use_gw': False},
-                 pool=None, ncheckpoint=0,
-                 outdir='./', resume='/resume.pkl', seed=None, **kwargs):
-    
-        self.resume = resume
-        self.outdir = outdir
-
-        # restore inference from existing container
-        if os.path.exists(self.outdir + self.resume):
-            self.restore_inference(pool)
-        
-            # update nout and nburn
-            self.nburn  = nburn
-            self.nout   = nout
-                
-        # initialize a new inference
-        else:
-            
-            # initialize signal handler
-            try:
-                signal.signal(signal.SIGTERM, self.store_inference_and_exit)
-                signal.signal(signal.SIGINT, self.store_inference_and_exit)
-                signal.signal(signal.SIGALRM, self.store_inference_and_exit)
-            except AttributeError:
-                logger.warning("Impossible to set signal attributes.")
-
-            # initialize PTMCMC parameters
-            self._ntemps        = ntemps
-            self.nburn          = nburn
-            self.nout           = nout
-            
-            # auxiliary variables
-            self.names = posterior.prior.names
-            self.bounds = posterior.prior.bounds
-            
-            if ncheckpoint == 0:
-                # disable resume
-                logger.info("Disabling checkpoint ...")
-                self.ncheckpoint = 100 # print step
-                self.store_flag = False
-            else:
-                # enable resume
-                logger.info("Enabling checkpoint ...")
-                self.ncheckpoint = ncheckpoint
-                self.store_flag = True
-            
-            # initialize random seed
-            if seed == None:
-                import time
-                self.seed = int(time.time())
-            else:
-                self.seed = seed
-            np.random.seed(self.seed)
-
-            if nwalk < 2*len(posterior.prior.names):
-                logger.warning("Requested number of walkers < 2 * Ndim. This may generate problems in the exploration of the parameters spaces.")
-                    
-            if ntemps < 2*np.sqrt(len(posterior.prior.names)):
-                logger.warning("Requested number of temperature < 2 * sqrt(Ndim). This may generate problems in the exploration of the parameters spaces.")
-
-            # set periodic and reflective boundaries
-            self.period_reflect_list = posterior.prior.periodics
-            
-            # initialize proposals
-            if proposals == None:
-                logger.info("Initializing proposal methods ...")
-                proposals = initialize_proposals(posterior.like, posterior.prior, **proposals_kwargs)
-                self._proposal_fn = proposals.propose
-            else:
-                self._proposal_fn = proposals.propose
-
-            # if tmax is not specified, use inf (beta min = 0)
-            if tmax == None:
-                tmax = np.inf
-
-            # initialize ptemcee sampler
-            super(SamplerPTMCMC, self).__init__(nwalkers    = nwalk,
-                                                  dim       = posterior.prior.ndim,
-                                                  ntemps    = ntemps,
-                                                  Tmax      = tmax,
-                                                  logl      = posterior.log_like,
-                                                  logp      = posterior.log_prior,
-                                                  pool      = pool)
-                                                  #adaptation_lag=adaptation_lag,
-                                                  #adaptation_time=adaptation_time,)
-                                                  
-            # avoid default function wrapper
-            self._likeprior = posterior.log_likeprior
-            
-            # ensure to use the correct pool
-            self.pool = pool
-            
-            if self.pool == None:
-                self.mapf = map
-            else:
-                self.mapf = self.pool.map
-            
-            # extract prior samples for initial state
-            logger.info("Extracting prior samples ...")
-            self._p0 = np.array([posterior.prior.get_prior_samples(nwalk) for _ in range(self._ntemps)])
-
-            # initialize other variables
-            self.neff       = '(burn-in)'
-            self.acl        = '(burn-in)'
-            self.stop       = False
-            
-            _T0    = np.where(self._betas==1.)
-            if len(_T0) == 1 :
-                self._T0 = int(_T0[0])
-            else:
-                logger.error("Unable to perform tempered sampling, multiple ensambles have T=1.")
-                raise ValueError("Unable to perform tempered sampling, multiple ensambles have T=1.")
-
     def __getstate__(self):
-        full_dict               = self.__dict__.copy()
-        full_dict['_random']    = None
-        full_dict['pool']       = None
-        full_dict['mapf']       = None
-        return full_dict
-
-    def restore_inference(self, pool):
-        
-        # extract container
-        logger.info("Restoring inference from existing container ...")
-        dc                  = data_container(self.outdir + self.resume)
-        container           = dc.load()
-        
-        # sampler check
-        if container.tag != 'ptmcmc':
-            logger.error("Container carries a {} inference, while PTMCMC was requested.".format(container.tag.upper()))
-            raise AttributeError("Container carries a {} inference, while PTMCMC was requested.".format(container.tag.upper()))
-
-        previous_inference  = container.inference
-        
-        # re-initialize pool
-        previous_inference.pool = pool
-        
-        # re-initialize seed
-        np.random.seed(previous_inference.seed)
-        previous_inference._random = np.random.mtrand.RandomState()
-
-        # extract previous variables and methods
-        for kw in list(previous_inference.__dict__.keys()):
-            self.__setattr__(kw, previous_inference.__dict__[kw])
-        
-        # re-initialize signal
-        try:
-            signal.signal(signal.SIGTERM,   self.store_inference_and_exit)
-            signal.signal(signal.SIGINT,    self.store_inference_and_exit)
-            signal.signal(signal.SIGALRM,   self.store_inference_and_exit)
-        except AttributeError:
-            logger.warning("Impossible to set signal attributes.")
-
-        # obs. the sampler does not need to be initialized,
-        # the chains are restored while setting the attributes
-        # moreover, if you run the super.__init__ the chains will be erased
-
-    def store_inference_and_exit(self, signum=None, frame=None):
-        # exit function when signal is revealed
-        logger.info("Run interrupted by signal {}, checkpoint and exit.".format(signum))
-        os._exit(signum)
-
-    def store_inference(self):
-        # save inference in pickle file
-        logger.debug("Storing inference in container...")
-        dc = data_container(self.outdir+self.resume)
-        dc.store('tag', 'ptmcmc')
-        dc.store('inference', self)
-        dc.save()
-        logger.debug("Inference stored.")
-
-    def run(self, track_memory_usage=False):
-
-        # run the chains
-        logger.info("Running {}x{} walkers ...".format(self._ntemps,self.nwalkers))
-        while not self.stop:
-            
-            # expand history chains
-            self._expand_history()
-
-            # make steps
-            self.sample(iterations=self.ncheckpoint)
-
-            # update sampler status
-            self.update_sampler()
-
-            # compute stopping condition
-            self.stop_sampler()
-        
-            # trace memory usage
-            if tracemalloc.is_tracing():
-                display_memory_usage(tracemalloc.take_snapshot())
-                tracemalloc.clear_traces()
-
-        # final store inference
-        self.store_inference()
-
-    def update_sampler(self):
-        
-        logger.debug("Setting updated printings...")
-
-        # compute acceptance
-        acc_T0  = (self.nprop_accepted[self._T0]).sum()/self.nwalkers/self._time
-        acc_all = (self.nprop_accepted).sum()/self.nwalkers/self._ntemps/self._time
-        swp_acc = (self.nswap_accepted/self.nswap).sum()/self._ntemps
-
-        # compute logLs
-        this_logL       = np.array(self._loglikelihood0[self._T0])
-        logL_mean       = logsumexp(this_logL) - np.log(self.nwalkers)
-        logL_max        = np.max(this_logL)
-        
-        # store inference
-        if self.store_flag:
-            self.store_inference()
-
-        # update logger
-        if isinstance(self.neff, str):
-            logger.info(" - it : {:d} - stat : {} - acl : N/A - acc : {:.3f} - acc_all : {:.3f} - swap : {:.3f} - logLmean : {:.5g} - logLmax : {:.5g}".format(self._time,self.neff, acc_T0, acc_all, swp_acc ,logL_mean, logL_max))
-        else:
-            logger.info(" - it : {:d} - stat : {:.3f}% - acl : {} - acc : {:.3f} - acc_all : {:.3f} - swap : {:.3f} - logLmean : {:.5g} - logLmax : {:.5g}".format(self._time,self.neff*100./self.nout,self.acl, acc_T0,acc_all, swp_acc ,logL_mean, logL_max))
-        logger.debug("Update printed.")
-
-    def stop_sampler(self):
-
-        # if it > nburn, compute acl every 100 iterations
-        # obs. we have to include some other iteration in order to
-        # collect a sufficiently large set of sample for ACL estimation
-        logger.debug("Evaluating stopping condition...")
-        if (self._time > self.nburn+self.ncheckpoint):
-
-            # compute ACL of untempered chain
-            acls = self.get_autocorr_time_untemp()
-            
-            try:
-                self.acl    = int(np.max([ ai for ai in acls if not np.isnan(ai)]))
-                self.neff   = (self._time-self.nburn)*self.nwalkers//self.acl
-            except Exception:
-                self.acl    = np.inf
-                self.neff   = 0
-
-            # if the number of collected samples (in the T=1 chain)
-            # is greater than nout, the sampling is done
-            if self.neff >= self.nout :
-                self.stop = True
-        logger.debug("Stopping condition evaluated.")
+        state               = self.__dict__.copy()
+        state['_random']    = None
+        state['pool']       = None
+        state['mapf']       = None
+        return state
 
     def _evaluate(self, ps):
         logger.debug("Evaluating probabilities...")
         results = list(self.mapf(self._likeprior, ps.reshape((-1, self.dim))))
 
         # logL, logpr
-        logl    = np.fromiter((r[0] for r in results), np.float, count=len(results)).reshape((self._ntemps, -1))
-        logp    = np.fromiter((r[1] for r in results), np.float, count=len(results)).reshape((self._ntemps, -1))
+        logl    = np.fromiter((r[0] for r in results), np.float, count=len(results)).reshape((self.ntemps, -1))
+        logp    = np.fromiter((r[1] for r in results), np.float, count=len(results)).reshape((self.ntemps, -1))
         logger.debug("Probabilities evaluated.")
 
         return logl, logp
-    
-    def _compute(self, s):
-        # l_p = list(map(self._likeprior, (s[i] for i in range(len(s)))))
+
+    def _like_func(self, s):
         l_p = [self._likeprior(s[i]) for i in range(len(s))]
         l_p = list(zip(*l_p))
         return np.array(l_p[0]), None
 
     def _propose(self, p, logpost, logl):
-    
+
         # wrap useful methods
-        logger.debug("Gathering methods...")
-        model = ModelTuple(map_fn=self.mapf, compute_log_prob_fn=self._compute, random=np.random)
-        logger.debug("Methods gathered, starting proposal loop...")
-    
+        model = ModelTuple(map_fn=self.mapf, compute_log_prob_fn=self._like_func, random=self._random)
+
+        logger.debug("Starting proposal loop...")
+
         for j in [0, 1]:
+
             # Get positions of walkers to be updated and walkers to be sampled.
             jupdate = j
             jsample = (j + 1) % 2
@@ -541,14 +303,14 @@ class SamplerPTMCMC(ParentSampler):
 
             # propose new points
             logger.debug("Proposing...")
-            qs, logf = self._proposal_fn(pupdate, psample, loglpup, model)
+            qs, logf = self._proposal.propose(pupdate, psample, loglpup, model)
 
             # ensure parameters in bounds
             logger.debug("Moving in bounds...")
             qs  = np.array([list(self.mapf(eval_func_tuple,
                                            zip(repeat(apply_bounds), qi,
-                                               repeat(self.period_reflect_list),
-                                               repeat(self.bounds))))
+                                               repeat(self._period_reflect_list),
+                                               repeat(self._bounds))))
                             for qi in qs])
 
             # evaluate likelihoods
@@ -557,7 +319,7 @@ class SamplerPTMCMC(ParentSampler):
 
             # compute acceptance
             logger.debug("Compute acceptance...")
-            accepts = logf + qslogpost - logpost[:, jupdate::2] > np.log(self._random.uniform(low=0.0, high=1.0,size=(self._ntemps,self.nwalkers//2)))
+            accepts = logf + qslogpost - logpost[:, jupdate::2] > np.log(self._random.uniform(low=0.0, high=1.0,size=(self.ntemps,self.nwalkers//2)))
             accepts = accepts.flatten()
 
             # update samples
@@ -566,7 +328,7 @@ class SamplerPTMCMC(ParentSampler):
             logpost[:, jupdate::2].reshape((-1,))[accepts]  = qslogpost.reshape((-1,))[accepts]
             logl[:, jupdate::2].reshape((-1,))[accepts]     = qslogl.reshape((-1,))[accepts]
 
-            accepts = accepts.reshape((self._ntemps, self.nwalkers//2))
+            accepts = accepts.reshape((self.ntemps, self.nwalkers//2))
 
             self.nprop[:, jupdate::2] += 1.0
             self.nprop_accepted[:, jupdate::2] += accepts
@@ -599,7 +361,7 @@ class SamplerPTMCMC(ParentSampler):
             logpost = self._logposterior0
 
         for i in range(iterations):
-            
+
             # perform move
             logger.debug("Proposing samples in parallel")
             p, logpost, logl = self._propose(p, logpost, logl)
@@ -618,81 +380,6 @@ class SamplerPTMCMC(ParentSampler):
         self._p0 = p
         self._logposterior0 = logpost
         self._loglikelihood0 = logl
-
-    def get_posterior(self):
-
-        # update chains
-        self._get_chain(int(self.nburn))
-
-        s = self._chain.shape
-        self.outchain = self._chain.reshape((s[0], -1, s[3])) # (ntemps, nwalk*nsteps , ndim)
-        
-        # extract posterior only from chain at T=1
-        self.posterior_samples  = self.outchain[self._T0][::self.acl]
-        
-        # extract logL for posterior samples,
-        # log-prior is computed when the posterior file is saved
-        logL  = self._loglikelihood.reshape((s[0],-1))[self._T0][::self.acl]
-        logP  = self._logposterior.reshape((s[0],-1))[self._T0][::self.acl]
-        logpr = logP - logL
-
-        logger.info("  - autocorr length : {}".format(self.acl))
-
-        self.real_nout = self.posterior_samples.shape[0]
-        logger.info("  - number of posterior samples : {}".format(self.real_nout))
-
-        post_file = open(self.outdir + '/posterior.dat', 'w')
-
-        post_file.write('#')
-        for n in range(self.dim):
-            post_file.write('{}\t'.format(self.names[n]))
-        post_file.write('logL\t logPrior\n')
-
-        for i in range(self.real_nout):
-            for j in range(self.dim):
-                post_file.write('{}\t'.format(self.posterior_samples[i][j]))
-            post_file.write('{}\t{}\n'.format(logL[i],logpr[i]))
-
-        post_file.close()
-
-        # estimate evidence
-        logz , logzerr  = self.log_evidence_estimate()
-        evidence_file = open(self.outdir + '/evidence.dat', 'w')
-        evidence_file.write('betas  = {}\n'.format(self._betas))
-        evidence_file.write('logZ   = {} +/- {}\n'.format(logz,logzerr))
-        evidence_file.close()
-
-    def make_plots(self):
-
-        try:
-            import matplotlib.pyplot as plt
-        except Exception:
-            logger.warning("Impossible to produce standard plots. Cannot import matplotlib.")
-
-        try:
-
-            for i in range(self._ntemps):
-
-                    fig = plt.figure()
-                    ax1 = fig.add_subplot(211)
-                    ax2 = fig.add_subplot(212)
-                    ax1.plot(self._loglikelihood[i], lw=0.3)
-                    ax2.plot(self._logposterior[i], lw=0.3)
-
-                    ax1.set_title("T={:.5f}".format(1./self._betas[i]))
-                    ax1.set_ylabel('lnL')
-                    ax1.set_xticks([])
-
-                    ax2.set_ylabel('lnP')
-                    ax2.set_xlabel('iteration')
-
-                    plt.subplots_adjust(hspace=0.)
-                    plt.savefig(self.outdir+'/chain_logP_{}.png'.format(i), dpi=200)
-
-                    plt.close()
-
-        except Exception:
-            pass
 
     def _tempered_likelihood(self, logl, betas=None):
         """
@@ -721,7 +408,7 @@ class SamplerPTMCMC(ParentSampler):
 
         """
         ntemps = len(betas)
-        ratios = np.zeros(ntemps - 1)    
+        ratios = np.zeros(ntemps - 1)
 
         for i in range(ntemps - 1, 0, -1):
             bi = betas[i]
@@ -785,7 +472,7 @@ class SamplerPTMCMC(ParentSampler):
         # Don't mutate the ladder here; let the client code do that.
         return betas - betas0
 
-    def _expand_history(self):
+    def _expand_history(self, iterations):
         """
         Expand ``self._chain``, ``self._logposterior``,
         ``self._loglikelihood``, and ``self._beta_history``
@@ -795,25 +482,23 @@ class SamplerPTMCMC(ParentSampler):
             Returns the index at which to begin inserting new entries.
 
         """
-        
-        nsave = self.ncheckpoint
 
         logger.debug("Expanding chains ...")
         if len(self._chain_history) == 0:
-            self._chain_history = np.zeros((self.ntemps, self.nwalkers, nsave, self.dim))
-            self._logposterior_history = np.zeros((self.ntemps, self.nwalkers, nsave))
-            self._loglikelihood_history = np.zeros((self.ntemps, self.nwalkers, nsave))
+            self._chain_history = np.zeros((self.ntemps, self.nwalkers, iterations, self.dim))
+            self._logposterior_history = np.zeros((self.ntemps, self.nwalkers, iterations))
+            self._loglikelihood_history = np.zeros((self.ntemps, self.nwalkers, iterations))
         else:
-            self._chain_history = np.concatenate((self._chain_history, np.zeros((self.ntemps, self.nwalkers,nsave, self.dim))), axis=2)
-            self._logposterior_history = np.concatenate((self._logposterior_history, np.zeros((self.ntemps,self.nwalkers,nsave))),axis=2)
-            self._loglikelihood_history = np.concatenate((self._loglikelihood_history, np.zeros((self.ntemps, self.nwalkers, nsave))), axis=2)
+            self._chain_history = np.concatenate((self._chain_history, np.zeros((self.ntemps, self.nwalkers,iterations, self.dim))), axis=2)
+            self._logposterior_history = np.concatenate((self._logposterior_history, np.zeros((self.ntemps,self.nwalkers,iterations))),axis=2)
+            self._loglikelihood_history = np.concatenate((self._loglikelihood_history, np.zeros((self.ntemps, self.nwalkers, iterations))), axis=2)
         logger.debug("Chains expanded.")
 
     def _save_history(self, args):
         """
             Expand histories with current sample
         """
-        
+
         logger.debug("Updating chains ...")
         p, logl, logp = args
         self._chain_history[:, :, self._time, :] = p
@@ -852,7 +537,7 @@ class SamplerPTMCMC(ParentSampler):
 
         For details, see ``thermodynamic_integration_log_evidence``.
         """
-        
+
         if logls is None:
             if self.loglikelihood is not None:
                 logls = self.loglikelihood
@@ -958,6 +643,14 @@ class SamplerPTMCMC(ParentSampler):
         """
         return self.get_autocorr_time()
 
+    @property
+    def untemp_index(self):
+        """
+            Returns a matrix of autocorrelation lengths for each
+            parameter in each temperature of shape ``(Ntemps, Ndim)``.
+        """
+        return int(np.where(self._betas==1.)[0])
+
     def get_autocorr_time(self, window=50):
         """
         Returns a matrix of autocorrelation lengths for each
@@ -975,7 +668,7 @@ class SamplerPTMCMC(ParentSampler):
             acors[i, :] = autocorr_integrated_time(x, window=window)
         return acors
 
-    def get_autocorr_time_untemp(self, window=50):
+    def get_autocorr_time_untemp(self, nburn, window=50):
         """
         Returns a matrix of autocorrelation lengths for each
         parameter in each temperature of shape ``(Ntemps, Ndim)``.
@@ -985,6 +678,213 @@ class SamplerPTMCMC(ParentSampler):
             maximum number of lags to use. (default: 50)
 
         """
-        x = np.mean(self._chain_history[self._T0, :, self.nburn:, :], axis=0)
+        x = np.mean(self._chain_history[self.untemp_index, :, nburn:, :], axis=0)
         return autocorr_integrated_time(x, window=window)
 
+class SamplerPTMCMC(SamplerBody):
+
+    def __initialize__(self, posterior, nwalk, ntemps, tmax=None,
+                       nburn=10000, nout=8000,
+                       proposals=None,
+                       proposals_kwargs={'use_slice': False, 'use_gw': False},
+                       pool=None, **kwargs):
+
+        # initialize PTMCMC parameters
+        self.nburn          = nburn
+        self.nout           = nout
+
+        if nwalk < 2*len(posterior.prior.names):
+            logger.warning("Requested number of walkers < 2 * Ndim. This may generate problems in the exploration of the parameters spaces.")
+
+        if ntemps < 2*np.sqrt(len(posterior.prior.names)):
+            logger.warning("Requested number of temperature < 2 * sqrt(Ndim). This may generate problems in the exploration of the parameters spaces.")
+
+        # initialize proposals
+        if proposals == None:
+            logger.info("Initializing proposal methods ...")
+            proposals = initialize_proposals(posterior.like, posterior.prior, **proposals_kwargs)
+
+        # if tmax is not specified, use inf (beta min = 0)
+        if tmax == None:
+            tmax = np.inf
+
+        # initialize ptmcmc sampler
+        self.sampler = _PTMCMC(nwalkers    = nwalk,
+                               ntemps      = ntemps,
+                               Tmax        = tmax,
+                               posterior   = posterior,
+                               proposal    = proposals,
+                               pool        = pool)
+
+        # extract prior samples for initial state
+        logger.info("Extracting prior samples ...")
+        self.sampler._p0 = np.array([posterior.prior.get_prior_samples(nwalk) for _ in range(self.sampler.ntemps)])
+
+        # initialize other variables
+        self.neff       = '(burn-in)'
+        self.acl        = '(burn-in)'
+        self.stop       = False
+
+    def __restore__(self, pool, **kwargs):
+
+        # re-initialize pool
+        self.sampler.pool = pool
+
+        # re-initialize mapf
+        if pool == None:
+            self.sampler.mapf = map
+        else:
+            self.sampler.mapf = self.sampler.pool.map
+
+        # re-initialize seed
+        np.random.seed(self.seed)
+        self.sampler._random = np.random.mtrand.RandomState()
+
+    def __run__(self):
+
+        # run the chains
+        while not self.stop:
+
+            # expand history chains
+            self.sampler._expand_history(iterations=self.ncheckpoint)
+
+            # make steps
+            self.sampler.sample(iterations=self.ncheckpoint)
+
+            # update sampler status
+            self.update()
+
+            # compute stopping condition
+            self._stop_sampler()
+
+        # final store inference
+        self.store()
+
+    def __update__(self):
+
+        logger.debug("Setting updated printings...")
+
+        # compute acceptance
+        acc_T0  = (self.sampler.nprop_accepted[self.sampler.untemp_index]).sum()/self.sampler.nwalkers/self.sampler._time
+        #acc_all = (self.sampler.nprop_accepted).sum()/self.sampler.nwalkers/self.sampler.ntemps/self.sampler._time
+        swp_acc = (self.sampler.nswap_accepted/self.sampler.nswap).sum()/self.sampler.ntemps
+
+        # compute logLs
+        this_logL       = np.array(self.sampler._loglikelihood0[self.sampler.untemp_index])
+        logL_mean       = logsumexp(this_logL) - np.log(self.sampler.nwalkers)
+        logL_max        = np.max(this_logL)
+
+        args    = { 'it' : self.sampler._time,
+                    'acc' : '{:.2f}%'.format(acc_T0*100.),
+                    'swp' : '{:.2f}%'.format(swp_acc*100.),
+                    'acl' : 'n/a',
+                    'stat' : 'burn-in',
+                    'logLmean' : '{:.2f}'.format(logL_mean),
+                    'logLmax' : '{:.2f}'.format(logL_max)
+                    }
+
+        # update logger
+        if not isinstance(self.neff, str):
+            args['acl']     = self.acl
+            args['stat']    = '{:.2f}%'.format(self.neff*100/self.nout)
+
+        return args
+
+    def _stop_sampler(self):
+
+        # if it > nburn, compute acl every 100 iterations
+        # obs. we have to include some other iteration in order to
+        # collect a sufficiently large set of sample for ACL estimation
+        logger.debug("Evaluating stopping condition...")
+        if (self.sampler._time > self.nburn+self.ncheckpoint):
+
+            # compute ACL of untempered chain
+            acls = self.sampler.get_autocorr_time_untemp(nburn=self.nburn)
+
+            try:
+                self.acl    = int(np.max([ ai for ai in acls if not np.isnan(ai)]))
+                self.neff   = (self.sampler._time-self.nburn)*self.sampler.nwalkers//self.acl
+            except Exception:
+                self.acl    = np.inf
+                self.neff   = 0
+
+            # if the number of collected samples (in the T=1 chain)
+            # is greater than nout, the sampling is done
+            if self.neff >= self.nout :
+                self.stop = True
+        logger.debug("Stopping condition evaluated.")
+
+    def get_posterior(self):
+
+        # update chains
+        self.sampler._get_chain(int(self.nburn))
+
+        s = self.sampler._chain.shape
+        self.outchain = self.sampler._chain.reshape((s[0], -1, s[3])) # (ntemps, nwalk*nsteps , ndim)
+
+        # extract posterior only from chain at T=1
+        self.posterior_samples  = self.outchain[self.sampler.untemp_index][::self.acl]
+
+        # extract logL for posterior samples,
+        # log-prior is computed when the posterior file is saved
+        logL  = self.sampler._loglikelihood.reshape((s[0],-1))[self.sampler.untemp_index][::self.acl]
+        logP  = self.sampler._logposterior.reshape((s[0],-1))[self.sampler.untemp_index][::self.acl]
+        logpr = logP - logL
+
+        logger.info("  - autocorr length : {}".format(self.acl))
+
+        self.real_nout = self.posterior_samples.shape[0]
+        logger.info("  - number of posterior samples : {}".format(self.real_nout))
+
+        post_file = open(self.outdir + '/posterior.dat', 'w')
+
+        post_file.write('#')
+        for n in range(self.sampler.dim):
+            post_file.write('{}\t'.format(self.names[n]))
+        post_file.write('logL\t logPrior\n')
+
+        for i in range(self.real_nout):
+            for j in range(self.sampler.dim):
+                post_file.write('{}\t'.format(self.posterior_samples[i][j]))
+            post_file.write('{}\t{}\n'.format(logL[i],logpr[i]))
+
+        post_file.close()
+
+        # estimate evidence
+        logz , logzerr  = self.sampler.log_evidence_estimate()
+        evidence_file = open(self.outdir + '/evidence.dat', 'w')
+        evidence_file.write('betas  = {}\n'.format(self._betas))
+        evidence_file.write('logZ   = {} +/- {}\n'.format(logz,logzerr))
+        evidence_file.close()
+
+    def make_plots(self):
+
+        try:
+            import matplotlib.pyplot as plt
+        except Exception:
+            logger.warning("Impossible to produce standard plots. Cannot import matplotlib.")
+
+        try:
+
+            for i in range(self._ntemps):
+
+                    fig = plt.figure()
+                    ax1 = fig.add_subplot(211)
+                    ax2 = fig.add_subplot(212)
+                    ax1.plot(self.sampler._loglikelihood[i], lw=0.3)
+                    ax2.plot(self.sampler._logposterior[i], lw=0.3)
+
+                    ax1.set_title("T={:.5f}".format(1./self.sampler._betas[i]))
+                    ax1.set_ylabel('lnL')
+                    ax1.set_xticks([])
+
+                    ax2.set_ylabel('lnP')
+                    ax2.set_xlabel('iteration')
+
+                    plt.subplots_adjust(hspace=0.)
+                    plt.savefig(self.outdir+'/chain_logP_{}.png'.format(i), dpi=200)
+
+                    plt.close()
+
+        except Exception:
+            pass

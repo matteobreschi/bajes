@@ -3,15 +3,19 @@ from __future__ import absolute_import
 __import__("pkg_resources").declare_namespace(__name__)
 
 import numpy as np
+
+from scipy.special import erf, erfinv
+from collections import namedtuple
+
 from .prior import Prior, Parameter, JointPrior
 from .likelihood import Likelihood, Posterior, JointLikelihood
 
-__known_samplers__     = ['mcmc', 'ptmcmc', 'nest', 'dynest', 'cpnest']
+__known_samplers__     = ['emcee', 'ptmcmc', 'cpnest', 'ultranest', 'dynesty', 'dynesty-dyn']
 
 def Sampler(engine, model, **kwargs):
     """
         Initialize a sampler object
-        
+
         Arguments:
         engine  : str, specify the kind of sampler
                   mcmc, ptmcmc, nest, cpnest, dynest
@@ -20,19 +24,19 @@ def Sampler(engine, model, **kwargs):
                   [bajes.inf.prior.Prior, bajes.inf.likelihood.Likelihood]
         kwargs  : further arguments to be passed to the sampler
     """
-    
+
     if isinstance(model, list):
-    
+
         if isinstance(model[0], Prior):
             pr = model[0]
             lk = model[1]
             posterior = Posterior(like=lk, prior=pr)
-                
+
         elif isinstance(model[1], Prior):
             pr = model[1]
             lk = model[0]
             posterior = Posterior(like=lk, prior=pr)
-                
+
         else:
             raise ValueError("Unable to define {} sampler. The model-list must contain two arguments, e.g. [bajes.inf.prior.Prior, bajes.inf.likelihood.Likelihood]".format(engine))
 
@@ -41,28 +45,27 @@ def Sampler(engine, model, **kwargs):
     else:
         raise ValueError("Unable to define {} sampler. The model should be a bajes.inf.likelihood.Posterior object or a list containing [bajes.inf.prior.Prior, bajes.inf.likelihood.Likelihood]".format(engine))
 
-    if engine == 'mcmc':
+    if engine == 'emcee':
         from .sampler.emcee import SamplerMCMC as sampler
     elif engine == 'ptmcmc':
         from .sampler.ptmcmc import SamplerPTMCMC as sampler
     elif engine == 'cpnest':
-        from .sampler.cpnest import SamplerCPNest as sampler
-    elif engine == 'nest':
-        from .sampler.dynesty import SamplerNest as sampler
-    elif engine == 'dynest':
-        from .sampler.dynesty import SamplerDyNest as sampler
+        from .sampler.cpnest import _WrapSamplerCPNest as sampler
+    elif engine == 'dynesty':
+        from .sampler.dynesty import SamplerDynesty as sampler
+    elif engine == 'dynesty-dyn':
+        from .sampler.dynesty import SamplerDynestyDynamic as sampler
+    elif engine == 'ultranest':
+        from .sampler.ultranest import SamplerUltraNest as sampler
     else:
-        raise ValueError("Unable to define {} sampler. Please use mcmc, ptmcmc, nest, cpnest or dynest.".format(engine))
+        raise ValueError("Unable to define {} sampler. Please use one of the following: {}".format(engine, ', '.join(__known_samplers__)))
 
-    return sampler(posterior, **kwargs)
+    return sampler(engine, posterior, **kwargs)
 
 # namedtuple for customized probability
-
-from collections import namedtuple
 CustomProbability    = namedtuple("CustomProbability",    ("log_density","cumulative","quantile"),    defaults=(None,None,None) )
 
 # Known probability functions
-
 __known_probs__     = ['uniform', 'linear', 'quadratic', 'power-law',
                        'triangular', 'cosinusoidal', 'sinusoidal',
                        'log-uniform', 'exponential', 'normal']
@@ -103,7 +106,7 @@ class LinearProbability:
         self._norm = 0.5*(max**2. - min**2.)
         self._lognorm = np.log(self._norm)
         self._min2 = min**2.
-    
+
     def log_density(self, x):
         return np.log(x) - self._lognorm
 
@@ -144,15 +147,15 @@ class PowerLawProbability:
         min : lower bound
         max : upper bound
         """
-    
+
     def __init__(self, min, max, deg):
-        
+
         self._deg   = deg
         self._degp1 = deg + 1.
-        
+
         max2degp1 = max**self._degp1
         self._min2degp1 = min**self._degp1
-        
+
         self._norm = (max2degp1 - self._min2degp1)/self._degp1
         self._lognorm = np.log(self._norm)
 
@@ -175,9 +178,9 @@ class TriangularProbability:
         max  : upper bound
         mode : modal value
     """
-    
+
     def __init__(self, min, max, mode):
-        
+
         self._min   = min
         self._max   = max
         self._mode  = mode
@@ -208,9 +211,9 @@ class LogUniformProbability:
         min  : lower bound
         max  : upper bound
     """
-    
+
     def __init__(self, min, max):
-        
+
         self._min       = min
         self._r         = max/min
         self._norm      = np.log(self._r)
@@ -233,9 +236,9 @@ class SinusoidalProbability:
         min  : lower bound
         max  : upper bound
         """
-    
+
     def __init__(self, min, max):
-        
+
         self._cosmin    = np.cos(min)
         self._norm      = np.cos(min) - np.cos(max)
         self._lognorm   = np.log(self._norm)
@@ -320,18 +323,14 @@ class NormalProbability:
         sigma   : stdev
     """
     def __init__(self, min, max, mu, sigma):
-        
+
         self._mu        = mu
         self._sigma     = sigma
-
-        from scipy.special import erf, erfinv
-        self._erf   = erf
-        self._ierf  = erfinv
-        self._sqrt2 = np.sqrt(2.)
+        self._sqrt2     = np.sqrt(2.)
 
         a   = (min - mu)/sigma
         b   = (max - mu)/sigma
-        
+
         self._zeta      = 0.5*(erf(b/self._sqrt2) - erf(a/self._sqrt2))
         self._norm      = np.sqrt(2*np.pi)*sigma*self._zeta
         self._lognorm   = np.log(self._norm)
@@ -342,9 +341,9 @@ class NormalProbability:
 
     def cumulative(self, x):
         xi = (x-mu)/sigma
-        px = 0.5*(1.+self._erf(xi/self._sqrt2))
+        px = 0.5*(1.+erf(xi/self._sqrt2))
         return (px-self._pmin)/self._zeta
 
     def quantile(self, x):
         _x = 2.*(self._zeta*x + self._pmin)-1.
-        return self._mu + self._sigma*self._sqrt2*self._ierf(_x)
+        return self._mu + self._sigma*self._sqrt2*erfinv(_x)

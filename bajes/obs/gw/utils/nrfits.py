@@ -6,19 +6,19 @@ def calc_isco_radius(m , a):
         Calculate the ISCO radius of a Kerr BH
         using eqns. 2.5 and 2.8 from Ori and Thorne,
         Phys Rev D 62, 24022 (2000)
-        
+
         Parameters
         ----------
         m : mass [solar masses]
         a : Kerr parameter
-        
+
         Returns
         -------
         ISCO radius
         """
-    
+
     a = np.minimum(np.array(a),1.) # Only consider a <=1, to avoid numerical problems
-    
+
     # Ref. Eq. (2.5) of Ori, Thorne Phys Rev D 62 124022 (2000)
     z1 = 1.+(1.-a**2.)**(1./3)*((1.+a)**(1./3) + (1.-a)**(1./3))
     z2 = np.sqrt(3.*a**2 + z1**2)
@@ -29,13 +29,13 @@ def calc_isco_radius(m , a):
 def calc_isco_frequency(m , a):
     """
         Calculate the ISCO frequency of a Kerr BH
-        using Kepler's law frm ISCO radius
-        
+        using Kepler's law from ISCO radius
+
         Parameters
         ----------
         m : mass [solar masses]
         a : Kerr parameter
-        
+
         Returns
         -------
         ISCO frequency
@@ -48,13 +48,13 @@ def calc_isco_frequency(m , a):
 def calc_isco_frequency_for_binary(m1 , m2 , a1 , a2):
     """
         Calculate the ISCO frequency of a compact binary
-        using parameters of the final black hole
-        
+        using parameters of the progenitors black holes.
+
         Parameters
         ----------
         m1, m2 : mass components [solar masses]
         a1, a2 : spin components
-        
+
         Returns
         -------
         ISCO frequency
@@ -67,13 +67,13 @@ def calc_isco_frequency_for_binary(m1 , m2 , a1 , a2):
 def bbh_UIBfits_setup(m1, m2, chi1, chi2):
     """common setup function for UIB final-state and luminosity fit functions
     """
-    
+
     # Vectorize the function if arrays are provided as input
     m1   = np.vectorize(float)(np.array(m1))
     m2   = np.vectorize(float)(np.array(m2))
     chi1 = np.vectorize(float)(np.array(chi1))
     chi2 = np.vectorize(float)(np.array(chi2))
-    
+
     if np.any(m1<0):
         raise ValueError("m1 must not be negative")
     if np.any(m2<0):
@@ -91,7 +91,7 @@ def bbh_UIBfits_setup(m1, m2, chi1, chi2):
     msq  = m*m
     m1sq = m1*m1
     m2sq = m2*m2
-    
+
     # symmetric mass ratio
     eta  = m1*m2/msq
     if np.any(eta>0.25):
@@ -103,7 +103,7 @@ def bbh_UIBfits_setup(m1, m2, chi1, chi2):
     eta2 = eta*eta
     eta3 = eta2*eta
     eta4 = eta2*eta2
-    
+
     # spin variables (in m = 1 units)
     S1    = chi1*m1sq/msq # spin angular momentum 1
     S2    = chi2*m2sq/msq # spin angular momentum 2
@@ -112,7 +112,7 @@ def bbh_UIBfits_setup(m1, m2, chi1, chi2):
     Shat2 = Shat*Shat
     Shat3 = Shat2*Shat
     Shat4 = Shat2*Shat2
-    
+
     # asymmetric spin combination (spin difference), where the paper assumes m1>m2
     # to make our implementation symmetric under simultaneous exchange of m1<->m2 and chi1<->chi2,
     # we flip the sign here when m2>m1
@@ -125,7 +125,7 @@ def bbh_UIBfits_setup(m1, m2, chi1, chi2):
     sqrt2 = 2.**0.5
     sqrt3 = 3.**0.5
     sqrt1m4eta = (1. - 4.*eta)**0.5
-    
+
     return m, eta, eta2, eta3, eta4, Stot, Shat, Shat2, Shat3, Shat4, chidiff, chidiff2, sqrt2, sqrt3, sqrt1m4eta
 
 def bbh_final_mass_non_precessing(m1, m2, chi1, chi2, version="v2"):
@@ -135,14 +135,14 @@ def bbh_final_mass_non_precessing(m1, m2, chi1, chi2, version="v2"):
         [LIGO-P1600270] [https://arxiv.org/abs/1611.00332]
         versions v1 and v2 use the same ansatz,
         with v2 calibrated to additional SXS and RIT data
-        
+
         m1, m2: component masses
         chi1, chi2: dimensionless spins of two BHs
         Results are symmetric under simultaneous exchange of m1<->m2 and chi1<->chi2.
         """
-    
+
     m, eta, eta2, eta3, eta4, Stot, Shat, Shat2, Shat3, Shat4, chidiff, chidiff2, sqrt2, sqrt3, sqrt1m4eta = bbh_UIBfits_setup(m1, m2, chi1, chi2)
-    
+
     if version == "v1":
         # rational-function Pade coefficients (exact) from Eq. (22) of 1611.00332v1
         b10 = 0.487
@@ -173,7 +173,7 @@ def bbh_final_mass_non_precessing(m1, m2, chi1, chi2, version="v2"):
         f11 = 14.39323998088354
         f31 = -232.25752840151296
         f51 = -0.8427987782523847
-    
+
     elif version == "v2":
         # rational-function Pade coefficients (exact) from Eq. (22) of LIGO-P1600270-v4
         b10 = 0.346
@@ -203,7 +203,7 @@ def bbh_final_mass_non_precessing(m1, m2, chi1, chi2, version="v2"):
         f11 = 15.738082204419655
         f31 = -243.6299258830685
         f51 = -0.5808669012986468
-    
+
     else:
         raise ValueError('Unknown version -- should be either "v1" or "v2".')
 
@@ -212,7 +212,7 @@ def bbh_final_mass_non_precessing(m1, m2, chi1, chi2, version="v2"):
 
     # Convert to actual final mass
     Mf = m*(1.-Erad)
-    
+
     return Mf
 
 def bbh_final_spin_non_precessing(m1, m2, chi1, chi2, version="v2"):
@@ -222,14 +222,14 @@ def bbh_final_spin_non_precessing(m1, m2, chi1, chi2, version="v2"):
         [LIGO-P1600270] [https://arxiv.org/abs/1611.00332]
         versions v1 and v2 use the same ansatz,
         with v2 calibrated to additional SXS and RIT data
-        
+
         m1, m2: component masses
         chi1, chi2: dimensionless spins of two BHs
         Results are symmetric under simultaneous exchange of m1<->m2 and chi1<->chi2.
     """
-    
+
     m, eta, eta2, eta3, eta4, Stot, Shat, Shat2, Shat3, Shat4, chidiff, chidiff2, sqrt2, sqrt3, sqrt1m4eta = bbh_UIBfits_setup(m1, m2, chi1, chi2)
-    
+
     if version == "v1":
         # rational-function Pade coefficients (exact) from Eqs. (7) and (8) of 1611.00332v1
         a20 = 5.28
@@ -264,7 +264,7 @@ def bbh_final_spin_non_precessing(m1, m2, chi1, chi2, version="v2"):
         f22 = -40.35359764942015
         f32 = -178.7813942566548
         f51 = -5.556957394513334
-    
+
     elif version == "v2":
         # rational-function Pade coefficients (exact) from Eqs. (7) and (8) of LIGO-P1600270-v4
         a20 = 5.24
@@ -298,7 +298,7 @@ def bbh_final_spin_non_precessing(m1, m2, chi1, chi2, version="v2"):
         f22 = -32.060648277652994
         f32 = -153.83722669033995
         f51 = -4.770246856212403
-    
+
     else:
         raise ValueError('Unknown version -- should be either "v1" or "v2".')
 
@@ -307,7 +307,7 @@ def bbh_final_spin_non_precessing(m1, m2, chi1, chi2, version="v2"):
 
     # Convert to actual final spin
     chif = Lorb + Stot
-    
+
     return chif
 
 def bns_postmerger_frequency(label, kappa , mass, nu):
@@ -316,7 +316,7 @@ def bns_postmerger_frequency(label, kappa , mass, nu):
         by Matteo Breschi, Sebastiano Bernuzzi, Francesco Zappa et al.
         [https://arxiv.org/abs/1908.11418]
         this versions is calibrated with BAM and THC data
-        
+
         label : 1,2,3 or 'm'
         kappa : tidal polarizability
         mass  : total mass [solar masses]
@@ -354,7 +354,7 @@ def bns_postmerger_frequency(label, kappa , mass, nu):
         raise ValueError("Unknown label for bns_postmerger_frequency.\n Please use 1, 2, 3 or 'm' (merger) respectively for f_{2-0} , f_2 , f_{2+0} and f_merg")
         exit()
     MTsun = 4.925491025543576e-06
-    
+
     # f_2-0 fit is not realible for kappa > 500
     x = kappa + c * (1 - 4*nu)
     if kappa > 500 and label == 1:
@@ -404,7 +404,7 @@ def bns_postmerger_amplitude(label , kappa, mass, nu):
     else:
         raise ValueError("Unknown label for bns_postmerger_amplitude. Use 0, 1, 2, 3 or 'm' (merger)")
         exit()
-    
+
     if amp < 0 :
         amp = 0
 

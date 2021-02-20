@@ -1,8 +1,5 @@
 from __future__ import division, unicode_literals, absolute_import
 import numpy as np
-import os
-import signal
-import tracemalloc
 
 import logging
 logger = logging.getLogger(__name__)
@@ -18,9 +15,10 @@ try:
 except ImportError:
     from scipy.misc import logsumexp
 
+from . import SamplerBody
 from .proposal import _init_proposal_methods
 from ..utils import apply_bounds
-from ...pipe import erase_init_wrapper, data_container, eval_func_tuple, display_memory_usage
+from ...pipe import eval_func_tuple
 
 def accept_func(new_logp, old_logp, fact):
     if (fact + new_logp - old_logp) > np.log(np.random.rand()):
@@ -186,193 +184,100 @@ class BajesMCMCProposal(emcee.moves.red_blue.RedBlueMove):
 
         return state, accepted
 
-class SamplerMCMC(emcee.EnsembleSampler):
-
-    def __init__(self, posterior, nwalk,
-                 nburn=10000, nout=2000,
-                 proposals=None,
-                 proposals_kwargs={'use_slice': False, 'use_gw': False},
-                 pool=None, ncheckpoint=0,
-                 outdir='./', resume='/resume.pkl',
-                 seed=None, **kwargs):
-        
-        self.resume = resume
-        self.outdir = outdir
-        
-        # restore inference from existing container
-        if os.path.exists(self.outdir + self.resume):
-            self.restore_inference(pool)
-        
-            # update nout and nburn
-            self.nburn  = nburn
-            self.nout   = nout
-
-        # initialize a new inference
-        else:
-            
-            # initialize signal handler
-            try:
-                signal.signal(signal.SIGTERM, self.store_inference_and_exit)
-                signal.signal(signal.SIGINT, self.store_inference_and_exit)
-                signal.signal(signal.SIGALRM, self.store_inference_and_exit)
-            except AttributeError:
-                logger.warning("Impossible to set signal attributes.")
-
-            # initialize MCMC parameters
-            self.nburn  = nburn
-            self.nout   = nout
-            self.names  = posterior.prior.names
-            
-            if ncheckpoint == 0:
-                # disable resume
-                logger.info("Disabling checkpoint ...")
-                self.ncheckpoint = 100 # print step
-                self.store_flag = False
-            else:
-                # enable resume
-                logger.info("Enabling checkpoint ...")
-                self.ncheckpoint = ncheckpoint
-                self.store_flag = True
-            
-            if nwalk < posterior.prior.ndim**2:
-                logger.warning("Requested number of walkers < Ndim^2. This may generate problems in the exploration of the parameters space.")
-                    
-            # initialize random seed
-            if seed == None:
-                import time
-                self.seed = int(time.time())
-            else:
-                self.seed = seed
-            np.random.seed(self.seed)
-            
-            # inilialize backend
-            from emcee.backends import Backend
-            backend = Backend()
-            
-            # initialize proposals
-            if proposals == None:
-                logger.info("Initializing proposal methods ...")
-                proposals = initialize_proposals(posterior.like, posterior.prior, **proposals_kwargs)
-
-            # initialize emcee sampler
-            super(SamplerMCMC, self).__init__(nwalkers    = nwalk,
-                                              ndim        = posterior.prior.ndim,
-                                              log_prob_fn = posterior.log_post,
-                                              moves       = proposals,
-                                              backend     = backend,
-                                              pool        = pool)
-                                                  
-            # avoid automatic function wrapper of emcee
-            self.log_prob_fn = posterior.log_post
-            self._propose    = self._moves[0].propose
-
-            # extract prior samples for initial state
-            logger.info("Extracting prior samples ...")
-            self._previous_state = posterior.prior.get_prior_samples(nwalk)
-
-            # initialize other variables
-            self.neff   = '(burn-in)'
-            self.acl    = '(burn-in)'
-            self.stop   = False
+class _EnsembleSampler(emcee.EnsembleSampler):
+    """
+        Wrapper for emcee.EnsembleSampler with corrected __getstate__ method
+    """
 
     def __getstate__(self):
-        # get __dict__ of parent+current class
-        full_dict  = self.__dict__.copy()
-        # remove not picklable objects
-        if 'pool' in list(full_dict.keys()):
-            full_dict['pool'] = None
-        return full_dict
+        state = self.__dict__.copy()
+        state["pool"] = None
+        return state
 
-    def restore_inference(self, pool):
+class SamplerMCMC(SamplerBody):
 
-        # extract container
-        logger.info("Restoring inference from existing container ...")
-        dc                  = data_container(self.outdir + self.resume)
-        container           = dc.load()
+    def __initialize__(self, posterior, nwalk,
+                       nburn=10000, nout=2000,
+                       proposals=None, proposals_kwargs={'use_slice': False, 'use_gw': False},
+                       pool=None, **kwargs):
         
-        # sampler check
-        if container.tag != 'mcmc':
-            logger.error("Container carries a {} inference, while MCMC was requested.".format(container.tag.upper()))
-            raise AttributeError("Container carries a {} inference, while MCMC was requested.".format(container.tag.upper()))
-        
-        previous_inference  = container.inference
+        # initialize MCMC parameters
+        self.nburn  = nburn
+        self.nout   = nout
+    
+        # warnings
+        if nwalk < posterior.prior.ndim**2:
+            logger.warning("Requested number of walkers < Ndim^2. This may generate problems in the exploration of the parameters space.")
+            
+        # inilialize backend
+        from emcee.backends import Backend
+        backend = Backend()
+            
+        # initialize proposals
+        if proposals == None:
+            logger.info("Initializing proposal methods ...")
+            proposals = initialize_proposals(posterior.like, posterior.prior, **proposals_kwargs)
 
-        # extract previous variables and methods
-        for kw in list(previous_inference.keys()):
-            self.__setattr__(kw, previous_inference[kw])
-        
-        # re-initialize signal
-        try:
-            signal.signal(signal.SIGTERM,   self.store_inference_and_exit)
-            signal.signal(signal.SIGINT,    self.store_inference_and_exit)
-            signal.signal(signal.SIGALRM,   self.store_inference_and_exit)
-        except AttributeError:
-            logger.warning("Impossible to set signal attributes.")
+        # initialize sampler
+        logger.info("Initializing sampler ...")
+        self.sampler = _EnsembleSampler(nwalkers    = nwalk,
+                                        ndim        = posterior.prior.ndim,
+                                        log_prob_fn = posterior.log_post,
+                                        moves       = proposals,
+                                        backend     = backend,
+                                        pool        = pool)
 
-        # re-initialize seed
-        np.random.seed(self.seed)    
-        
-        # re-initialize emcee sampler
-        # i.e. all the parameters are imported from previous sampler,
-        # then the previous iterations are restored (in backend)
-        self.temp_log_prob_fn = self.log_prob_fn
-        super(SamplerMCMC, self).__init__(nwalkers    = self.nwalkers,
-                                            ndim        = self.ndim,
-                                            log_prob_fn = self.log_prob_fn,
-                                            moves       = np.transpose([self._moves, self._weights]),
-                                            backend     = self.backend,
-                                            pool        = pool)
+        # avoid default emcee wrapper
+        self.sampler.log_prob_fn = posterior.log_post
 
-        # avoid automatic function wrapper of emcee
-        self.log_prob_fn = self.temp_log_prob_fn
-        self._propose    = self._moves[0].propose
+        # extract prior samples for initial state
+        logger.info("Extracting prior samples ...")
+        self._previous_state = posterior.prior.get_prior_samples(nwalk)
 
-    def store_inference_and_exit(self, signum=None, frame=None):
-        # exit function when signal is revealed
-        logger.info("Run interrupted by signal {}, checkpoint and exit.".format(signum))
-        os._exit(signum)
+        # initialize other variables
+        self.neff   = '(burn-in)'
+        self.acl    = '(burn-in)'
+        self.stop   = False
 
-    def store_inference(self):
-        # save inference in pickle file
-        dc = data_container(self.outdir+self.resume)
-        dc.store('tag', 'mcmc')
-        dc.store('inference', self.__getstate__())
-        dc.save()
+    def __restore__(self, pool, **kwargs):
+    
+        # re-initialize pool
+        if pool == None:
+            self.sampler.pool   = pool
+        else:
+            self.sampler.pool   = pool
 
-    def run(self):
-        # run the chains
-        logger.info("Running {} walkers ...".format(self.nwalkers))
-        self.run_mcmc()
-
-    def update_sampler(self):
+    def __update__(self):
     
         # compute acceptance
-        acc = (self.backend.accepted).sum()/self.nwalkers/self.backend.iteration
+        acc = (self.sampler.backend.accepted).sum()/self.sampler.nwalkers/self.sampler.backend.iteration
         
         # compute logLs
-        this_logL   = np.array(self.backend.get_last_sample().log_prob)
-        logL_mean   = logsumexp(this_logL) - np.log(self.nwalkers)
+        this_logL   = np.array(self.sampler.backend.get_last_sample().log_prob)
+        logL_mean   = logsumexp(this_logL) - np.log(self.sampler.nwalkers)
         logL_max    = np.max(this_logL)
-
-        # store inference
-        if self.store_flag:
-            self.store_inference()
+        
+        args    = { 'it' : self.sampler.backend.iteration,
+                    'acc' : '{:.2f}%'.format(acc*100.),
+                    'acl' : 'n/a',
+                    'stat' : 'burn-in',
+                    'logPmean' : '{:.2f}'.format(logL_mean),
+                    'logPmax' : '{:.2f}'.format(logL_max)
+                    }
 
         # update logger
-        if isinstance(self.neff, str):
-            logger.info(" - it : {:d} - stat : {} - acl : N/A - acc : {:.3f} - logPmean : {:.5g} - logPmax : {:.5g}".format(self.backend.iteration,
-                                                                                                                                  self.neff, acc, logL_mean,logL_max))
-        else:
-            logger.info(" - it : {:d} - stat : {:.3f}% - acl : {} - acc : {:.3f} - logPmean : {:.5g} - logPmax : {:.5g}".format(self.backend.iteration,
-                                                                                                                                      self.neff*100/self.nout,self.acl,
-                                                                                                                                      acc,logL_mean,logL_max))
+        if not isinstance(self.neff, str):
+            args['acl']     = self.acl
+            args['stat']    = '{:.2f}%'.format(self.neff*100/self.nout)
+                
+        return args
 
-    def stop_sampler(self):
+    def _stop_sampler(self):
     
         # if it > nburn, compute acl every step
-        if (self.backend.iteration > self.nburn):
+        if (self.sampler.backend.iteration > self.nburn):
         
-            acls        = self.backend.get_autocorr_time(discard=self.nburn, quiet=True, tol=2)
+            acls        = self.sampler.backend.get_autocorr_time(discard=self.nburn, quiet=True, tol=2)
             acls_clean  = [ai for ai in acls if not np.isnan(ai)]
             
             if len(acls_clean) == 0:
@@ -388,161 +293,30 @@ class SamplerMCMC(emcee.EnsembleSampler):
             if self.neff >= self.nout :
                 self.stop = True
 
-    def sample(
-        self,
-        initial_state,
-        log_prob0=None,  # Deprecated
-        rstate0=None,  # Deprecated
-        blobs0=None,  # Deprecated
-        iterations=1,
-        tune=False,
-        skip_initial_state_check=False,
-        thin_by=1,
-        thin=None,
-        store=True,
-        progress=False,
-    ):
-        """
-            emcee sample method
-        """
-        # Interpret the input as a walker state and check the dimensions.
-        state = State(initial_state, copy=True)
-        if np.shape(state.coords) != (self.nwalkers, self.ndim):
-            raise ValueError("incompatible input dimensions")
-        if (not skip_initial_state_check) and (
-            not walkers_independent(state.coords)
-        ):
-            raise ValueError(
-                "Initial state has a large condition number. "
-                "Make sure that your walkers are linearly independent for the "
-                "best performance"
-            )
-
-        # Try to set the initial value of the random number generator. This
-        # fails silently if it doesn't work but that's what we want because
-        # we'll just interpret any garbage as letting the generator stay in
-        # it's current state.
-        if rstate0 is not None:
-            deprecation_warning(
-                "The 'rstate0' argument is deprecated, use a 'State' "
-                "instead"
-            )
-            state.random_state = rstate0
-        self.random_state = state.random_state
-
-        # If the initial log-probabilities were not provided, calculate them
-        # now.
-        if log_prob0 is not None:
-            deprecation_warning(
-                "The 'log_prob0' argument is deprecated, use a 'State' "
-                "instead"
-            )
-            state.log_prob = log_prob0
-        if blobs0 is not None:
-            deprecation_warning(
-                "The 'blobs0' argument is deprecated, use a 'State' instead"
-            )
-            state.blobs = blobs0
-        if state.log_prob is None:
-            state.log_prob, state.blobs = self.compute_log_prob(state.coords)
-        if np.shape(state.log_prob) != (self.nwalkers,):
-            raise ValueError("incompatible input dimensions")
-
-        # Check to make sure that the probability function didn't return
-        # ``np.nan``.
-        if np.any(np.isnan(state.log_prob)):
-            raise ValueError("The initial log_prob was NaN")
-
-        # Deal with deprecated thin argument
-        if thin is not None:
-            deprecation_warning(
-                "The 'thin' argument is deprecated. " "Use 'thin_by' instead."
-            )
-
-            # Check that the thin keyword is reasonable.
-            thin = int(thin)
-            if thin <= 0:
-                raise ValueError("Invalid thinning argument")
-
-            yield_step = 1
-            checkpoint_step = thin
-            iterations = int(iterations)
-            if store:
-                nsaves = iterations // checkpoint_step
-                self.backend.grow(nsaves, state.blobs)
-
-        else:
-            # Check that the thin keyword is reasonable.
-            thin_by = int(thin_by)
-            if thin_by <= 0:
-                raise ValueError("Invalid thinning argument")
-
-            yield_step = thin_by
-            checkpoint_step = thin_by
-            iterations = int(iterations)
-            if store:
-                self.backend.grow(iterations, state.blobs)
-
-        # Set up a wrapper around the relevant model functions
-        if self.pool is not None:
-            map_fn = self.pool.map
-        else:
-            map_fn = map
-        model = Model(
-            self.log_prob_fn, self.compute_log_prob, map_fn, self._random
-        )
-
-        # Inject the progress bar
-        total = iterations * yield_step
-        i = 0
-        for _ in range(iterations):
-            for _ in range(yield_step):
-
-                # Propose
-                state, accepted = self._propose(model, state)
-                state.random_state = self.random_state
-
-                # if tune:
-                #   move.tune(state, accepted)
-
-                # Save the new step
-                if store and (i + 1) % checkpoint_step == 0:
-                    self.backend.save_step(state, accepted)
-                
-                i += 1
-
-            # Yield the result as an iterator so that the user can do all
-            # sorts of fun stuff with the results so far.
-            yield state
-
-    def run_mcmc(self):
+    def __run__(self):
     
         while not self.stop:
             
             # make steps
-            for results in self.sample(self._previous_state, iterations=self.ncheckpoint, tune=True):
+            for results in self.sampler.sample(self._previous_state, iterations=self.ncheckpoint, tune=True):
                 pass
 
             # update previous state
             self._previous_state  = results
 
             # update sampler status
-            self.update_sampler()
+            self.update()
 
             # compute stopping condition
-            self.stop_sampler()
-    
-            if tracemalloc.is_tracing():
-                display_memory_usage(tracemalloc.take_snapshot())
-                tracemalloc.clear_traces()
+            self._stop_sampler()
 
         # final store inference
-        self.store_inference()
+        self.store()
 
     def get_posterior(self):
         
         try:
-            acls = self.backend.get_autocorr_time(discard=self.nburn, quiet=True, tol=2)
+            acls = self.sampler.backend.get_autocorr_time(discard=self.nburn, quiet=True, tol=2)
             acl = int (np.max([ ai for ai in acls if (not np.isnan(ai) and not np.isinf(ai))]))
 
         except Exception:
@@ -551,11 +325,11 @@ class SamplerMCMC(emcee.EnsembleSampler):
             # However, this should not happen. If this happen, this could be a problem of the proposals.
             # Please report the error.
             acl = 1
-            self.nburn = np.abs(self.backend.iteration)//2
+            self.nburn = np.abs(self.sampler.backend.iteration)//2
             logger.warning("Warning: NaN or Inf occurred in ACL computation. ACL will be set equal to 1 and nburn will be fixed to nstep//2. Try increasing the number of walkers for the MCMC exploration if you want to improve your sampling.")
 
-        self.posterior_samples  = np.array(self.backend.get_chain(flat=True, discard=self.nburn, thin=acl))
-        logP                    = np.array(self.backend.get_log_prob(flat=True, discard=self.nburn, thin=acl))
+        self.posterior_samples  = np.array(self.sampler.backend.get_chain(flat=True, discard=self.nburn, thin=acl))
+        logP                    = np.array(self.sampler.backend.get_log_prob(flat=True, discard=self.nburn, thin=acl))
         
         logger.info("  - autocorr length : {}".format(acl))
 

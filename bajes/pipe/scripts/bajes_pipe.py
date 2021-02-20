@@ -31,7 +31,7 @@ def write_executable(outdir, config, string1, string2, string3):
     if config['pipe']['sub'] == 'bash':
         execfile.write('#!/bin/bash'+'\n')
         execfile.write('\n')
-        
+
         if string1:
             execfile.write(string1+'\n')
             execfile.write('\n')
@@ -43,61 +43,72 @@ def write_executable(outdir, config, string1, string2, string3):
             execfile.write('\n')
 
     elif config['pipe']['sub'] == 'slurm':
-        
+
         list_keys_in_pipe = np.transpose(list(config.items('pipe')))[0]
 
         # setting string for main commands
         srun_string = 'time srun '
-        
+
         # set SLURM variables
         nnodes  = 1
         ntasks  = 1
-        
+        ncpu    = int(config['pipe']['nprocs'])
+
         # setting string for core command
         srun_string_core = srun_string
-        
+
         # set mpi flag if it is missing
         if 'mpi' not in list_keys_in_pipe:
             config['pipe']['mpi'] = 0
-        
-        # if mpi is True
+
+        # set n-nodes if mpi is on
         if int(config['pipe']['mpi']):
-            
-            # if mpi=1, nprocs == ntasks
-            ntasks          = config['pipe']['nprocs']
-            
-            if 'mpi-type' in list_keys_in_pipe:
-                which_mpi = config['pipe']['mpi-type']
-            else:
-                which_mpi = 'pmi2'
-            
-            # set up core string
-            srun_string_core    += '-n $SLURM_NTASKS --mpi={} '.format(which_mpi)
-            
+
             try:
                 nnodes = config['pipe']['nnodes']
             except KeyError:
-                logger.warning("Unable to read number of nodes, missing argument. Setting number of nodes equal to 1.")
+                logger.warning("Requested MPI parallelization but number of nodes is missing. Setting number of nodes equal to 1.")
                 nnodes = 1
-    
-        # get cpu_per_task
+
+        # set n-tasks
         if 'cpu-per-task' in list_keys_in_pipe:
-            cpu_per_task = config['pipe']['cpu-per-task']
+            cpu_per_task = int(config['pipe']['cpu-per-task'])
+            ntasks       = ncpu/cpu_per_task
         else:
             if int(config['pipe']['mpi']):
-                # if MPI, default is 1 cpu per task
+                logger.warning("Using MPI parallelization without setting cpu-per-task. The default is cpu-per-task = 1")
+                ntasks = ncpu
                 cpu_per_task = 1
             else:
-                # if multithreads, default is 1 cpu per thread
-                cpu_per_task = config['pipe']['nprocs']
-                    
-        # compute number of tasks per node
-        mpi_per_node = int(np.float(ntasks)/np.float(nnodes))
-        
-        # writing slurm configuation 
+                cpu_per_task = ncpu
+
+        # check
+        if not int(config['pipe']['mpi']) and ntasks>1:
+            logger.error("MPI parallelization is not requested but number of tasks is greater than 1. Please check your settings.")
+            raise BajesPipeError("MPI parallelization is not requested but number of tasks is greater than 1. Please check your settings.")
+
+        # set MPI
+        mpi_per_node = 1
+
+        if int(config['pipe']['mpi']):
+
+            # set mpi_per_node
+            mpi_per_node =  int(int(ntasks)/int(nnodes))
+
+            # get mpi
+            if 'mpi-type' in list_keys_in_pipe:
+                which_mpi = config['pipe']['mpi-type']
+            else:
+                logger.warning("Process management interface not specified, using PMI-2.")
+                which_mpi = 'pmi2'
+
+            # set up core string
+            srun_string_core    += '-n $SLURM_NTASKS --mpi={} '.format(which_mpi)
+
+        # writing slurm configuation
         execfile.write('#!/bin/bash'+'\n')
         execfile.write('#SBATCH --job-name={}'.format(config['pipe']['jobname'])+'\n')
-        
+
         if 'partition' in list_keys_in_pipe:
             execfile.write('#SBATCH --partition {}'.format(config['pipe']['partition'])+'\n')
         else:
@@ -107,31 +118,31 @@ def write_executable(outdir, config, string1, string2, string3):
         if 'mail' in list_keys_in_pipe:
             execfile.write('#SBATCH --mail-type=ALL'+'\n')
             execfile.write('#SBATCH --mail-user={}'.format(config['pipe']['mail'])+'\n')
-        
+
         execfile.write('#SBATCH --time={}'.format(config['pipe']['walltime'])+'\n')
         execfile.write('#SBATCH --nodes={}'.format(nnodes)+'\n')
-        # execfile.write('#SBATCH --ntasks={}'.format(ntasks)+'\n')
         execfile.write('#SBATCH --ntasks-per-node={}'.format(mpi_per_node)+'\n')
         execfile.write('#SBATCH --cpus-per-task={}'.format(cpu_per_task)+'\n')
 
         if 'mem-per-cpu' in list_keys_in_pipe:
             execfile.write('#SBATCH --mem-per-cpu={}'.format(config['pipe']['mem-per-cpu'])+'\n')
         else:
+            logger.warning("Memory-per-CPU not specified, using 1G.")
             execfile.write('#SBATCH --mem-per-cpu=1G '+'\n')
-        
+
         execfile.write('#SBATCH -o {}/bajes.out'.format(config['pipe']['outdir'])+'\n')
         execfile.write('#SBATCH -e {}/bajes.err'.format(config['pipe']['outdir'])+'\n')
         execfile.write('\n')
 
         # writing modules to be load
         if 'module' in list_keys_in_pipe:
-            
+
             if ',' in config['pipe']['module']:
-                
+
                 paths   = config['pipe']['module'].split(',')
                 for pi in paths:
                     execfile.write('module load {}'.format(pi) + '\n')
-            
+
             else:
                 execfile.write('module load {}'.format(config['pipe']['module']) + '\n')
 
@@ -139,30 +150,30 @@ def write_executable(outdir, config, string1, string2, string3):
 
         # writing paths to be sourced
         if 'source' in list_keys_in_pipe:
-    
+
             if ',' in config['pipe']['source']:
-        
+
                 paths   = config['pipe']['source'].split(',')
                 for pi in paths:
                     execfile.write('source {}'.format(pi) + '\n')
-            
+
             else:
                 execfile.write('source {}'.format(config['pipe']['source']) + '\n')
-        
+
             execfile.write('\n')
 
         # writing variables to be exported
         if 'export' in list_keys_in_pipe:
-    
+
             if ',' in config['pipe']['export']:
-        
+
                 paths   = config['pipe']['export'].split(',')
                 for pi in paths:
                     execfile.write('export {}'.format(pi) + '\n')
-            
+
             else:
                 execfile.write('export {}'.format(config['pipe']['export']) + '\n')
-        
+
             execfile.write('\n')
 
         # export OMP_NUM_THREADS=1
@@ -205,11 +216,10 @@ def write_executable(outdir, config, string1, string2, string3):
             execfile.write('\n')
 
     execfile.close()
-    
+
     # create executable
     bashcommand = 'chmod u+x {}'.format(execname)
     execute_bash(bashcommand)
-
     return execname
 
 def write_inject_string(config, ifos, outdir):
@@ -282,7 +292,7 @@ def write_gwosc_string(config, ifos, outdir):
     """
 
     read_string = 'bajes_read_gwosc.py --outdir {} '.format(outdir)
-    
+
     try:
         read_string += '--event {} '.format(config['gw-data']['event'])
     except Exception:
@@ -308,10 +318,10 @@ def write_run_string(config, tags, outdir):
         Write command string to execute bajes_core.py
         given a config file
     """
-    
+
     list_keys_in_pipe       = np.transpose(list(config.items('pipe')))[0]
     list_keys_in_sampler    = np.transpose(list(config.items('sampler')))[0]
-    
+
     run_string = 'bajes_core.py '
     if 'mpi' in list_keys_in_pipe:
         if int(config['pipe']['mpi']):
@@ -323,7 +333,7 @@ def write_run_string(config, tags, outdir):
 
         run_string += '--engine {} '.format(config['sampler']['engine'])
         run_string += '--nlive {} '.format(config['sampler']['nlive'])
-        
+
         if 'maxmcmc' in list_keys_in_sampler:
             run_string += '--maxmcmc {} '.format(config['sampler']['maxmcmc'])
 
@@ -333,8 +343,30 @@ def write_run_string(config, tags, outdir):
         if 'poolsize' in list_keys_in_sampler:
             run_string += '--poolsize {} '.format(config['sampler']['poolsize'])
 
+    elif config['sampler']['engine'] == 'ultranest':
 
-    elif config['sampler']['engine'] == 'nest' or config['sampler']['engine'] == 'dynest':
+        run_string += '--engine {} '.format(config['sampler']['engine'])
+        run_string += '--nlive {} '.format(config['sampler']['nlive'])
+
+        if 'tolerance' in list_keys_in_sampler:
+            run_string += '--tol {} '.format(config['sampler']['tolerance'])
+
+        if 'maxmcmc' in list_keys_in_sampler:
+            run_string += '--maxmcmc {} '.format(config['sampler']['maxmcmc'])
+
+        if 'minmcmc' in list_keys_in_sampler:
+            run_string += '--minmcmc {} '.format(config['sampler']['minmcmc'])
+
+        if 'nout' in list_keys_in_sampler:
+            run_string += '--nout {} '.format(config['sampler']['nout'])
+
+        if 'dkl' in list_keys_in_sampler:
+            run_string += '--dkl {} '.format(config['sampler']['dkl'])
+
+        if 'z-frac' in list_keys_in_sampler:
+            run_string += '--z-frac {} '.format(config['sampler']['z-frac'])
+
+    elif config['sampler']['engine'] == 'dynesty' or config['sampler']['engine'] == 'dynesty-dyn':
 
         run_string += '--engine {} '.format(config['sampler']['engine'])
         run_string += '--nlive {} '.format(config['sampler']['nlive'])
@@ -353,20 +385,20 @@ def write_run_string(config, tags, outdir):
 
         if 'nact' in list_keys_in_sampler:
             run_string += '--nact {} '.format(config['sampler']['nact'])
-    
-    elif config['sampler']['engine'] == 'mcmc' or config['sampler']['engine'] == 'ptmcmc':
+
+    elif config['sampler']['engine'] == 'emcee' or config['sampler']['engine'] == 'ptmcmc':
 
         run_string += '--engine {} '.format(config['sampler']['engine'])
         run_string += '--nwalk {} '.format(config['sampler']['nwalk'])
         run_string += '--nout {} '.format(config['sampler']['nout'])
-        
+
         if config['sampler']['engine'] == 'ptmcmc':
             if 'ntemp' not in list_keys_in_sampler:
                 logger.error("Unable to read number of parallel temperature. Please specify the number of temperatures if you want to use ptmcmc.")
                 raise BajesPipeError("Unable to read number of parallel temperature. Please specify the number of temperatures if you want to use ptmcmc.")
             else:
                 run_string += '--ntemp {} '.format(config['sampler']['ntemp'])
-        
+
         if 'nburn' in list_keys_in_sampler:
             run_string += '--nburn {} '.format(config['sampler']['nburn'])
 
@@ -374,9 +406,10 @@ def write_run_string(config, tags, outdir):
             run_string += '--tmax {} '.format(config['sampler']['tmax'])
 
     else:
-        logger.error("Invalid string for engine. Plese use one of the following:\n* 'cpnest' for nested sampling with cpnest;\n* 'nest' for nested sampling with dynesty;\n* 'dynest' for dynamic nested sampling with dynesty;\n* 'mcmc' for mcmc with emcee;\n* 'ptmcmc' for parallel tempering mcmc.")
+        from bajes.inf import __known_samplers__
+        logger.error("Invalid string for sampler engine. Plese use one of the following: {}".format(__known_samplers__))
         raise BajesPipeError("Invalid string for engine.")
-    
+
     run_string += '--nprocs {} '.format(config['pipe']['nprocs'])
 
     if 'mpi' in list_keys_in_pipe:
@@ -391,14 +424,14 @@ def write_run_string(config, tags, outdir):
         run_string += '--checkpoint {} '.format(config['sampler']['ncheck'])
 
     if 'slice' in list_keys_in_sampler:
-        if config['sampler']['engine'] == 'nest' or config['sampler']['engine'] == 'dynest' or config['sampler']['engine'] == 'ptmcmc':
+        if 'dynesty' in config['sampler']['engine'] or config['sampler']['engine'] == 'ptmcmc':
             logger.warning("Unable to use slice proposal with requested sampler. Option not implemented or already existing.")
         else:
             if int(config['sampler']['slice']):
                 run_string += '--use-slice '
 
     if 'gw' in tags:
-        
+
         run_string += '--tag gw '
 
         ifos = config['gw-data']['ifos'].split(',')
@@ -462,7 +495,7 @@ def write_run_string(config, tags, outdir):
 
         if 'lambda-min' in list_keys_in_prior:
             run_string += '--lambda-min {} '.format(config['gw-prior']['lambda-min'])
-        
+
         if 'lambda-max' in list_keys_in_prior:
             run_string += '--lambda-max {} '.format(config['gw-prior']['lambda-max'])
 
@@ -486,16 +519,16 @@ def write_run_string(config, tags, outdir):
                 run_string += '--lmax {} '.format(lmax)
 
         if 'ej-flag' in list_keys_in_prior:
-            
+
             if int(config['gw-prior']['ej-flag']):
-                
+
                 run_string += '--use-energy-angmom '
 
                 if 'en-min' in list_keys_in_prior and 'en-max' in list_keys_in_prior:
                     run_string += '--e-min {} --e-max {} '.format(config['gw-prior']['en-min'],config['gw-prior']['en-max'])
                 else:
                     logger.warning("Impossible to read bounds for energy parameter. Using default option.")
-                
+
                 if 'j-min' in list_keys_in_prior and 'j-max' in list_keys_in_prior:
                     run_string += '--j-min {} --j-max {} '.format(config['gw-prior']['j-min'],config['gw-prior']['j-max'])
                 else:
@@ -558,7 +591,7 @@ def write_run_string(config, tags, outdir):
                 run_string += '--fix-name {} --fix-value {}  '.format(fix_name, fix_value)
 
     if 'kn' in tags:
-        
+
         run_string += '--tag kn '
 
         list_keys_in_data       = np.transpose(list(config.items('kn-data')))[0]
@@ -575,15 +608,15 @@ def write_run_string(config, tags, outdir):
             lambdas = config['kn-data']['photo-lambdas'].split(',')
         except KeyError:
             lambdas = []
-                
+
         if len(lambdas)==0 or len(lambdas)!=len(bands):
             from bajes.obs.kn import __photometric_bands__
             logger.warning("Invalid or missing photometric wavelength in config file. Using default values.")
             lambdas = [__photometric_bands__[bi] for bi in bands]
-                
+
         for bi,li in zip(bands,lambdas):
             run_string += '--band {} --lambda {}  '.format(bi, li)
-        
+
         if 'dered' in list_keys_in_data:
             if int(config['kn-data']['dered']):
                 run_string += '--use-dereddening '
@@ -599,8 +632,8 @@ def write_run_string(config, tags, outdir):
         else:
             logger.error("Missing path to magnitude data folder in config file. Please specify the mag-folder in [kn-data] section.")
             raise BajesPipeError("Missing path to magnitude data folder in config file. Please specify the mag-folder in [kn-data] section.")
-                
-                
+
+
         comps       = config['kn-prior']['comps'].split(',')
         mej_max     = config['kn-prior']['mej-max'].split(',')
         mej_min     = config['kn-prior']['mej-min'].split(',')
@@ -674,27 +707,24 @@ def write_postproc_string(config, tags, outdir):
         Write command string to execute bajes_postproc.py
         given a config file
     """
-    ifos = config['gw-data']['ifos'].split(',')
 
-    pp_string = 'bajes_postproc.py  --outdir {} --post {} '.format(outdir , outdir+'/run/posterior.dat')
-    
+    pp_string = 'bajes_postproc.py  --outdir {} '.format(outdir)
+
     if 'gw' in tags:
-        
         pp_string += '--spin-flag {} '.format(config['gw-prior']['spin-flag'])
         pp_string += '--tidal-flag {} '.format(config['gw-prior']['tidal-flag'])
-    
-        list_keys_in_prior = np.transpose(list(config.items('gw-prior')))[0]
-        for ki in list_keys_in_prior:
-            if 'fix' in ki:
-                fix_name    = ki.split('-')[1]
-                fix_value   = config['gw-prior']['fix-{}'.format(fix_name)]
-                pp_string += '--fix-name {} --fix-value {}  '.format(fix_name, fix_value)
+
+        list_keys_in_pipe = np.transpose(list(config.items('pipe')))[0]
+        if 'mpi' not in list_keys_in_pipe: config['pipe']['mpi'] = 0
+        if config['pipe']['mpi']:
+            pp_string += ' -n {} '.format(int(config['pipe']['nprocs'])/int(config['pipe']['nnodes']))
+        else:
+            pp_string += ' -n {} '.format(config['pipe']['nprocs'])
 
     return pp_string
 
-
 if __name__ == "__main__":
-    
+
     global logger
 
     confing_path = os.path.abspath(sys.argv[1])
@@ -703,10 +733,21 @@ if __name__ == "__main__":
     config.optionxform = str
     config.sections()
     config.read(confing_path)
-    
+
+    # set output directory
+    try:
+        outdir = os.path.abspath(config['pipe']['outdir'])
+        ensure_dir(outdir)
+
+    except KeyError:
+        raise BajesPipeError("Invalid or missing outdir in config file. Please specify the output directory in [pipe] section.")
+
+    # set logger
     logger = set_logger(outdir=config['pipe']['outdir'], label='pipe')
     logger.info("Running bajes pipeline:")
-    
+    logger.info("... setting output directory ...")
+    logger.info("  - {}".format(outdir))
+
     # check messengers
     try:
         tags = config['pipe']['messenger'].split(',')
@@ -715,28 +756,20 @@ if __name__ == "__main__":
         logger.error("Invalid or missing messenger in config file. Please specify the messengers (with comma-separated acronymes) in [pipe] section.")
         raise BajesPipeError("Invalid or missing messenger in config file. Please specify the messengers (with comma-separated acronymes) in [pipe] section.")
 
+    # read tags
     for ti in tags:
         from bajes.obs import __knwon_messengers__
         if ti not in __knwon_messengers__:
             logger.error("Unknown messenger {}. Please use only knwon messengers: {}".format(ti,__knwon_messengers__))
             raise BajesPipeError("Unknown messenger {}. Please use only knwon messengers: {}".format(ti,__knwon_messengers__))
 
-    # set output directory
-    try:
-        outdir = os.path.abspath(config['pipe']['outdir'])
-        ensure_dir(outdir)
-        logger.info("... setting output directory ...")
-        logger.info("  - {}".format(outdir))
-    except KeyError:
-        logger.error("Invalid or missing outdir in config file. Please specify the output directory in [pipe] section.")
-        raise BajesPipeError("Invalid or missing outdir in config file. Please specify the output directory in [pipe] section.")
-
+    # copy config
     with open(outdir+'/config.ini', 'w') as configfile:
         config.write(configfile)
 
     ini_string = ''
     if 'gw' in tags:
-        
+
         from bajes.obs.gw import __known_events__, __known_events_metadata__
 
         try:
@@ -753,25 +786,25 @@ if __name__ == "__main__":
 
         # parser for GWOSC data
         elif  config['gw-data']['data-flag'] == 'gwosc':
-            
+
             try:
-                if config['gw-data']['event']:
+                if config['gw-data']['event'] in __known_events__:
                     logger.info("... writing urls to GWOSC archive with {} event ...".format(config['gw-data']['event']))
-                    
+
                     if config['gw-data']['event'] not in __known_events__:
                         logger.error("Impossible to read given event ({}), since it is not in the list of known events:\n{}.\nPlease specify an event from this list or use t-gps option.".format(config['gw-data']['event'], __known_events__))
                         raise BajesPipeError("Impossible to read given event ({}), since it is not in the list of known events:\n{}.\nPlease specify an event from this list or use t-gps option.".format(config['gw-data']['event'], __known_events__))
-                    
+
                     this_tgps = __known_events_metadata__[config['gw-data']['event']]['t_gps']
                     this_ifos = __known_events_metadata__[config['gw-data']['event']]['ifos']
 
                     # overwrite input t_gps
                     config['gw-data']['t-gps'] = '{}'.format( int (np.round(this_tgps)) )
-                
+
                     for ifo in ifos:
                         if ifo not in this_ifos:
                             logger.warning("Warning: Selected ifo {} is not in the list of available detectors for this event ({}), the requested data does not exist and the code will fail.".format(ifo,this_ifos))
-                
+
                 else:
                     logger.info("... writing urls to GWOSC archive with GPS time ({}) ...".format(config['gw-data']['t-gps']))
 

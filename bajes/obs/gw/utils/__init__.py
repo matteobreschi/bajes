@@ -2,11 +2,13 @@
 from __future__ import division, unicode_literals, absolute_import
 __import__("pkg_resources").declare_namespace(__name__)
 
-import os
+import os, sys
 import numpy as np
 
+from scipy.signal import decimate
+
 from ..noise import get_design_sensitivity, get_event_sensitivity, get_event_calibration
-from ..strain import fft
+from ..strain import fft, ifft
 
 def lambda_2_kappa(M1,M2,L1,L2):
     Mt = M1 + M2
@@ -162,16 +164,39 @@ def tdwf_2_fdwf(freqs , h, dt):
     # interpolate amplitude and phase
     amp_interp  = np.interp(freqs, fr, np.abs(h_fft))
     phi_interp  = np.interp(freqs, fr, np.unwrap(np.angle(h_fft)))
-    
+
     # return FD-WF
     return amp_interp * np.exp(1j * phi_interp)
+
+def fdwf_2_tdwf(fr, hf, dt):
+
+    # pad frequency axis from 0 to f_min
+    fmin    = np.min(fr)
+    df      = fr[1]-fr[0]
+    num     = int(fmin//df)
+    if num > 0 :
+        fr      = np.concatenate([np.arange(num)*df, fr])
+        hf      = np.concatenate([np.zeros(num, dtype=complex), hf])
+
+    # pad frequency axis from f_max to f_Nyq
+    fnyq    = 0.5/dt
+    fmax    = np.max(fr)
+    if fnyq-fmax >= df:
+        num = int((fnyq-fmax)//df)
+        if num > 0 :
+            fr  = np.concatenate([fr, np.arange(num)*df+fmax+df])
+            hf  = np.concatenate([hf, np.zeros(num, dtype=complex)])
+
+    # compute ifft
+    time, ht = ifft(hf, 1./dt, 1./df)
+    return ht
 
 def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
     """
         Read GW OpenScience in order to fetch the data,
         this method uses gwpy
     """
-    
+
     from gwpy.timeseries import TimeSeries
     data    = TimeSeries.fetch_open_data(ifo, GPSstart, GPSend,
                                          sample_rate=srate,
@@ -180,17 +205,26 @@ def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
                                          tag='CLN',
                                          format='hdf5',
                                          host='https://www.gw-openscience.org')
-        
+
     s   = np.array(data.value)
     t   = np.arange(len(s))*(1./srate) + GPSstart
     return t , s
 
-def read_data(data_flag , data_path):
-    
+def read_data(data_flag, data_path, srate):
+
     if data_flag == 'inject' or data_flag == 'local' or  data_flag == 'gwosc':
-        data = np.genfromtxt(data_path, usecols = [1] , unpack=True)
+
+        time, data = np.genfromtxt(data_path, unpack=True)
+        srate_dt = 1./float(time[1] - time[0])
+        if (srate > srate_dt):
+            raise ValueError("You requested a sampling rate higher than the data sampling.")
+        elif (srate < srate_dt):
+            sys.stdout.write('Requested sampling rate is lower than data sampling rate. Downsampling detector data from {} to {} Hz, decimate factor {}\n'.format(srate_dt, srate, int(srate_dt/srate)))
+            data = decimate(data, int(srate_dt/srate), zero_phase=True)
+        else:
+            pass
     else:
-        raise KeyError("Please specify data_flag")
+        raise KeyError("Please specify a data_flag.")
     return data
 
 def read_asd(asd_path, ifo):
@@ -276,9 +310,3 @@ def read_params(path, flag):
         params['lmax'] = 0.
 
     return params
-
-
-
-
-
-

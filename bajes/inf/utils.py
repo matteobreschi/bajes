@@ -7,7 +7,6 @@ from ..pipe import cart2sph, sph2cart
 import logging
 logger = logging.getLogger(__name__)
 
-
 # list/dict wrapper
 
 def dict_2_list(dict,keys):
@@ -23,7 +22,7 @@ def autocorrelation(x):
     '''
         Compute autocorrelation funcion for a for an 1-dim array of samples,
         non partial method with numpy.fft
-        
+
         Arguments:
         - x : The time series.
     '''
@@ -104,11 +103,11 @@ def autocorr_integrated_time(x, axis=0, window=50, fast=True):
 def thermodynamic_integration_log_evidence(betas, logls):
     """
     Thermodynamic integration estimate of the evidence.
-    
+
     Arguments:
         - betas : list, the inverse temperatures to use for the quadrature.
         - logls : list, the mean log-likelihoods corresponding to ``betas`` to use for computing the thermodynamic evidence.
-        
+
     Return:
         - logZ  : float, estimated log-evidence
         - dlogZ : float, error associated with the finite number of temperatures
@@ -167,7 +166,7 @@ def list_in_bounds(x, bounds):
     return all(list(map(lambda xi,bi : bi[0]<=xi<=bi[1], x,bounds)))
 
 def apply_bounds(q, periodic_or_reflective, bounds):
-    
+
     # if params in bounds, return params
     if list_in_bounds(q, bounds):
         return q
@@ -207,17 +206,17 @@ def reflect_skyloc_3dets(ra,dec,refvec,refloc):
     """
     locnorm = np.sqrt(refloc[0]**2 + refloc[1]**2 + refloc[2]**2)
     refloc /= locnorm
-    
+
     x0          = np.array(sph2cart(1,np.pi/2-dec,ra))
     x1          = x0 - 2*refvec*(np.dot(refvec,x0-refloc))
     r, th, ph   = cart2sph(x1[0],x1[1],x1[2])
     dtshift     = np.real(locnorm * np.dot(refloc,x1-x0)) / 299792458.0
-    
+
     # take into account Earth rotation,
     # move time_shift in radiants and substract to right ascenscion
     # 86400 s = 24h = 2 pi
     ph  -= dtshift * 2*np.pi/86400.
-    
+
     return np.real(ph) , np.pi/2.-th, dtshift
 
 def reflect_skyloc_2dets(ra,dec,refvec,refloc):
@@ -236,12 +235,12 @@ def reflect_skyloc_2dets(ra,dec,refvec,refloc):
     x1          = np.dot(m,x0)
     r, th, ph   = cart2sph(x1[0],x1[1],x1[2])
     dtshift     = np.dot(refloc,x1-x0) / 299792458.0
-    
+
     # take into account Earth rotation,
     # move time_shift in radiants and substract to right ascenscion
     # 86400 s = 24h = 2 pi
     ph  -= dtshift * 2*np.pi / 86400
-    
+
     return ph , np.pi/2 - th, dtshift
 
 def project_all_extrinsic(dets, ra, dec, iota, dist, psi, tshift, ra_new, dec_new, tshift_new, t_gps):
@@ -289,7 +288,7 @@ def project_all_extrinsic(dets, ra, dec, iota, dist, psi, tshift, ra_new, dec_ne
     fc2_new1  = {}
     fp2_new2  = {}
     fc2_new2  = {}
-    
+
     for ifo in ifos:
         fp1, fc1      = dets[ifo].antenna_pattern(ra_new,
                                                   dec_new,
@@ -316,7 +315,7 @@ def project_all_extrinsic(dets, ra, dec, iota, dist, psi, tshift, ra_new, dec_ne
         psi_new = psi_new2
         fp2_new = fp2_new2
         fc2_new = fc2_new2
-    
+
         cos2i_new = (R2[i1]*(2*fc2_new[i2]+fp2_new[i2]) - R2[i2]*(2*fc2_new[i1]+fp2_new[i1]))/(fp2_new[i1]*R2[i2]-fp2_new[i2]*R2[i1]) - 2 * np.sqrt((fc2_new[i2]*R2[i1] - fc2_new[i1]*R2[i2])*(R2[i1]*(fc2_new[i2]+fp2_new[i2]) - R2[i2]*(fc2_new[i1]+fp2_new[i1])))/(fp2_new[i2]*R2[i1] - fp2_new[i1]*R2[i2])**2.
 
     cosi_new = np.sqrt(cos2i_new)
@@ -397,7 +396,8 @@ def get_parameter_distribution_from_string(name, type, min, max, kwargs):
         return NormalProbability(min=min, max=max, mu=kwargs['mu'], sigma=kwargs['sigma'])
 
     else:
-        raise AttributeError("Unable to set probability distribution for {} parameter. Unknown distribution {}.".format(name, type))
+        from . import __known_probs__
+        raise AttributeError("Unable to set probability distribution for {} parameter. Unknown distribution {}, please use one of the followings: {}".format(name, type, __known_probs__))
 
 def wrap_exp_log_prior(x, f, kw):
     return np.exp(f(x, **kw))
@@ -418,25 +418,29 @@ def initialize_param_from_func(name, min, max, func, kwarg={}, ngrid=2000, kind=
     # estimate log-PDF and CDF
     pdf = [func(pj, **kwarg) for pj in ax]
     cdf = [quad(wrap_exp_log_prior, min, pj, args=(func,kwarg))[0] for pj in ax]
-    
+
     # check monotonicity
     if np.sum(np.diff(cdf)<0):
-        
-        # recompute CDF using trapezoidal rule
-        dx  = ax[1] - ax[0]
+        logger.warning("Unable to estimate customized prior for {} parameter with quadrature rule, switching to trapezoidal approximation".format(name))
+
+        # recompute CDF using trapezoidal rule, cruder approximation but improves discontinuity
+        dx      = ax[1] - ax[0]
         exp_pdf = np.exp(pdf)
-        cdf = [np.trapz(exp_pdf[:(i+1)], dx = dx) for i in range(ngrid)]
+        cdf     = [np.trapz(exp_pdf[:(i+1)], dx = dx) for i in range(ngrid)]
 
         # recheck monotonicity
         if np.sum(np.diff(cdf)<0):
+            logger.error("Unable to estimate customized prior distribution for {} parameter, cumulative prior is not monotonic.".format(name))
             raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, cumulative prior is not monotonic.".format(name))
 
     # check NaNs
     if np.sum(np.isnan(cdf))+np.sum(np.isnan(pdf)):
+        logger.error("Unable to estimate customized prior distribution for {} parameter, NaN occured.".format(name))
         raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, NaN occured.".format(name))
 
     # check Infs
     if np.sum(np.isinf(cdf)):
+        logger.error("Unable to estimate customized prior distribution for {} parameter, Inf occured.".format(name))
         raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, Inf occured.".format(name))
 
     # rescale to unit
@@ -457,6 +461,3 @@ def initialize_param_from_func(name, min, max, func, kwarg={}, ngrid=2000, kind=
 
 def prior_sampler(prior, size):
     return np.array([prior.prior_transform(np.random.uniform(0.,1.,prior.ndim)) for _ in range(size)])
-
-
-
