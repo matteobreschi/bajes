@@ -127,31 +127,29 @@ class BajesCPNestProposal(ProposalCycle):
     def __call__(self):
         return self
 
-class BajesCPNest(cpnest.CPNest):
+class SamplerCPNest(cpnest.CPNest):
     
-    def __init__(self, model, **kwargs):
-        super(BajesCPNest,self).__init__(model, **kwargs)
+    #def __init__(self, model, **kwargs):
+    #super(BajesCPNest,self).__init__(model, **kwargs)
 
     def get_posterior(self):
         
-        self.get_posterior_samples(filename=self.output + '/posterior.dat')
+        self.get_posterior_samples(filename=os.path.abspath(self.output+'/posterior.dat'))
 
-        logZ_noise  = self.user.like.logZ_noise
         logZ        = self.NS.logZ
         infogain    = self.NS.state.info
         logZerr     = np.sqrt(infogain/self.nlive)
-        logBF       = logZ - logZ_noise
+        
+        from ...pipe import execute_bash
+        execute_bash('mv {} {}'.format(os.path.abspath(self.output+'/posterior.dat'),
+                                       os.path.abspath(self.output+'/../posterior.dat')))
 
-        evidence_file = open(self.output + '/evidence.dat', 'w')
-
-        evidence_file.write('logZ_noise  = {}\n'.format(logZ_noise))
-        evidence_file.write('logZ_signal = {}\n'.format(logZ))
-        evidence_file.write('logBF       = {} +/- {}\n'.format(logBF,logZerr))
-
+        evidence_file = open(os.path.abspath(self.output+'/../evidence.dat'), 'w')
+        evidence_file.write('logZ   = {} +- {}\n'.format(logZ,logZerr))
         evidence_file.close()
 
     def make_plots(self):
-        pass
+        self.plot()
 
 class CPNestModel(cpnest.model.Model):
     """
@@ -175,11 +173,16 @@ class CPNestModel(cpnest.model.Model):
         else:
             return -np.inf
 
-def SamplerCPNest(posterior, nlive, tolerance=0.1, maxmcmc=4096, poolsize=None,
-                  proposals=None, proposals_kwargs={'use_slice': False, 'use_gw': False},
-                  nprocs=1,  ncheckpoint=None,
-                  outdir='./', resume='/resume.pkl', seed=None, **kwargs):
+def _WrapSamplerCPNest(engine, posterior, nlive, tolerance=0.1, maxmcmc=4096, poolsize=None,
+                       proposals=None, proposals_kwargs={'use_slice': False, 'use_gw': False},
+                       nprocs=1,  ncheckpoint=None,
+                       outdir='./', resume='/resume.pkl', seed=None, **kwargs):
 
+        # set cpnest output
+        from ...pipe import ensure_dir
+        cpnest_outdir = os.path.join(outdir, 'cpnest')
+        ensure_dir(cpnest_outdir)
+            
         if nlive < len(posterior.prior.names)*(len(posterior.prior.names)-1)//2:
             logger.warning("Given number of live points < Ndim*(Ndim-1)/2. This may generate problems in the exploration of the parameters space.")
         
@@ -202,8 +205,15 @@ def SamplerCPNest(posterior, nlive, tolerance=0.1, maxmcmc=4096, poolsize=None,
         model = CPNestModel(posterior)
 
         # initialize sampler
-        sampler =  BajesCPNest(model,resume=True,proposals=dict(mhs=proposals),verbose=2,
-                               nlive=nlive,maxmcmc=maxmcmc,poolsize=poolsize,nthreads=nprocs,
-                               n_periodic_checkpoint=ncheckpoint,output=outdir,seed=seed)
-        sampler.NS.tolerance = tolerance
+        if ncheckpoint == 0:
+            ncheckpoint = None
+
+        sampler =  SamplerCPNest(model,resume=True,proposals=dict(mhs=proposals),verbose=2,
+                                 nlive=nlive,maxmcmc=maxmcmc,poolsize=poolsize,nthreads=nprocs,
+                                 n_periodic_checkpoint=ncheckpoint,output=cpnest_outdir,seed=seed)
+
+        # set arguments
+        sampler.NS.tolerance    = tolerance
+        sampler.logger          = logger
+        sampler.NS.logger       = logger
         return sampler

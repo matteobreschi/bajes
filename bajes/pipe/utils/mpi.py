@@ -4,13 +4,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 def get_mpi_world():
-    
+
     global MPI
-    
+
     import mpi4py
     mpi4py.rc.threads = False
     mpi4py.rc.recv_mprobe = False
-    
+
     try:
         from mpi4py import MPI as _MPI
     except ImportError:
@@ -45,35 +45,35 @@ class MPIPool(object):
     PACHECO, P. S., 1996. Parallel Programming with MPI.
     """
     def __init__(self, comm=None, master=0, parallel_comms=False):
-        
+
         # get MPI world
         MPI = get_mpi_world()
         if comm == None:
             comm = MPI.COMM_WORLD
-        
+
         # MPI pool must have at least 2 processes
         assert comm.size > 1
-        
+
         # Master process must be in range [0,comm.size)
         assert 0 <= master < comm.size
-        
+
         self.comm       = comm
         self.master     = master
         self.rank       = self.comm.Get_rank()
-        
+        self._processes = int(self.comm.size)
         self.parallel_comms = parallel_comms
-        
+
         self.workers    = set(range(comm.size))
         self.workers.discard(self.master)
-    
+
         if self.rank == 0:
             logger.debug("Setting master process ...")
         else:
             logger.debug("Setting worker-{} process ...".format(self.rank))
-    
+
     def __enter__(self):
         return self
-    
+
     def __exit__(self, *args):
         self.close()
 
@@ -87,15 +87,15 @@ class MPIPool(object):
         """
         Make the workers listen to the master.
         """
-        
+
         if self.is_master():
             return
-        
+
         worker = self.rank
         status = MPI.Status()
-        
+
         while True:
-            
+
             logger.debug("Worker {0} waiting for task".format(worker))
             task = self.comm.recv(source=self.master, tag=MPI.ANY_TAG, status=status)
 
@@ -126,10 +126,10 @@ class MPIPool(object):
 
         while pending:
             if workerset and tasklist:
-                
+
                 worker = workerset.pop()
                 taskid, task = tasklist.pop()
-                
+
                 logger.debug("Sent task {0} to worker {1} with tag {2}".format(task[1], worker, taskid))
                 req = self.comm.isend(task, dest=worker, tag=taskid)
                 if not self.parallel_comms:
@@ -152,7 +152,7 @@ class MPIPool(object):
             pending -= 1
 
         return resultlist
-    
+
     def close(self):
         """
         Tell all the workers to quit.

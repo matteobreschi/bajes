@@ -2,8 +2,34 @@
 from __future__ import absolute_import, unicode_literals
 __import__("pkg_resources").declare_namespace(__name__)
 
-__version__ = '0.1.0'
-__doc__     = "bajes [baɪɛs], Bayesian Jenaer Software. Python package for Bayesian inference developed at Friedrich-Schiller-Universtät Jena and specialized in the analysis of gravitational-wave and multi-messenger transients. The software is designed to be state-of-art, simple-to-use and light-weighted with minimal dependencies on external libraries. The source code with instruction and documentation can be found at https://git.tpi.uni-jena.de/mbreschi/bajes and https://github.com/matteobreschi/bajes"
+def _get_git_hast():
+
+    import os
+    import sys
+    import pathlib
+    from . import __path__
+    git_hash = 'UNKNOWN'
+
+    # search in __path__ and sys.path for git folder
+    for pi in __path__ + [di for di in sys.path if 'bajes' in di]:
+
+        dir_path = os.path.abspath(os.path.join(pi,'..'))
+        _ld = os.listdir(dir_path)
+
+        if '.git' in _ld:
+            git_dir = pathlib.Path(dir_path) / '.git'
+            with (git_dir / 'HEAD').open('r') as head:
+                ref = head.readline().split(' ')[-1].strip()
+            with (git_dir / ref).open('r') as git_hash:
+                git_hash = git_hash.readline().strip()
+            break
+
+    return git_hash
+
+__version__ = '0.2.2'
+__doc__     = "bajes [baɪɛs], Bayesian Jenaer Software. Python package for Bayesian inference developed at Friedrich-Schiller-Universtät Jena and specialized in the analysis of gravitational-wave and multi-messenger transients. The software is designed to be state-of-art, simple-to-use and light-weighted with minimal dependencies on external libraries. The source code is available at https://github.com/matteobreschi/bajes"
+__githash__ = _get_git_hast()
+
 
 # defining useful constant (SI)
 MSUN_SI         = 1.9885469549614615e+30    # mass of the sun [kg]

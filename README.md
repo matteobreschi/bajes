@@ -46,22 +46,24 @@ For more details, visit [`conifg_example`](docs/config_example.ini).
 
 ## Credits
 
-*bajes* is developed by Matteo Breschi at the Friedrich-Schiller-Universität Jena with 
-the contribution of Rossella Gamba and Sebastiano Bernuzzi.
+*bajes* is developed at the Friedrich-Schiller-Universität Jena,
+visit [`CREDITS`](CREDITS.md) for more details.
 
-If you find *bajes* useful in your research, please include the following citation in your publication,
+If you find *bajes* useful in your research, please include the following [citation](https://arxiv.org/abs/2102.00017) in your publication,
 
     @article{Bajes:2021,
-             author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
-             title          = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data, 
-                              methods and application to gravitational-waves",
-             eprint         = "2102.00017",
-             archivePrefix  = "arXiv",
-             primaryClass   = "gr-qc",
-             month          = "1",
-             year           = "2021"}
-    
-See [`CREDITS`](CREDITS.md) for more information.
+             author = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
+             title = "{Bayesian inference of multimessenger astrophysical data: Methods and applications to gravitational waves}",
+             eprint = "2102.00017",
+             archivePrefix = "arXiv",
+             primaryClass = "gr-qc",
+             doi = "10.1103/PhysRevD.104.042001",
+             journal = "Phys. Rev. D",
+             volume = "104",
+             number = "4",
+             pages = "042001",
+             year = "2021"
+            }
 
 ## Acknowledgement
 
@@ -69,6 +71,7 @@ See [`CREDITS`](CREDITS.md) for more information.
 * [`cpnest`](https://johnveitch.github.io/cpnest/)
 * [`dynesty`](https://dynesty.readthedocs.io/)
 * [`emcee`](https://emcee.readthedocs.io/)
+* [`ultranest`](https://johannesbuchner.github.io/UltraNest/)
 
 and the gravitational-wave analysis packages,
 * [`bilby`](https://lscsoft.docs.ligo.org/bilby/)
