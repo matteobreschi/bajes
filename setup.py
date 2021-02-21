@@ -19,9 +19,9 @@ logging.info("Running setup with Python {}.{}".format(py_version.major, py_versi
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # get version from __init__
-init_string = open(os.path.join(dir_path, 'bajes', '__init__.py')).read()
-VERS = r"^__version__ = ['\"]([^'\"]*)['\"]"
-mo = re.search(VERS, init_string, re.M)
+inis    = open(os.path.join(dir_path, 'bajes', '__init__.py')).read()
+VERS    = r"^__version__ = ['\"]([^'\"]*)['\"]"
+mo      = re.search(VERS, inis, re.M)
 VERSION = mo.group(1)
                      
 # Tidy up the project root

@@ -2,6 +2,7 @@
 
 # [v0.1.0] January 2021
 * Reorganize pipeline in `pipe` module
+* Introduced unified `SamplerBody`
 * Introduce `ultranest` sampler
 
 # [v0.0.9] December 2020

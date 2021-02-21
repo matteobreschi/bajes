@@ -1,5 +1,8 @@
 from __future__ import division, unicode_literals, absolute_import
 
+class BajesMPIError(Exception):
+    pass
+
 def _check_mpi(is_mpi):
 
     multi_task  = False
@@ -21,11 +24,11 @@ def _check_mpi(is_mpi):
         
         if is_mpi == False and multi_task == True:
             logger.error("Revealed active MPI routine, please include the additional flag --mpi to the command string to use MPI parallelization.")
-            raise AttributeError("Revealed active MPI routine, please include the additional flag --mpi to the command string to use MPI parallelization.")
+            raise BajesMPIError("Revealed active MPI routine, please include the additional flag --mpi to the command string to use MPI parallelization.")
 
         elif is_mpi == True and multi_task == False:
-            logger.error("Requested MPI parallelization but only one process is active, please make sure you are using an MPI runner (i.e. mpiexec or mpirun) with the correct settings.")
-            raise AttributeError("Requested MPI parallelization but only one process is active, please make sure you are using an MPI runner (i.e. mpiexec or mpirun) with the correct settings.")
+            logger.error("Requested MPI parallelization but only one task is active, please make sure you are using an MPI executer (i.e. mpiexec or mpirun) with the correct settings.")
+            raise BajesMPIError("Requested MPI parallelization but only one task is active, please make sure you are using an MPI executer (i.e. mpiexec or mpirun) with the correct settings.")
 
     return rank, size
 
@@ -88,6 +91,7 @@ def main():
         logger.debug("Using logger with debugging mode")
     else:
         logger = set_logger(outdir=opts.outdir, silence=opts.silence)
+
     _head(logger, opts.engine, opts.nprocs)
 
     # get likelihood module
@@ -162,11 +166,15 @@ def main():
                 'maxmcmc':      opts.maxmcmc,
                 'poolsize':     opts.poolsize,
                 'minmcmc':      opts.minmcmc,
+                'maxmcmc':      opts.maxmcmc,
                 'nbatch':       opts.nbatch,
                 'nwalk':        opts.nwalk,
                 'nburn':        opts.nburn,
+                'tmax':         opts.tmax,
                 'nout':         opts.nout,
                 'nact':         opts.nact,
+                'dkl':          opts.dkl,
+                'z_frac':       opts.z_frac,
                 'ntemps':       opts.ntemps,
                 'nprocs':       opts.nprocs,
                 'seed':         opts.seed,
@@ -176,7 +184,7 @@ def main():
                 'proposals_kwargs' : {'use_gw': False, 'use_slice': opts.use_slice}
                 }
 
-    # check parallelization
+    # check MPI
     kwargs['rank'], size = _check_mpi(opts.mpi)
 
     # check for cpnest
@@ -185,7 +193,8 @@ def main():
         # cpnest treats parallel processes internally
         opts.nprocs = None
         if opts.mpi :
-            logger.warning("MPI parallelization not available with cpnest, turning the flag off. You are currently running many copies of the same routine.")
+            logger.error("MPI parallelization not available with cpnest.")
+            raise BajesMPIError("MPI parallelization not available with cpnest.")
         opts.mpi = False
         Pool, close_pool = None, None
 
