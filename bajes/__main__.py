@@ -146,14 +146,18 @@ def main():
         else:
             logger.info("Setting {} with uniform prior in range [{:.3g},{:.3g}] ...".format(ni, args['min'], args['max']))
 
+        # set number of grid point for prior interpolation, if needed
+        args['interp_kwarg'] = {'ngrid': opts.priorgrid}
+
         # check others
         for ki in list_args_keys:
             if ki not in _checked:
                 args[ki] = float(args[ki])
 
+        # append parameter to list
         params.append(Parameter(name = ni , **args))
 
-    # initialize likelihood
+    # initialize prior
     logger.info("Initializing prior distribution ...")
     pr = Prior(params)
   
@@ -161,6 +165,7 @@ def main():
     if opts.nwalk%2 != 0 :
         opts.nwalk += 1
 
+    # set sampler kwargs
     kwargs = {  'nlive':        opts.nlive,
                 'tolerance':    opts.tolerance,
                 'maxmcmc':      opts.maxmcmc,
