@@ -107,7 +107,7 @@ if __name__ == "__main__":
         opts, post  = init_core(opts)
 
         # check threading
-        cpu_per_task = int(opts.nprocs)/size
+        cpu_per_task = int(opts.nprocs)//size
         if cpu_per_task > 1:
             logger.debug("Running {} MPI processes with {} threads per task.".format(size, cpu_per_task))
             from bajes.pipe import initialize_mthr_pool

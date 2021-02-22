@@ -235,7 +235,7 @@ def main():
         # set multithreading pools for each MPI process
         if opts.engine == 'ultranest' and opts.mpi:
             
-            threads_per_node = opts.nprocs//size
+            threads_per_node = int(opts.nprocs)//size
             
             if threads_per_node < 2 :
                 logger.debug("Estimated number of threads per MPI process is lower than 2, disabling vectorization for ultranest.")

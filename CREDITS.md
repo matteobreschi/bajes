@@ -25,7 +25,7 @@ The posterior samples computed with the *bajes* pipeline of the gravitational-wa
           year      = 2021,
           publisher = {Zenodo},
           doi       = {10.5281/zenodo.4476594},
-          url       = {https://doi.org/10.5281/zenodo.4476594}s}
+          url       = {https://doi.org/10.5281/zenodo.4476594}}
 
 In order to perform the sampling, *bajes* relies on external libraries,
 * `cpnest`, parallel nested sapling, [github](https://github.com/johnveitch/cpnest), [documentation](https://johnveitch.github.io/cpnest/)

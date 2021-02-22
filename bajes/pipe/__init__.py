@@ -27,11 +27,12 @@ def set_logger(label=None, outdir=None, level='INFO', silence=True):
     if label == None:
         label = 'bajes'
 
-    datefmt = '%m-%d-%Y %H:%M:%S'
     if level.upper() == 'DEBUG':
-        fmt     = '%(levelname)s [{}] [%(asctime)s.%(msecs)04d]: %(message)s'.format(label)
+        datefmt = '%m-%d-%Y-%H:%M:%S'
+        fmt     = '[{}] [%(asctime)s.%(msecs)04d] %(levelname)s: %(message)s'.format(label)
     else:
-        fmt     = '%(levelname)s [{}] [%(asctime)s]: %(message)s'.format(label)
+        datefmt = '%m-%d-%Y-%H:%M'
+        fmt     = '[{}] [%(asctime)s] %(levelname)s: %(message)s'.format(label)
 
     # initialize logger
     logger = logging.getLogger(label)
@@ -236,15 +237,15 @@ class data_container(object):
 
     def save(self):
         
-        # check stored objects, if file exists
+        # check stored objects
         if os.path.exists(self.filename):
-            
             _stored     = self.load()
-            _current    = list(self.__dict__.keys())
-            _old        = {ki: _stored.__dict__[ki] for ki in list(_stored.__dict__.keys()) if ki not in _current }
             
-            # join old and new data
-            self.__dict__ = {**self.__dict__, **_old}
+            # join old and new data if the container is not empty
+            if _stored is not None:
+                _current        = list(self.__dict__.keys())
+                _old            = {ki: _stored.__dict__[ki] for ki in list(_stored.__dict__.keys()) if ki not in _current}
+                self.__dict__   = {**self.__dict__, **_old}
         
         # save objects into filename
         f = open(self.filename, 'wb')
