@@ -14,7 +14,7 @@ def print_header(logger, tags, engine, nprocs, p_tag=False):
     
     import numpy as np
     import pathlib
-    from bajes import __version__, __path__
+    from bajes import __version__, __path__, __githash__
     
     # set printing tag
     print_tag = ''
@@ -22,26 +22,11 @@ def print_header(logger, tags, engine, nprocs, p_tag=False):
         print_tag = print_tag + ti
         if ti != tags[-1]:
             print_tag = print_tag + '+'
-
-    # look for git hash
-    git_hash = 'UNKNOWN'
-    for pi in __path__:
-
-        dir_path = os.path.abspath(os.path.join(pi,'..'))
-        _ld = os.listdir(dir_path)
-
-        if '.git' in _ld:
-            git_dir = pathlib.Path(dir_path) / '.git'
-            with (git_dir / 'HEAD').open('r') as head:
-                ref = head.readline().split(' ')[-1].strip()
-            with (git_dir / ref).open('r') as git_hash:
-                git_hash = git_hash.readline().strip()
-            break
-
+    
     logger.info("> bajes, Bayesian Jenaer Software")
     logger.info("* VERSION : {}".format(__version__))
     logger.info("* PATH    : {}".format(__path__[0]))
-    logger.info("* GITHASH : {}".format(git_hash))
+    logger.info("* GITHASH : {}".format(__githash__))
     logger.info("* SIGNAL  : {}".format(print_tag.upper()))
     logger.info("* ENGINE  : {}".format(engine.upper()))
     if p_tag:

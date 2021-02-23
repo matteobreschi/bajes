@@ -68,6 +68,12 @@ def get_prior_samples_dynesty(nlive, ndim, like_fn, ptform_fn):
 
 class SamplerDynesty(SamplerBody):
     
+    def store_and_exit(self, signum=None, frame=None):
+        # exit function when signal is revealed
+        import os
+        logger.warning("Run interrupted by signal {}, checkpoint and exit.".format(signum))
+        os._exit(signum)
+    
     def __initialize__(self, posterior,
                        nlive, tolerance=0.1,
                        # bounding

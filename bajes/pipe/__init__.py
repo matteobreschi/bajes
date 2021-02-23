@@ -229,7 +229,8 @@ class data_container(object):
 
     def __init__(self, filename):
         # initialize with a filename
-        self.filename = filename
+        import os
+        self.__file__ = os.path.abspath(filename)
 
     def store(self, name, data):
         # include data objects in this class
@@ -238,28 +239,29 @@ class data_container(object):
     def save(self):
         
         # check stored objects
-        if os.path.exists(self.filename):
+        if os.path.exists(self.__file__):
             _stored     = self.load()
-            
+
             # join old and new data if the container is not empty
             if _stored is not None:
                 _current        = list(self.__dict__.keys())
                 _old            = {ki: _stored.__dict__[ki] for ki in list(_stored.__dict__.keys()) if ki not in _current}
                 self.__dict__   = {**self.__dict__, **_old}
-        
+
         # save objects into filename
-        f = open(self.filename, 'wb')
+        f = open(self.__file__, 'wb')
         pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
         f.close()
 
     def load(self):
         # load from existing filename
-        f = open(self.filename, 'rb')
+        f = open(self.__file__, 'rb')
         try:
             n = pickle.load(f)
             f.close()
             return n
-        except Exception:
+        except Exception as e:
+            logger.warning("Exception ({}) occurred while loading {}.".format(e, self.__file__))
             return None
 
 # pipeline/core methods
