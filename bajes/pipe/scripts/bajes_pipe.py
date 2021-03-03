@@ -87,7 +87,9 @@ def write_executable(outdir, config, string1, string2, string3):
             logger.error("MPI parallelization is not requested but number of tasks is greater than 1. Please check your settings.")
             raise BajesPipeError("MPI parallelization is not requested but number of tasks is greater than 1. Please check your settings.")
 
-        # update command
+        # set MPI 
+        mpi_per_node = 1
+        
         if int(config['pipe']['mpi']):
 
             # set mpi_per_node
