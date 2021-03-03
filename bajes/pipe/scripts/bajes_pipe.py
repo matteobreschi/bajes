@@ -736,8 +736,19 @@ if __name__ == "__main__":
     config.sections()
     config.read(confing_path)
     
+    # set output directory
+    try:
+        outdir = os.path.abspath(config['pipe']['outdir'])
+        ensure_dir(outdir)
+
+    except KeyError:
+        raise BajesPipeError("Invalid or missing outdir in config file. Please specify the output directory in [pipe] section.")
+
+    # set logger
     logger = set_logger(outdir=config['pipe']['outdir'], label='pipe')
     logger.info("Running bajes pipeline:")
+    logger.info("... setting output directory ...")
+    logger.info("  - {}".format(outdir))
     
     # check messengers
     try:
@@ -747,22 +758,14 @@ if __name__ == "__main__":
         logger.error("Invalid or missing messenger in config file. Please specify the messengers (with comma-separated acronymes) in [pipe] section.")
         raise BajesPipeError("Invalid or missing messenger in config file. Please specify the messengers (with comma-separated acronymes) in [pipe] section.")
 
+    # read tags
     for ti in tags:
         from bajes.obs import __knwon_messengers__
         if ti not in __knwon_messengers__:
             logger.error("Unknown messenger {}. Please use only knwon messengers: {}".format(ti,__knwon_messengers__))
             raise BajesPipeError("Unknown messenger {}. Please use only knwon messengers: {}".format(ti,__knwon_messengers__))
 
-    # set output directory
-    try:
-        outdir = os.path.abspath(config['pipe']['outdir'])
-        ensure_dir(outdir)
-        logger.info("... setting output directory ...")
-        logger.info("  - {}".format(outdir))
-    except KeyError:
-        logger.error("Invalid or missing outdir in config file. Please specify the output directory in [pipe] section.")
-        raise BajesPipeError("Invalid or missing outdir in config file. Please specify the output directory in [pipe] section.")
-
+    # copy config
     with open(outdir+'/config.ini', 'w') as configfile:
         config.write(configfile)
 
