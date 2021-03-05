@@ -201,7 +201,7 @@ def highpassing(h, srate, f_max, order=4):
     from scipy.signal import butter, filtfilt
     bb, ab = butter(order, f_max*2./srate, btype='highpass')
     hbp = filtfilt(bb, ab, h, method="gust")
-    return hbps
+    return hbp
 
 class Series(object):
     """ A strain series in time/frequency domain

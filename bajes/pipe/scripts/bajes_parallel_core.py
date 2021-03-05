@@ -179,7 +179,7 @@ if __name__ == "__main__":
             inference.run()
 
     # produce posteriors
-    finalize(inference)
+    finalize(inference, logger)
 
     # stop memory tracing, if needed
     if tracing:
