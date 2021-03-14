@@ -274,11 +274,14 @@ class Waveform(object):
         """
 
         # parse masses
-        # ensure at leat [ mchirp, mtot, q, eta ] in params
-        # obs. the sampler works with (mchirp,q)
-        if 'mchirp' in params.keys() and 'q' in params.keys():
+        # ensure at least  [mchirp, mtot, q] in params
+        # obs. the sampler works with (mchirp,q) or with (mtot,q)
+        if 'mchirp' in params.keys():
             nu              = params['q']/(1.+params['q'])**2.
             params['mtot']  = params['mchirp']/nu**0.6
+        elif 'mtot' in params.keys():
+            nu                  = params['q']/(1.+params['q'])**2.
+            params['mchirp']    = params['mtot']*nu**0.6
 
         # parse primary spin
         if 'tilt1' in params.keys() and 's1' in params.keys() and 'phi_1l' in params.keys():

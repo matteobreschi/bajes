@@ -1,5 +1,18 @@
 import numpy as np
 
+import logging
+logger = logging.getLogger(__name__)
+
+from scipy.special import i0e
+
+from .. import erase_init_wrapper
+from ...inf.likelihood import Likelihood
+
+try:
+    from scipy.special import logsumexp
+except ImportError:
+    from scipy.misc import logsumexp
+
 def innerProduct(weights, func_1, func_2):#, where=True):
     """ discrete inner L2 Product <f1, f2> = sum_i(weights_i * conjugate(f1)_i * f2_i)
     weights: numpy array
@@ -17,14 +30,22 @@ def innerProduct(weights, func_1, func_2):#, where=True):
 class ROQ:
     """ Integral Solver using the Reduced Order Quadrature method. The procedure ist taken entirely from:
         Antil, et al.: Two-step greedy algorithm for reduced order quadratures (2012) arXiv:1210.0577v2
-    It is used to to calculate the integral of two products of functions <h_(mu_1), h_(mu_2)>.
-    Functions h_mu are given by a numpy array
+        It is used to to calculate the integral of two products of functions <h_(mu_1), h_(mu_2)>.
+        Functions h_mu are given by a numpy array
 
-    produces:
-    ROQ points, ROQ weights for a given training set
-    ROQ points given as actual points where the function is evaluated at ({x_1, x_2, ...}) and the corresponding indices
+        produces:
+        ROQ points, ROQ weights for a given training set
+        ROQ points given as actual points where the function is evaluated at ({x_1, x_2, ...}) and the corresponding indices
     """
     def __init__(self, quad_points, quad_weights, training_set_params, func_space, epsilon):
+        """
+            quad_points         : frequency axis
+            quad_weights        : initial weights
+            training_set_params : list of training parameters
+            func_space          : list of training waveform (np.array)
+            epsilon             : final accuracy
+        """
+        
         self.quad_points = np.array(quad_points)
         self.quad_weights = np.array(quad_weights)
         self.training_set_params = training_set_params
@@ -147,13 +168,12 @@ class ROQ:
             sigmas = np.array([self.norm(func_space[i] - projected_funcs[i]) for i in range(len(func_space))]) # largest error for current subspace e
             index_max = np.argmax(sigmas)
             if index_max in added_elements:
-                print("Accuracy couldn't be reached.")
-                print("Breaking off at error < " + str(sigmas[index_max]))
+                logger.warning("Accuracy couldn't be reached. Breaking off at error < " + str(sigmas[index_max]))
                 break
             else:
                 added_elements.append(index_max)
             sigma = sigmas[index_max]
-            print("Error Greedy: " + str(sigma) + ", with basis length: " + str(len(e)))
+            logger.debug("Error Greedy: " + str(sigma) + ", with basis length: " + str(len(e)))
             mu.append(training_set[index_max])
             e.append(func_space[index_max] - projected_funcs[index_max]) # project onto old basis
             e[n] = self.normalize(e[n]) # normalize element
@@ -219,6 +239,177 @@ class ROQ:
             P[j, i] = 1 # we only want unit columns, the rest is already 0
             p_ind[i] = j
             p_xval[i] = self.quad_points[j]
-            print("Ready with i=" + str(i) + "/" + str(len(p_ind)))
+            logger.debug("Ready with i=" + str(i) + "/" + str(len(p_ind)))
         
         return P, p_ind, p_xval
+
+
+class ROQGWLikelihood(Likelihood):
+    """
+        Log-likelihood object with Reduced-Order-Quandrature approximation,
+        it assumes that the data are evaluated on the same frequency axis (given as input)
+    """
+
+    def __init__(self, ifos, datas, dets, noises, roq_weights,
+                 freqs, srate, seglen, approx,
+                 nspcal=0, spcal_freqs=None,
+                 marg_phi_ref=False, marg_time_shift=False,
+                 **kwargs):
+
+        # run standard initialization
+        super(ROQGWLikelihood, self).__init__()
+
+        # set data properties
+        self.ifos   = ifos
+        self.dets   = dets
+
+        # set marginalization flags
+        self.marg_phi_ref       = marg_phi_ref
+        self.marg_time_shift    = marg_time_shift
+        
+        # check
+        if self.marg_time_shift:
+            logger.error("Unable to perform time-shift marginalization with ROQ approximation.")
+            raise AttributeError("Unable to perform time-shift marginalization with ROQ approximation.")
+
+        n_freqs     = None
+        f_min_check = None
+        f_max_check = None
+
+        # iterate over detectors
+        for ifo in self.ifos:
+
+            self.dets[ifo].store_measurement(datas[ifo], noises[ifo],
+                                             nspcal, spcal_freqs,
+                                             nweights, len_weights)
+
+            if f_min_check == None:
+                f_min_check = datas[ifo].f_min
+            else:
+                if datas[ifo].f_min != f_min_check:
+                    logger.error("Input f_min of data and model do not match in detector {}.".format(ifo))
+                    raise ValueError("Input f_min of data and model do not match in detector {}.".format(ifo))
+
+            if f_max_check == None:
+                f_max_check = datas[ifo].f_max
+            else:
+                if datas[ifo].f_max != f_max_check:
+                    logger.error("Input f_max of data and model do not match in detector {}.".format(ifo))
+                    raise ValueError("Input f_max of data and model do not match in detector {}.".format(ifo))
+
+            if n_freqs == None:
+                n_freqs = len(datas[ifo].freqs)
+            else:
+                if len(datas[ifo].freqs) != n_freqs:
+                    logger.error("Number of data samples does not match in detector {}.".format(ifo))
+                    raise ValueError("Number of data samples does not match in detector {}.".format(ifo))
+
+            if datas[ifo].seglen != seglen:
+                logger.error("Input seglen of data and model do not match in detector {}.".format(ifo))
+                raise ValueError("Input seglen of data and model do not match in detector {}.".format(ifo))
+
+            self.logZ_noise += -0.5 * self.dets[ifo]._dd
+            self.Nfr        = n_freqs
+            mask            = datas[ifo].mask
+
+        # sorted and not-repeated indeces
+        sort_ind    = np.sort(set((np.concatenate([roq_weights[ifo][0] for ifo in self.ifos])).tolist()))
+        
+        # get frequency axis
+        freqs           = freqs[mask]
+        reduced_freqs   = freqs[sort_ind]
+        
+        # reconstruct weights
+        self.roq_weights = {}
+        for ifo in self.ifos:
+            
+            old_i           = list(roq_weights[ifo][0])
+            self.roq_weights[ifo]   = np.zeros(len(sort_ind), dtype=float)
+            
+            for j,_i in enumerate(sort_ind):
+                if _i in old_i:
+                    self.roq_weights[ifo][j] = roq_weights[ifo][1][old_i.index(_i)]
+        
+            # set reduced frequency axis and data strain
+            self.dets[ifo].freqs = reduced_freqs
+            self.dets[ifo].data  = self.dets[ifo].data[sort_ind]
+
+        # initialize waveform generator
+        from ...obs.gw.waveform import Waveform
+        self.wave   = erase_init_wrapper(Waveform(reduced_freqs, srate , seglen, approx))
+
+    def log_like(self, params):
+        """
+            log-likelihood function
+        """
+        # compute waveform
+        logger.debug("Generating waveform for {}".format(params))
+        wave    = self.wave.compute_hphc(params)
+        logger.debug("Waveform generated".format(params))
+
+        # if hp, hc == [None], [None]
+        # the requested parameters are unphysical
+        # Then, return -inf
+        if not any(wave.plus):
+            return -np.inf
+
+        hh = 0.
+        dd = 0.
+
+#        if self.marg_time_shift:
+#
+#            dh_arr = np.zeros(self.Nfr, dtype=complex)
+#
+#            # compute inner products
+#            for ifo in self.ifos:
+#                logger.debug("Projecting over {}".format(ifo))
+#                proj_wave = self.dets[ifo].project_fdwave(wave, params, self.wave.domain)
+#
+#                logger.debug("Computing ROQ products for {}".format(ifo))
+#                dh_arr_thisifo
+#                hh_thisifo
+#                dd_thisifo = self.dets[ifo]._dd
+#                dh_arr = dh_arr + np.fft.fft(dh_arr_thisifo)
+#                hh += np.real(hh_thisifo)
+#                dd += np.real(dd_thisifo)
+#                _psd_fact += _psdf
+#
+#            # evaluate logL
+#            logger.debug("Estimating likelihood")
+#            if self.marg_phi_ref:
+#                abs_dh  = np.abs(dh_arr)
+#                I0_dh   = np.log(i0e(abs_dh)) + abs_dh
+#                R       = logsumexp(I0_dh-np.log(self.Nfr))
+#            else:
+#                re_dh   = np.real(dh_arr)
+#                R       = logsumexp(re_dh-np.log(self.Nfr))
+#
+#        else:
+#
+#        dh = 0.+0.j
+#
+#        # compute inner products
+#        for ifo in self.ifos:
+#            logger.debug("Projecting over {}".format(ifo))
+#            proj_wave = self.dets[ifo].project_fdwave(wave, params, self.wave.domain)
+#            
+#            logger.debug("Computing ROQ products for {}".format(ifo))
+#            dh_thisifo  = innerProduct(self.roq_weights[ifo], self.dets[ifo].data, proj_wave) #*df ?
+#            hh_thisifo  = innerProduct(self.roq_weights[ifo], proj_wave, proj_wave)
+#            dd_thisifo  = self.dets[ifo]._dd
+#            
+#            dh += dh_thisifo
+#            hh += np.real(hh_thisifo)
+#            dd += np.real(dd_thisifo)
+#
+#        # evaluate logL
+#        logger.debug("Estimating likelihood")
+#        if self.marg_phi_ref:
+#            dh  = np.abs(dh)
+#            R   = np.log(i0e(dh)) + dh
+#        else:
+#            R   = np.real(dh)
+#
+#        logL =  -0.5*(hh + dd) + R - self.logZ_noise
+#        return logL
+

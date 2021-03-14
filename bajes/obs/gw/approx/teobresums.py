@@ -70,7 +70,7 @@ def teobresums_wrapper(freqs, params):
                     'Lambda2':              params['lambda2'],
                     'distance':             params['distance'],
                     'inclination':          params['iota'],
-                    'initial_frequency':    params['f_min'] - 1.,
+                    'initial_frequency':    params['f_min'],
                     'coalescence_angle':    params['phi_ref'],
                     'use_geometric_units':  0,
                     'output_hpc':           0,
@@ -168,11 +168,6 @@ def teobresums_spa_wrapper(freqs, params):
     else:
         modes = l_to_k(params['lmax'])
 
-    # model is unstable below 1Hz
-    f_min = np.min(freqs)
-    if f_min < 1:
-        f_min = 1.
-
     # set TEOB dict
     params_teob = { 'M':                    params['mtot'],
                     'q':                    params['q'],
@@ -182,36 +177,20 @@ def teobresums_spa_wrapper(freqs, params):
                     'Lambda2':              params['lambda2'],
                     'distance':             params['distance'],
                     'inclination':          params['iota'],
-                    'initial_frequency':    f_min,
                     'coalescence_angle':    params['phi_ref'],
-                    'df':                   np.min(np.diff(freqs)),
                     'srate':                np.max(freqs)*2,
-                    'srate_interp':         np.max(freqs)*2,
                     'interp_FD_waveform':   1,
                     'use_geometric_units':  0,
                     'output_hpc':           0,
                     'output_multipoles':    0,
                     'use_mode_lm':          modes,
                     'domain':               1,
+                    'interp_freqs':         1,
+                    'freqs':                freqs.tolist(),
                     }
 
     f , rhplus, ihplus, rhcross, ihcross = teobresums(params_teob)
-
-    # obs. for binning cases, freqs are not uniformly spaced,
-    # then an interpolation is needed
-    if (len(rhplus) != len(freqs)):
-        hp_FD   = np.append(0.,rhplus-1j*ihplus)
-        hc_FD   = np.append(0.,rhcross-1j*ihcross)
-        f       = np.append(0.,f)
-    
-        ap_FD   = np.interp(freqs, f, np.abs(hp_FD))
-        ac_FD   = np.interp(freqs, f, np.abs(hc_FD))
-        pp_FD   = np.interp(freqs, f, np.unwrap(np.angle(hp_FD)))
-        pc_FD   = np.interp(freqs, f, np.unwrap(np.angle(hc_FD)))
-        return ap_FD*np.exp(1j*pp_FD), ac_FD*np.exp(1j*pc_FD)
-
-    else:
-        return rhplus-1j*ihplus, rhcross-1j*ihcross
+    return rhplus-1j*ihplus, rhcross-1j*ihcross
 
 def teobresums_nrpm_wrapper(freqs, params):
 

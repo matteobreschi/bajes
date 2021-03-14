@@ -2,7 +2,7 @@
 
 *bajes* has been developed by Matteo Breschi 
 at Friedrich-Schiller-Universität Jena with the contribution of 
-Rossella Gamba and Sebastiano Bernuzzi. 
+Rossella Gamba, Emil Donkersloot and Sebastiano Bernuzzi. 
 If you use this software, please include the following [citation](https://arxiv.org/abs/2102.00017):
 
     @article{Bajes:2021,

@@ -20,30 +20,36 @@ from bajes.pipe import ensure_dir, data_container, cart2sph, sph2cart, set_logge
 from bajes.obs.gw.utils import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda
 
 def make_corner_plot(matrix , labels, outputname):
-
-    N = len(labels)
-    cornerfig=corner.corner(matrix,
-                            labels          = labels,
-                            bins            = 40,
-                            color           = 'royalblue',
-                            levels          = [.5, .9],
-                            contour_kwargs  = {'colors':'navy','linewidths':0.95},
-                            plot_datapoints = True,
-                            show_titles     = True,
-                            plot_density    = True,
-                            smooth1d        = True,
-                            smooth          = True)
-                            
-    axes = np.array(cornerfig.axes).reshape((N,N))
     
-    for i in range(N):
-        ax = axes[i, i]
-        ax.axvline(np.median(matrix[:,i]),         color="navy",        linestyle='--', linewidth  = 0.9)
-        ax.axvline(np.percentile(matrix[:,i],5),   color="slateblue",   linestyle='--', linewidth  = 0.9)
-        ax.axvline(np.percentile(matrix[:,i],95),  color="slateblue",   linestyle='--', linewidth  = 0.9)
+    N = len(labels)
+    
+    try:
+        
+        cornerfig=corner.corner(matrix,
+                                labels          = labels,
+                                bins            = 40,
+                                color           = 'royalblue',
+                                levels          = [.5, .9],
+                                contour_kwargs  = {'colors':'navy','linewidths':0.95},
+                                plot_datapoints = True,
+                                show_titles     = True,
+                                plot_density    = True,
+                                smooth1d        = True,
+                                smooth          = True)
+    
+        axes = np.array(cornerfig.axes).reshape((N,N))
 
-    plt.savefig(outputname , dpi=250)
-    plt.close()
+        for i in range(N):
+            ax = axes[i, i]
+            ax.axvline(np.median(matrix[:,i]),         color="navy",        linestyle='--', linewidth  = 0.9)
+            ax.axvline(np.percentile(matrix[:,i],5),   color="slateblue",   linestyle='--', linewidth  = 0.9)
+            ax.axvline(np.percentile(matrix[:,i],95),  color="slateblue",   linestyle='--', linewidth  = 0.9)
+
+        plt.savefig(outputname , dpi=250)
+        plt.close()
+
+    except Exception:
+        logger.warning("Unable to produce corner plots, corner is not available. Please install corner.")
 
 def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
 

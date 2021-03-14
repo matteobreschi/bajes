@@ -45,7 +45,7 @@ def make_spectrogram_plot(ifo, time, inj_strain, noise, outdir):
     plt.savefig(outdir + '/{}_spectrogram.png'.format(ifo), dpi=200)
     plt.close()
 
-def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, outdir):
+def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir):
 
     fig = plt.figure(figsize=(12,9))
     ax1 = fig.add_subplot(211)
@@ -82,7 +82,7 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, outdir):
     ax1.loglog(freq_inj , noise.interp_asd_pad(freq_inj), c='g', label='ASD')
     ax1.legend(loc='best')
     
-    ax1.set_xlim((10,1./dt/2.))
+    ax1.set_xlim((f_min,1./dt/2.))
     ax1.set_xlabel('frequency [Hz]')
     ax1.set_ylabel('amplitude spectrum')
     
@@ -164,7 +164,7 @@ class Injection(object):
                 self.wave_strains[ifo]  = calc_project_array_td(self.dets[ifo], hp, hc,
                                                                 1/self.srate,self.ra,self.dec,self.psi,t_gps_mrg)
                 if not zero_flag:
-                    self.noise_strains[ifo] = noises[ifo].generate_fake_noise(self.seglen, self.srate, self.t_gps)
+                    self.noise_strains[ifo] = noises[ifo].generate_fake_noise(self.seglen, self.srate, self.t_gps, filter=True)
                     self.inj_strains[ifo]   = self.noise_strains[ifo] + self.wave_strains[ifo]
                 else:
                     self.inj_strains[ifo]   = self.wave_strains[ifo]
@@ -215,7 +215,7 @@ class Injection(object):
             self.time   = wave.times - self.seglen/2 + self.t_gps
             
             if wave.domain == 'freq':
-                raise AttributeError("Selected waveform model exists only in frequency-domain. Please use time-domain approximant to perform the injection.")
+                raise AttributeError("Selected waveform model ({}) exists only in frequency-domain. Please use time-domain approximant to perform the injection.".format(params['approx']))
             
             signal_template  = wave.compute_hphc(params)
             hp      = signal_template.plus
@@ -235,7 +235,7 @@ class Injection(object):
                 self.dets[ifo].store_measurement(series, noises[ifo])
                 self.wave_strains[ifo]  = self.dets[ifo].project_tdwave(signal_template, params, wave.domain)
                 if not zero_flag:
-                    self.noise_strains[ifo] = noises[ifo].generate_fake_noise(self.seglen, self.srate, self.t_gps)
+                    self.noise_strains[ifo] = noises[ifo].generate_fake_noise(self.seglen, self.srate, self.t_gps, filter=True)
                     self.inj_strains[ifo]   = self.noise_strains[ifo] + self.wave_strains[ifo]
                 else:
                     self.inj_strains[ifo]   = self.wave_strains[ifo]
@@ -254,7 +254,7 @@ class Injection(object):
                 injectionfile.write('{:.15f} \t {} \n'.format(self.times[ifo][i], self.inj_strains[ifo][i]))
             injectionfile.close()
 
-            make_injection_plot(ifo, self.times[ifo] , self.inj_strains[ifo], self.wave_strains[ifo], self.noises[ifo], outdir )
+            make_injection_plot(ifo, self.times[ifo] , self.inj_strains[ifo], self.wave_strains[ifo], self.noises[ifo], self.f_min, outdir )
             make_spectrogram_plot(ifo, self.times[ifo], self.inj_strains[ifo], self.noises[ifo], outdir)
 
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
         logger.info("... setting detector {} for injection ...".format(ifo))
         dets[ifo]   = Detector(ifo,opts.t_gps)
         fr,asd      = read_asd(opts.asds[i], ifo)
-        noises[ifo] = Noise(fr,asd)
+        noises[ifo] = Noise(fr, asd, f_min = opts.f_min, f_max = opts.srate/2.)
 
     if opts.ra == None and opts.dec == None:
         logger.info("... no input sky position, using optimal location for {} ...".format(opts.ifos[0]))

@@ -150,7 +150,7 @@ def windowing(h, alpha=0.1):
     return h*window, wfact
 
 def filtering(fr, hfft, f_cut, type='lowpass', order=4):
-    """ Perform filtering with 4th order Butterworth filter on a given strain (frequency-domain)
+    """ Perform frequency-domain filtering with 4th order Butterworth filter on a given strain (frequency-domain)
         __________
         fr    : frequency axis, used to evaluate the position of the filter
         hfft  : strain to be filtered
@@ -167,23 +167,24 @@ def filtering(fr, hfft, f_cut, type='lowpass', order=4):
 def bandpassing(h, srate, f_min, f_max, order=4):
     """ Perform time-domain filtering with 4th order Butterworth filter on a given strain (time-domain)
         __________
-        fr    : frequency axis, used to evaluate the position of the filter
         hfft  : strain to be filtered
-        f_cut : cut-off frequency. 2-dim array in case of 'bandpass'
-        type  : type of filter to apply, i.e. 'lowpass', 'highpass', 'bandpass'
+        srate : sampling rate
+        f_min : lower cut-off frequency
+        f_max : upper cut-off frequency
+        order : filter order (default 4)
         """
     from scipy.signal import butter, filtfilt
     bb, ab = butter(order, [f_min*2./srate, f_max*2./srate], btype='bandpass')
     hbp = filtfilt(bb, ab, h, method="gust")
     return hbp
 
-def lowspassing(h, srate, f_min, order=4):
+def lowpassing(h, srate, f_min, order=4):
     """ Perform time-domain filtering with 4th order Butterworth filter on a given strain (time-domain)
         __________
-        fr    : frequency axis, used to evaluate the position of the filter
         hfft  : strain to be filtered
-        f_cut : cut-off frequency. 2-dim array in case of 'bandpass'
-        type  : type of filter to apply, i.e. 'lowpass', 'highpass', 'bandpass'
+        srate : sampling rate
+        f_cut : lower cut-off frequency
+        order : filter order (default 4)
         """
     from scipy.signal import butter, filtfilt
     bb, ab = butter(order, f_min*2./srate, btype='lowpass')
@@ -193,10 +194,10 @@ def lowspassing(h, srate, f_min, order=4):
 def highpassing(h, srate, f_max, order=4):
     """ Perform time-domain filtering with 4th order Butterworth filter on a given strain (time-domain)
         __________
-        fr    : frequency axis, used to evaluate the position of the filter
         hfft  : strain to be filtered
-        f_cut : cut-off frequency. 2-dim array in case of 'bandpass'
-        type  : type of filter to apply, i.e. 'lowpass', 'highpass', 'bandpass'
+        srate : sampling rate
+        f_cut : upper cut-off frequency
+        order : filter order (default 4)
         """
     from scipy.signal import butter, filtfilt
     bb, ab = butter(order, f_max*2./srate, btype='highpass')
@@ -213,39 +214,22 @@ class Series(object):
         
         """ Initialize series
             ___________
-            type    : string
-            Specify the type of input series, i.e. 'time' or 'freq'
-            series  : real or complex array
-            Input time (real) or frequency (complex) series
-            - for time series, t_gps is the central time value of the array
-            - for freq series, f_min is the cutoff freq of the high-pass filter
-            (we assumes that the freq series starts from f=0 Hz)
-            srate   : float
-            sampling rate of the given series [Hz]
-            seglen  : float (optional)
-            length of the given series [s].
-            If None, internally compute the current seglens.
-            If given seglen differs from actual seglen,
-            the series is truncated or padded
-            f_min   : float (optional)
-            minimum frequency of the input series [Hz]. Default None
-            f_max   : float (optional)
-            maximum frequency of the input series [Hz]. Default None
-            t_gps   : float (optional)
-            reference time. Defaut 0s
-            only    : bool (optional)
-            If True, store only input series,
-            without computing fft/ifft. Default False.
-            Default False
-            filter  : bool (optional)
-            If True, apply butterworth filter.
-            Default False
-            alpha_taper : float (optional)
-            alpha parameter of the Tukey window.
-            Default 0.1
-            importfreqs : array (optional)
-            In the case of a given freq-series,
-            it is possible to pass manually the frequency axis
+            type    : string, specify the type of input series, i.e. 'time' or 'freq'
+            series  : real or complex array, input time (real) or frequency (complex) series
+                    - for time series, t_gps is the central time value of the array
+                    - for freq series, f_min is the cutoff freq of the high-pass filter
+                    (we assumes that the freq series starts from f=0 Hz)
+            srate   : float, sampling rate of the given series [Hz]
+            seglen  : float (optional), length of the given series [s].
+                    If None, internally compute the current seglens.
+                    If given seglen differs from actual seglen, the series is truncated or padded
+            f_min   : float (optional), minimum frequency of the input series [Hz]. Default None
+            f_max   : float (optional), maximum frequency of the input series [Hz]. Default None
+            t_gps   : float (optional), reference time. Defaut 0s
+            only    : bool (optional), if True, store only input series, without computing fft/ifft. Default False.
+            filter  : bool (optional), if True, apply butterworth filter. Default False
+            alpha_taper : float (optional), alpha parameter of the Tukey window. Default 0.4/seglen
+            importfreqs : array (optional), in the case of a given freq-series, it is possible to pass manually the frequency axis
         """
         
         self.window_factor = 1.
@@ -316,7 +300,7 @@ class Series(object):
             self.alpha_taper    = alpha_taper
             
             if filter:
-                self.time_series    = td_filtering(self.time_series , self.srate, self.f_min , self.f_max)
+                self.time_series    = bandpassing(self.time_series , self.srate, self.f_min , self.f_max)
             
             self.df                 = 1/self.seglen
             self.times              = get_time_ax(len(self.time_series), self.srate, self.t_gps)
@@ -360,7 +344,9 @@ class Series(object):
             if filter:
                 self.freq_series    = filtering(self.freqs, series, [self.f_min,self.f_max] , type='bandpass')
             else:
-                self.freq_series    =  series
+                self.freq_series    = series
+            
+            assert len(self.freqs) == len(self.freq_series)
 
             if only:
                 self.times = None
@@ -376,25 +362,25 @@ class Series(object):
         if isinstance(self.freqs, (np.ndarray, list)):
             self.mask = np.where((self.freqs>=self.f_min)&(self.freqs<=self.f_max))
 
-    def __add__(self,other):
+    def __add__(self,   other):
         return self.freq_series + other.freq_series
 
-    def __sub__(self,other):
+    def __sub__(self,   other):
         return self.freq_series - other.freq_series
 
-    def __prod__(self,other):
+    def __prod__(self,  other):
         return np.conj(self.freq_series) * other.freq_series
     
     def bandpassing(self, flow, fhigh, order=4):
-        self.time_series    = bandpassing(self.time_series, self.srate, flow, fhigh, order)
+        self.time_series    = bandpassing(self.time_series, self.srate, flow, fhigh, int(order))
         _, self.freq_series = fft(self.time_series, self.dt)
     
     def lowpassing(self, flow, order=4):
-        self.time_series    = lowpassing(self.time_series, self.srate, flow, order)
+        self.time_series    = lowpassing(self.time_series, self.srate, flow, int(order))
         _, self.freq_series = fft(self.time_series, self.dt)
     
     def highpassing(self, fhigh, order=4):
-        self.time_series    = highpassing(self.time_series, self.srate, flow, order)
+        self.time_series    = highpassing(self.time_series, self.srate, fhigh, int(order))
         _, self.freq_series = fft(self.time_series, self.dt)
     
     def whitening(self, noise):

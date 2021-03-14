@@ -47,7 +47,7 @@ For more details, visit [`conifg_example`](docs/config_example.ini).
 ## Credits
 
 *bajes* is developed by Matteo Breschi at the Friedrich-Schiller-Universität Jena with 
-the contribution of Rossella Gamba and Sebastiano Bernuzzi.
+the contribution of Rossella Gamba, Emil Donkersloot and Sebastiano Bernuzzi.
 
 If you find *bajes* useful in your research, please include the following [citation](https://arxiv.org/abs/2102.00017) in your publication,
 

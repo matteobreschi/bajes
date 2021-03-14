@@ -426,6 +426,7 @@ def parse_core_options():
     parser.add_option('--spin-max',     dest='spin_max',        default=None,   type='float',   help='upper spin prior bound')
     parser.add_option('--lambda-min',   dest='lambda_min',      default=None,   type='float',   help='lower tidal prior bound')
     parser.add_option('--lambda-max',   dest='lambda_max',      default=None,   type='float',   help='upper tidal prior bound')
+    parser.add_option('--use-mtot',     dest='use_mtot',     default=False,  action="store_true",    help='Perform sampling in mtot instead of mchirp, default False')
 
     # Extra parameters
     parser.add_option('--use-energy-angmom',    dest='ej_flag',     default=False,  action="store_true",    help='include energy and angular momentum parameters')
@@ -443,6 +444,11 @@ def parse_core_options():
 
     # Optional, number of PSD weights
     parser.add_option('--psd-weights',   dest='nweights',         default=0,     type='int',  help='number of PSD weight parameters per IFO, default 0')
+
+    # ROQ options
+    parser.add_option('--use-roq',      dest='roq',         default=False,  action="store_true",    help='ROQ flag')
+    parser.add_option('--roq-epsilon',  dest='roq_epsilon', default=1e-6,   type='float',           help='accuracy for ROQ approximation, default 1e-6')
+    parser.add_option('--roq-training', dest='roq_points',  default=5000,   type='int',             help='number of training points for ROQ, default 5000')
 
     # GWBinning options
     parser.add_option('--use-binning',  dest='binning',     default=False,  action="store_true",    help='frequency binning flag')
@@ -549,6 +555,54 @@ def init_proposal(engine, post, use_slice=False, use_gw=False, maxmcmc=4096, min
     elif engine == 'ultranest':
         return None
 
+#def get_roq_training_grid(prior, n_train):
+#
+#    _intrinsic_names = ['mchirp', 'mtot', 'q',
+#                        's1z', 's2z', 's1', 's2',
+#                        'tilt1', 'tilt2', 'phi_1l', 'phi_2l',
+#                        'lambda1', 'lambda2']
+#
+#    _n = []
+#    _b = []
+#    for i,ni in enumerate(prior.names):
+#        if ni in _intrinsic_names:
+#            _n.append(ni)
+#            _b.append(prior.bounds[i])
+#
+#    # check eos sampling
+#    eos = sum([1 for ni in prior.names if 'eos' in ni else 0])
+#    if eos:
+#        _n.append('lambda1')
+#        _b.append([0,5000])
+#        _n.append('lambda2')
+#        _b.append([0,5000])
+#
+#    n_per_dim = int(float(n_train)**(1./len(_n)))
+#
+#    return
+
+def initialize_roq(freqs, srate , seglen, noise, prior, approx, n_training_points, epsilon):
+    logger.error("ROQ not yet available.")
+    raise AttributeError("ROQ not yet available.")
+    
+#    # set parameter
+#    params  = get_roq_training_grid(prior, n_training_points)
+#
+#    # initialize waveform generator and compute waveforms
+#    from ...obs.gw.waveform import Waveform
+#    wave    = Waveform(freqs, srate , seglen, approx)
+#    waves   = []
+#
+#    # compute PSD
+#    psd     = noise.interp_psd_pad(freqs)
+#
+#    # compute ROQ
+#    from .utils.roq import ROQ
+#    roq     = ROQ(freqs, 1./psd, params, waves, epsilon)
+#    x, i, w = roq.produceROQ()
+#
+#    return i, w
+
 def get_likelihood_and_prior(opts):
 
     # get likelihood objects
@@ -560,14 +614,39 @@ def get_likelihood_and_prior(opts):
 
         if ti == 'gw':
 
-            # select GW likelihood, with or without binning
-            if opts.binning:
-                from .utils.binning import GWBinningLikelihood as GWLikelihood
-            else:
-                from .utils.model import GWLikelihood
-
-            # read arguments for likelihood
+            # check
+            if opts.binning and opts.roq:
+                logger.error("Unable to set simultaneusly frequency-binning and ROQ approximation. Please choose one of the two options.")
+                raise AttributeError("Unable to set simultaneusly frequency-binning and ROQ approximation. Please choose one of the two options.")
+            
+            # read arguments for likelihood and compute prior
             l_kwas, pr = initialize_gwlikelihood_kwargs(opts)
+            
+            if opts.binning:
+                
+                from .utils.binning import GWBinningLikelihood as GWLikelihood
+            
+            elif opts.roq:
+                
+                from .utils.roq import ROQGWLikelihood as GWLikelihood
+                
+                # compute ROQ weights
+                l_kwas['roq_weights'] = {}
+
+                for ifo in opts.ifos:
+                    
+                    logger.info("Computing ROQ weights for {} ...".format(ifo))
+                    inds, wghts = initialize_roq(l_kwas['freqs'][l_kwas['datas'][ifo].mask],
+                                                 l_kwas['srate'], l_kwas['seglen'],
+                                                 l_kwas['noises'][ifo], pr, l_kwas['approx'],
+                                                 opts.roq_epsilon, opts.roq_points)
+                    l_kwas['roq_weights'][ifo] = [inds,wghts]
+            else:
+                
+                from .utils.model import GWLikelihood
+            
+            logger.info("Initializing GW likelihood ...")
+
             likes.append(GWLikelihood(**l_kwas))
             priors.append(pr)
 
@@ -581,6 +660,7 @@ def get_likelihood_and_prior(opts):
 
             # read arguments for likelihood
             l_kwas, pr = initialize_knlikelihood_kwargs(opts)
+            logger.info("Initializing KN likelihood ...")
             likes.append(KNLikelihood(**l_kwas))
             priors.append(pr)
 
@@ -588,8 +668,6 @@ def get_likelihood_and_prior(opts):
 
             logger.error("Unknown tag {} for likelihood initialization. Please use gw, kn or a combination.".format(opts.tags[0]))
             raise ValueError("Unknown tag {} for likelihood initialization. Please use gw, kn or a combination.".format(opts.tags[0]))
-
-    logger.info("Initializing likelihood ...")
 
     # reduce to single likelihood object (single or joined)
     if len(opts.tags) == 0:
@@ -803,19 +881,20 @@ def initialize_gwlikelihood_kwargs(opts):
 
     # define priors
     priors, l_kwargs['spcal_freqs'], l_kwargs['len_weights'] = initialize_gwprior(opts.ifos, [opts.mchirp_min,opts.mchirp_max],opts.q_max,
-                                                                                              opts.f_min, opts.f_max, opts.t_gps, opts.seglen, opts.srate, opts.approx,
-                                                                                              freqs, spin_flag=opts.spin_flag, lambda_flag=opts.lambda_flag,
-                                                                                              spin_max=opts.spin_max, lambda_max=opts.lambda_max, lambda_min=opts.lambda_min,
-                                                                                              dist_max=opts.dist_max, dist_min=opts.dist_min,
-                                                                                              dist_flag=opts.dist_flag,
-                                                                                              time_shift_bounds=[opts.time_shift_min, opts.time_shift_max],
-                                                                                              fixed_names=opts.fixed_names, fixed_values=opts.fixed_values,
-                                                                                              spcals = spcals, nspcal = opts.nspcal , nweights = opts.nweights,
-                                                                                              ej_flag = opts.ej_flag, ecc_flag = opts.ecc_flag,
-                                                                                              energ_bounds=e_bounds, angmom_bounds=j_bounds, ecc_bounds=ecc_bounds,
-                                                                                              marg_phi_ref = opts.marg_phi_ref, marg_time_shift = opts.marg_time_shift,
-                                                                                              tukey_alpha = opts.alpha, lmax = opts.lmax,
-                                                                                              prior_grid=opts.priorgrid, kind='linear')
+                                                                                  opts.f_min, opts.f_max, opts.t_gps, opts.seglen, opts.srate, opts.approx,
+                                                                                  freqs, spin_flag=opts.spin_flag, lambda_flag=opts.lambda_flag,
+                                                                                  spin_max=opts.spin_max, lambda_max=opts.lambda_max, lambda_min=opts.lambda_min,
+                                                                                  dist_max=opts.dist_max, dist_min=opts.dist_min,
+                                                                                  dist_flag=opts.dist_flag,
+                                                                                  time_shift_bounds=[opts.time_shift_min, opts.time_shift_max],
+                                                                                  fixed_names=opts.fixed_names, fixed_values=opts.fixed_values,
+                                                                                  spcals = spcals, nspcal = opts.nspcal , nweights = opts.nweights,
+                                                                                  ej_flag = opts.ej_flag, ecc_flag = opts.ecc_flag,
+                                                                                  energ_bounds=e_bounds, angmom_bounds=j_bounds, ecc_bounds=ecc_bounds,
+                                                                                  marg_phi_ref = opts.marg_phi_ref, marg_time_shift = opts.marg_time_shift,
+                                                                                  tukey_alpha = opts.alpha, lmax = opts.lmax,
+                                                                                  prior_grid=opts.priorgrid, kind='linear',
+                                                                                  use_mtot=opts.use_mtot)
 
     # set fiducial waveform params for binning
     if opts.binning :
@@ -873,6 +952,10 @@ def log_prior_massratio(x, q_max):
     n  = 5.*(hyp2f1(-0.4, -0.2, 0.8, -1.)-hyp2f1(-0.4, -0.2, 0.8, -q_max)/(q_max**0.2))
     return 0.4*np.log((1.+x)/(x**3.))-np.log(np.abs(n))
 
+def log_prior_massratio_usemtot(x, q_max):
+    n = 0.5 - 1./(1.+q_max)
+    return -2.*np.log(1.+x)-np.log(np.abs(n))
+
 def log_prior_comoving_volume(x, cosmo):
     dvc_ddl   = cosmo.dvc_ddl(x)
     return np.log(dvc_ddl)
@@ -912,7 +995,7 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
                        energ_bounds=None, angmom_bounds=None, ecc_bounds=None,
                        marg_phi_ref=False, marg_time_shift=False,
                        tukey_alpha=None, lmax=2,
-                       prior_grid=2000, kind='linear'):
+                       prior_grid=2000, kind='linear', use_mtot=False):
 
     from ..inf.prior import Prior, Parameter, Variable, Constant
 
@@ -924,7 +1007,7 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
     interp_kwarg = {'ngrid': prior_grid, 'kind': kind}
 
     # avoid mchirp,q in fixed names
-    if 'mchirp' in fixed_names or 'q' in fixed_names:
+    if 'mchirp' in fixed_names or 'q' in fixed_names or 'mtot' in fixed_names:
         logger.error("Unable to set masses as constant properties. The prior does not support this function yet.")
         raise RuntimeError("Unable to set masses as constant properties. The prior does not support this function yet.")
 
@@ -935,17 +1018,31 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
     # from scipy.special import hyp2f1
     # norm_q  = 5.*(hyp2f1(-0.4, -0.2, 0.8, -1.)-hyp2f1(-0.4, -0.2, 0.8, -q_max)/np.power(q_max, 0.2))
 
-    dict['mchirp']  = Parameter(name='mchirp',
-                                min=mchirp_bounds[0],
-                                max=mchirp_bounds[1],
-                                prior='linear')
+    if use_mtot:
+        dict['mtot']    = Parameter(name='mtot',
+                                    min=mchirp_bounds[0],
+                                    max=mchirp_bounds[1],
+                                    prior='linear')
+            
+        dict['q']       = Parameter(name='q',
+                                    min=1.,
+                                    max=q_max,
+                                    func=log_prior_massratio_usemtot,
+                                    func_kwarg={'q_max': q_max},
+                                    interp_kwarg=interp_kwarg)
 
-    dict['q']       = Parameter(name='q',
-                                min=1.,
-                                max=q_max,
-                                func=log_prior_massratio,
-                                func_kwarg={'q_max': q_max},
-                                interp_kwarg=interp_kwarg)
+    else:
+        dict['mchirp']  = Parameter(name='mchirp',
+                                    min=mchirp_bounds[0],
+                                    max=mchirp_bounds[1],
+                                    prior='linear')
+
+        dict['q']       = Parameter(name='q',
+                                    min=1.,
+                                    max=q_max,
+                                    func=log_prior_massratio,
+                                    func_kwarg={'q_max': q_max},
+                                    interp_kwarg=interp_kwarg)
 
     # setting spins
     if spin_max != None:

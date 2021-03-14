@@ -100,12 +100,28 @@ def get_detector_information(ifo):
         yarm_azimuth    = 3.7699007123
         xarm_tilt       = 0.
         yarm_tilt       = 0.
-    elif ifo=='ET':
-        latitude        = 0.76151183984
-        longitude       = 0.18333805213
-        elevation       = 51.884
+    elif ifo=='ET1':
+        latitude        = 0.7058579069
+        longitude       = 0.1648295229
+        elevation       = 0
         xarm_azimuth    = 1.2316334746
-        yarm_azimuth    = 2.2788310258
+        yarm_azimuth    = xarm_azimuth + np.pi/3.
+        xarm_tilt       = 0.
+        yarm_tilt       = 0.
+    elif ifo=='ET2':
+        latitude        = 0.7066427131
+        longitude       = 0.1640447167
+        elevation       = 0
+        xarm_azimuth    = 1.2316334746 + np.pi/3.
+        yarm_azimuth    = xarm_azimuth + np.pi/3.
+        xarm_tilt       = 0.
+        yarm_tilt       = 0.
+    elif ifo=='ET3':
+        latitude        = 0.7058579069
+        longitude       = 0.1632599106
+        elevation       = 0
+        xarm_azimuth    = 1.2316334746 + 2.*np.pi/3.
+        yarm_azimuth    = xarm_azimuth + np.pi/3.
         xarm_tilt       = 0.
         yarm_tilt       = 0.
     elif ifo=='CE':
@@ -117,7 +133,7 @@ def get_detector_information(ifo):
         xarm_tilt       = -6.195e-4
         yarm_tilt       = 1.25e-5
     else:
-        raise ValueError("Can't get information from input detector.\n Please check you use a correct name, i.e. H1, L1, V1, K1, G1")
+        raise ValueError("Can't get information from input detector. Please check you use a correct name, i.e. H1, L1, V1, K1, G1")
 
     return latitude, longitude, elevation, xarm_azimuth, yarm_azimuth, xarm_tilt, yarm_tilt
 
@@ -275,9 +291,9 @@ class Detector(object):
                 - time_delay : float
         """
         return self.time_delay_from_location(np.array([0, 0, 0]),
-                                                 right_ascension,
-                                                 declination,
-                                                 t_gps)
+                                             right_ascension,
+                                             declination,
+                                             t_gps)
 
     def time_delay_from_location(self, other_location, right_ascension, declination, t_gps):
         """

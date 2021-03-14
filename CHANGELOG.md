@@ -1,9 +1,12 @@
 ## Changelog
 
+# [v0.2.0] March 2021
+* Introduce unified `SamplerBody`
+* Introduce `ultranest` sampler
+* Introduce ROQ approximation for `pipe`
+
 # [v0.1.0] January 2021
 * Reorganize pipeline in `pipe` module
-* Introduced unified `SamplerBody`
-* Introduce `ultranest` sampler
 
 # [v0.0.9] December 2020
 * Introduce `__main__.py` interface
