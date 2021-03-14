@@ -125,6 +125,10 @@ class Noise(object):
         self.amp_spec_pad   = self.amp_spectrum
         self.pow_spec_pad   = self.power_spectrum
 
+        self.freqs_pad      = self.freqs
+        self.amp_spec_pad   = self.amp_spectrum
+        self.pow_spec_pad   = self.power_spectrum
+
         # enlong ASD/PSD to f=0 to avoid problems during interpolation
         if self.freqs[0] > self.df:
             l_pad               = int(round(np.min(self.freqs)/self.df))+1
@@ -190,13 +194,11 @@ class Noise(object):
         # psd[np.where(fr_out<self.f_min)] = psd[np.max(np.where(fr_out<=self.f_min))]
         # psd[np.where(fr_out>self.f_max)] = psd[np.min(np.where(fr_out>=self.f_max))]
 
-
         # filter PSD
         if filter:
             # ensure continuity outside freuency bounds
             psd[np.where(fr_out<self.f_min)] = 0.0
             psd[np.where(fr_out>self.f_max)] = 0.0
-            # psd = filtering(fr_out, psd, [self.f_min,self.f_max], type='bandpass', order=4)
 
         sigma   = 0.5*np.sqrt(psd/df)
 

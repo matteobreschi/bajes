@@ -397,7 +397,6 @@ class Series(object):
         _, self.freq_series = fft(self.time_series, self.dt)
 
     def whitening(self, noise):
-
         self.freq_series                = self.freq_series/noise.interp_asd_pad(self.freqs)/np.sqrt(self.srate)
         self.times, self.time_series    = ifft(self.freq_series, self.srate, self.seglen, self.t_gps)
 

@@ -33,7 +33,7 @@
 
 # [v0.0.6] September 2020
 * Introduce `knmodule` and KN pipeline
-* Include parametrized EOS and TOV solver in `gwmodule` 
+* Include parametrized EOS and TOV solver in `gwmodule`
 
 # [v0.0.5] July 2020
 * Add `CHANGELOG.md`

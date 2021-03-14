@@ -156,7 +156,3 @@ if __name__ == "__main__":
 
     # produce posteriors
     finalize(inference, logger)
-<<<<<<< HEAD
-=======
-
->>>>>>> a948953... typos

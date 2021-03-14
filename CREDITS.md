@@ -52,7 +52,11 @@ If you use one of the following gravitational-wave approximants, please provide 
 * `TaylorF2_5.5PN`: F. Messina et al., [arxiv](https://arxiv.org/abs/1904.09558)
     * `7.5PNTides` are taken from T. Damour et al., [arxiv](https://arxiv.org/abs/1203.4352)
     * `7.5PNTides2020` corresponds to Q. Henry et al., [arxiv](https://arxiv.org/abs/2005.13367)
+<<<<<<< HEAD
 * For the documentation of `LALSimulation` waveforms, please visit the [documentation](https://lscsoft.docs.ligo.org/lalsuite/)
+=======
+* For the documentation of `LALSimulation` waveforms, please visit this [link](https://lscsoft.docs.ligo.org/lalsuite/)
+>>>>>>> 2fc4b76... tuning nrpmw + cleaning ultranest with mpi
 
 The *bajes* repository contains the official ASDs and the calibration envelopes
 released with GWTC-1 (LVC, [arxiv](https://arxiv.org/abs/1811.12907)) and the design

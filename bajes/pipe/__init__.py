@@ -265,18 +265,28 @@ def save_container(path, kwargs):
         - kwargs : dictionary of objects, the keys will define the arguments of the container
     """
 
-    pkl_kwarg = {}
-    for ki in list(kwargs.keys()):
-        if is_picklable(kwargs[ki]):
-            pkl_kwarg[ki] = kwargs[ki]
-        else:
-            logger.warning("Impossible to store {} object in data container, it is not picklable".format(ki))
+    # identify master process
+    try:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+    except Exception:
+        rank = 0
 
-    dc = data_container(path)
-    for ki in list(pkl_kwarg.keys()):
-        logger.debug("Storing {} object in data container".format(ki))
-        dc.store(ki, pkl_kwarg[ki])
-    dc.save()
+    # save container
+    if rank == 0:
+        pkl_kwarg = {}
+        for ki in list(kwargs.keys()):
+            if is_picklable(kwargs[ki]):
+                pkl_kwarg[ki] = kwargs[ki]
+            else:
+                logger.warning("Impossible to store {} object in data container, it is not picklable".format(ki))
+
+        dc = data_container(path)
+        for ki in list(pkl_kwarg.keys()):
+            logger.debug("Storing {} object in data container".format(ki))
+            dc.store(ki, pkl_kwarg[ki])
+        dc.save()
 
 class data_container(object):
     """
@@ -332,10 +342,7 @@ def parse_main_options():
     usage   = "python -m bajes [options]\n"+"Version: bajes {}".format(__version__)
     parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
 
-    # Choose the engine
     parser.add_option('-p', '--prior',  dest='prior',       type='string',  help='path to prior file (configuration file)')
-
-    # Choose the engine
     parser.add_option('-l', '--like',   dest='like',        type='string',  help='path to likelihood function (python file)')
 
     # Choose the engine
@@ -441,7 +448,6 @@ def parse_core_options():
     parser.add_option('--tshift-max',        dest='time_shift_max', default=[],        type='float',   action="append",      help='upper time shift prior bound')
     parser.add_option('--tshift-min',        dest='time_shift_min', default=[],        type='float',   action="append",      help='lower time shift prior bound')
 
-
     #
     # GW OPTIONS
     #
@@ -469,9 +475,9 @@ def parse_core_options():
     parser.add_option('--lmax',              dest='lmax',           default=0,         type='int',                           help='Higher angular mode index to be considered for GW template. Default: 0')
 
     # Prior flags
-    parser.add_option('--data-flag',         dest='data_flag',      default=None,       type='string',                       help='Data flag. Available options: [???]. Default: None')
-    parser.add_option('--spin-flag',         dest='spin_flag',      default='no-spins', type='string',                       help='Spin prior flag. Available options: [???]. Default: `no-spins`.')
-    parser.add_option('--tidal-flag',        dest='lambda_flag',    default='no-tides', type='string',                       help='Tidal prior flag. Available options: [???]. Default: `no-tides`.')
+    parser.add_option('--data-flag',         dest='data_flag',      default=None,       type='string',                       help='Data flag. UNUSED.')
+    parser.add_option('--spin-flag',         dest='spin_flag',      default='no-spins', type='string',                       help='Spin prior flag. Available options: [no-spins, align-isotropic, align-volumetric, precess-isotropic, precess-volumetric]. Default: no-spins.')
+    parser.add_option('--tidal-flag',        dest='lambda_flag',    default='no-tides', type='string',                       help='Tidal prior flag. Available options: [no-tides, bns-tides, bhns-tides, nsbh-tides]. Default: no-tides.')
 
     # Prior bounds
     parser.add_option('--mc-min',            dest='mchirp_min',      default=None,   type='float',   help='lower mchirp prior bound (if use-mtot, lower mtot prior bound)')
@@ -503,6 +509,11 @@ def parse_core_options():
 
     # Optional, number of PSD weights
     parser.add_option('--psd-weights',       dest='nweights',         default=0,     type='int',  help='number of PSD weight parameters per IFO, default 0')
+
+    # ROQ options
+    parser.add_option('--use-roq',           dest='roq',         default=False,  action="store_true",    help='ROQ flag')
+    parser.add_option('--roq-epsilon',       dest='roq_epsilon', default=1e-6,   type='float',           help='accuracy for ROQ approximation, default 1e-6')
+    parser.add_option('--roq-training',      dest='roq_points',  default=5000,   type='int',             help='number of training points for ROQ, default 5000')
 
     # ROQ options
     parser.add_option('--use-roq',           dest='roq',         default=False,  action="store_true",    help='ROQ flag')
@@ -724,7 +735,6 @@ def get_likelihood_and_prior(opts):
                 from .utils.model import GWLikelihood
 
             logger.info("Initializing GW likelihood ...")
-
             likes.append(GWLikelihood(**l_kwas))
             priors.append(pr)
 

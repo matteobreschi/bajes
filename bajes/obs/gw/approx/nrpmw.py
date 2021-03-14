@@ -156,6 +156,7 @@ def _nrpmw_fits(pars, recalib=False, attach=False):
     pars['t_1']  = min(pars['NRPMw_t_coll'], pars['t_0'] + dt0)
     pars['t_2']  = min(pars['NRPMw_t_coll'], pars['t_0'] + 2.*dt0)
     pars['t_3']  = min(pars['NRPMw_t_coll'], pars['t_0'] + 3.*dt0)
+
     return pars
 
 #####################################################
@@ -303,6 +304,7 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
         - tau               : strain duration
         - tshift            : additional time-shift, float
     """
+
     # fix numbers
     eta     = complex(eta)
     alpha   = complex(alpha)

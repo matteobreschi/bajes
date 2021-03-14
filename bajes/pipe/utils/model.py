@@ -147,7 +147,7 @@ class GWLikelihood(Likelihood):
         if not any(wave.plus):
             return -np.inf
 
-        if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))): 
+        if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))):
             logger.warning('Nans in the waveform, with the configuration: {}. Returning -inf in the likelihood.'.format(params))
             return -np.inf
         if(np.any(np.isinf(wave.plus)) or np.any(np.isinf(wave.cross))):

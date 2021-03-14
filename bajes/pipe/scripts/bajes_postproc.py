@@ -29,6 +29,11 @@ from bajes.obs.utils       import Cosmology
 from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda, mcq_to_m1, mcq_to_m2
 from bajes.obs.gw.waveform import PolarizationTuple
 
+def _stats(samples):
+    md = np.median(samples)
+    up = np.percentile(samples, 95)
+    lo = np.percentile(samples, 5)
+    return md, up-md, md-lo
 
 def _stats(samples):
     md = np.median(samples)
@@ -154,6 +159,9 @@ def make_corners(posterior, spin_flag, lambda_flag, ppdir, priors):
     elif('no-spins' in spin_flag):
         logger.info("No spins option selected. Skipping spin plots.")
 
+    elif('no-spins' in spin_flag):
+        logger.info("No spins option selected. Skipping spin plots.")
+
     else:
         logger.warning("Unknown spins option selected. Skipping spin plots.")
 
@@ -170,7 +178,6 @@ def make_corners(posterior, spin_flag, lambda_flag, ppdir, priors):
             try:
                 lambdat_post = compute_lambda_tilde(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
                 dlambda_post = compute_delta_lambda(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
-
                 tide2_matrix = np.column_stack((lambdat_post, dlambda_post))
                 tide2_labels = [r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
                 make_corner_plot(tide2_matrix,tide2_labels,ppdir+'/lambdat_posterior.pdf')
@@ -211,6 +218,7 @@ def make_corners(posterior, spin_flag, lambda_flag, ppdir, priors):
 
         else:
             logger.warning("Unknown tides option selected. Skipping tides plots.")
+
     else:
         logger.info("Tides parameters were fixed. Skipping tides corner.")
 
@@ -470,7 +478,6 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
                                                                  {ifo: strains_dets[ifo]['n'] for ifo in container_inf.like.ifos},
                                                                  w, marg_phi=container_inf.like.marg_phi_ref,
                                                                  marg_time=container_inf.like.marg_time_shift)
-
             # collect quantities
             SNRs.append(snr)
             for det in strains_dets.keys():
@@ -806,7 +813,6 @@ def clean_outdir(outdir):
     for di in listdir:
         if di.split('.')[-1] == 'pkl' and os.path.isfile(outdir+'/'+di):
             os.replace(outdir+'/'+di, pkl_dir+'/'+di)
-
 
 if __name__ == "__main__":
 

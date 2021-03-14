@@ -59,20 +59,20 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
         # plot injected strain (black) and signal (red)
         ax1.set_title("{} injection".format(ifo), size = 14)
         ax1.plot(time , inj_strain, c='gray', lw=0.7, label='Injected strain')
-        ax1.plot(time , wave_strain, c='slateblue', label='Projected wave')
+        ax1.plot(time , wave_strain, c='navy', label='Projected wave')
         ax1.legend(loc='best')
         ax1.set_xlabel('time [s]')
         ax1.set_ylabel('strain')
 
         # plot central 1s of signal
-        mask_ax2 = np.where((time>=np.median(time)-0.5)&(time<=np.median(time)+0.5))
-        ax2.plot(time[mask_ax2], wave_strain[mask_ax2], c='r')
+        t_peak = time[np.argmax(np.abs(wave_strain))]
+        mask_ax2 = np.where((time>=t_peak-0.5)&(time<=t_peak+0.5))
+        ax2.plot(time[mask_ax2], wave_strain[mask_ax2], c='navy')
 
         plt.savefig(outdir + '/{}_strains.png'.format(ifo), dpi=100, bbox_inches='tight')
         plt.close()
     except Exception:
         pass
-
 
     from scipy.signal import tukey
 
@@ -141,11 +141,23 @@ class Injection(object):
                     self.noise_strains[ifo] = noises[ifo].generate_fake_noise(self.seglen, self.srate, self.t_gps, filter=True)
                     self.inj_strains[ifo]   = self.noise_strains[ifo] + self.wave_strains[ifo]
                 else:
-                    raise Exception("A zero noise injection was selected and no data file was provided, thus the strain is made of zeros only.")
+                    raise RuntimeError("Unable to generate artificial data. Zero-noise injection was selected and no data file was provided.")
                 self.times[ifo]             = np.arange(Npt,dtype=float)/srate - self.seglen/2 + self.t_gps
 
                 # compute SNR
                 self.snrs[ifo] = 0.
+                logger.info("  - SNR in {} = {:.3f} ".format(ifo, self.snrs[ifo]))
+
+                # re-initialize detector with actual data
+                self.dets[ifo].store_measurement(Series('time', self.inj_strains[ifo],
+                                                        srate=self.srate, seglen=self.seglen, f_min=self.f_min,
+                                                        f_max=self.srate/2, t_gps=self.t_gps, alpha_taper=0.0),
+                                                 noises[ifo])
+
+                # compute SNR
+                d_inner_h, h_inner_h, d_inner_d = self.dets[ifo].compute_inner_products(signal_template, params, wave.domain)
+                d_inner_h = np.sum(d_inner_h)
+                self.snrs[ifo] = d_inner_h/np.sqrt(h_inner_h)
                 logger.info("  - SNR in {} = {:.3f} ".format(ifo, self.snrs[ifo]))
 
         else:
@@ -322,8 +334,8 @@ class Injection(object):
 
             else:
 
-                logger.error("Impossible to generate injection from {} file. Use txt/dat or ini.".format(tag))
-                ValueError("Impossible to generate injection from {} file. Use txt/dat or ini.".format(tag))
+                logger.error("Unable to generate injection from {} file. Use ASCII file (.txt or .dat) or config file (.ini).".format(tag))
+                ValueError("Unable to generate injection from {} file. Use ASCII file (.txt or .dat) or config file (.ini).".format(tag))
 
         # print network SNR
         if list(self.snrs.keys()):
@@ -384,6 +396,7 @@ def bajes_inject_parser():
     parser.add_option('--tukey',       dest='tukey',  default=0.1,        type='float',                       help='tukey window parameter')
 
     parser.add_option('-o','--outdir', dest='outdir', default=None,       type='string',                      help='Output directory. Default: None.')
+
     return parser.parse_args()
 
 if __name__ == "__main__":

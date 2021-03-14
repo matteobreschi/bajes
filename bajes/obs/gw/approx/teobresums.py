@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import EOBRun_module as EOB
-except Exception:
+except ImportError:
     warnings.warn("Unable to import TEOBResumS module")
     pass
 
@@ -39,6 +39,15 @@ def l_to_k(lmax, remove_ks = []):
         for k_exlc in remove_ks:
             k_modes.remove(k_exlc)
     return k_modes
+
+def additional_opts(params_teob, params):
+
+    # set additional flags (present in params) in params_teob
+    names = ['project_spins', 'postadiabatic_dynamics', 'use_flm', 'nqc', 'nqc_coefs_flx', 'nqc_coefs_hlm']
+
+    for flag in names:
+        if params.get(flag) is not None:
+            params_teob[flag] = params[flag]
 
 def additional_opts(params_teob, params):
 
@@ -182,7 +191,6 @@ def teobresums_hyperb_wrapper(freqs, params):
                             'use_mode_lm':         modes             ,
                             'domain':              0                 ,
                             'arg_out':             0                 ,
-
                             'initial_frequency':   params['f_min']   ,
                             'srate':               params['srate']   ,
                             'srate_interp':        params['srate']   ,
@@ -198,7 +206,7 @@ def teobresums_hyperb_wrapper(freqs, params):
                     }
 
             t, hp, hc = teobresums(params_teob)
-            if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))): 
+            if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))):
                 logger.warning('Nans in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
                 return [None], [None]
             if(np.any(np.isinf(hp)) or np.any(np.isinf(hc))):

@@ -108,10 +108,7 @@ class SamplerUltraNest(SamplerBody):
             z_frac = 1. - np.exp(-tolerance)
 
         # set update_interval_volume_fraction argument
-        if self.ncheckpoint > 100*nlive:
-            update_vol_frac = 1.
-        else:
-            update_vol_frac = 1. - np.exp(-self.ncheckpoint/nlive)
+        update_vol_frac = max(0.,1. - np.exp(-self.ncheckpoint/nlive))
 
         # save runner arguments
         self.run_kwargs = { 'update_interval_volume_fraction':  update_vol_frac,

@@ -401,7 +401,7 @@ class Detector(object):
         proj_h  = fplus*wave.plus + fcross*wave.cross
 
         if tag == 'time':
-            # apply time delay from geocenter
+            # apply time delay from geocenters
             return lagging(proj_h, int(round(delay*self.srate)))
 
         elif tag == 'freq':
