@@ -47,14 +47,16 @@ def fft(h, dt):
     f = get_freq_ax(N,dt)
     return f , hfft
 
-def ifft(u , srate, t0=0.):
+def ifft(u , srate, seglen, t0=0.):
     """ Compute the inverse FFT of a given complex frequency series,
         this function assumes that the input is one-sided FFT
         -----------
         u = array, frequency series
         We evaluate the inverse FFT of this function
-        fNyq = float
-        Nyquist frequency = samplingrate/2 = 1/(2*dt)
+        srate = float
+        Sampling rate (= 1/dt) in Hertz
+        seglen = float
+        Duration of the segment in seconds
         t0 = float
         Central time value
         -----------
@@ -63,7 +65,7 @@ def ifft(u , srate, t0=0.):
         hifft = array, float
         inverse FFT of u
         """
-    N   = (len(u)-1)*2
+    N   = int(srate*seglen)
     s   = np.fft.irfft(u,N)
     t   = get_time_ax(N,srate,t0)
     return t , s*srate
@@ -353,7 +355,7 @@ class Series(object):
                 self.time_series = None
             else:
                 # compute ifft
-                self.times, self.time_series    = ifft(self.freq_series, self.srate, self.t_gps)
+                self.times, self.time_series    = ifft(self.freq_series, self.srate, self.seglen, self.t_gps)
 
         else:
             logger.error("Type of series not specified or wrong. Please use 'time' or 'freq'.")
@@ -385,7 +387,7 @@ class Series(object):
     
     def whitening(self, noise):
         self.freq_series                = self.freq_series/noise.interp_asd_pad(self.freqs)
-        self.times, self.time_series    = ifft(self.freq_series, self.srate/2., self.t_gps)
+        self.times, self.time_series    = ifft(self.freq_series, self.srate, self.seglen, self.t_gps)
 
     def interp_freq_series(self, new_freqs):
         """ Cubic interpolation of frequency series
