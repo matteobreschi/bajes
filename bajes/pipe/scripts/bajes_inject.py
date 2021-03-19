@@ -28,7 +28,7 @@ def make_spectrogram_plot(ifo, time, inj_strain, noise, outdir):
     asd     = noise.interp_asd_pad(freq)
     inj_hfft_whit = inj_hfft/(asd*np.sqrt(fNyq))
 
-    time_whit, inj_strain_whit = ifft(inj_hfft_whit , srate)
+    time_whit, inj_strain_whit = ifft(inj_hfft_whit , srate, seglen)
 
     Nfft    = int (fNyq)//2
     Novl    = int (Nfft * 0.9)
