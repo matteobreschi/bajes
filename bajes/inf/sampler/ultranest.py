@@ -15,7 +15,7 @@ def index_from_chain(chain, param):
 
     res = ((chain - param)**2.).sum(axis=1)
     ind = int(np.argmin(res))
-    
+
     if res[ind] == 0:
         return ind
     elif res[ind] < 1e-32:
@@ -31,7 +31,7 @@ class _vectorized_posterior(object):
         self._post = posterior
         self._pool = pool
         self._mapf = self._pool.map
-    
+
     def __getstate__(self):
         state = self.__dict__.copy()
         state['_pool'] = None
@@ -40,7 +40,7 @@ class _vectorized_posterior(object):
 
     def log_like(self, x):
         return np.array(list(self._mapf(self._post.log_like, x)))
-    
+
     def prior_transform(self, x):
         return np.array(list(self._mapf(self._post.prior_transform, x)))
 
@@ -66,18 +66,16 @@ class SamplerUltraNest(SamplerBody):
                        pool=None, **kwargs):
 
         self.log_prior_fn = posterior.log_prior
-        
+
         if nlive < len(posterior.prior.names)*(len(posterior.prior.names)-1)//2:
             logger.warning("Given number of live points < Ndim*(Ndim-1)/2. This may generate problems in the exploration of the parameters space.")
-        
+
         if nlive_cluster == None:
             nlive_cluster = nlive//10
-        
-        if self.store_flag:
-            import os
-            log_dir = os.path.join(self.outdir, 'ultranest')
-        else:
-            log_dir = None
+
+        # if self.store_flag:
+        import os
+        log_dir = os.path.join(self.outdir, 'ultranest')
 
         sampler_kwargs  = { 'log_dir':          log_dir,
                             'vectorized':       False,
@@ -90,19 +88,19 @@ class SamplerUltraNest(SamplerBody):
 
         # check vectorization
         if pool is not None:
-        
+
             # check it is actually a multiprocessing pool
             from multiprocessing.pool import Pool
             if not isinstance(pool, Pool):
                 logger.error("Unable to set parallel processes, pool argument for UltraNest sampler must be a multiprocessing pool.")
                 raise AttributeError("Unable to set parallel processes, pool argument for UltraNest sampler must be a multiprocessing pool.")
-        
+
             # turn on vectorization
             sampler_kwargs['vectorized'] = True
-            
+
             # wrap vectorized posterior
             posterior = _vectorized_posterior(posterior=posterior, pool=pool)
-                
+
         # set frac_remain argument
         if z_frac == None:
             z_frac = 1. - np.exp(-tolerance)
@@ -112,7 +110,7 @@ class SamplerUltraNest(SamplerBody):
             update_vol_frac = 1.
         else:
             update_vol_frac = 1. - np.exp(-self.ncheckpoint/nlive)
-        
+
         # save runner arguments
         self.run_kwargs = { 'update_interval_volume_fraction':  update_vol_frac,
                             'viz_callback':                     self.update,
@@ -130,7 +128,7 @@ class SamplerUltraNest(SamplerBody):
                                               posterior.log_like,
                                               posterior.prior_transform,
                                               **sampler_kwargs)
-        
+
         logger.info("Initializing proposal method ...")
         import ultranest.stepsampler as stepsampler
         if proposals_kwargs['use_slice']:
@@ -142,16 +140,16 @@ class SamplerUltraNest(SamplerBody):
 
         # set unique logger
         self.sampler.logger = logger
-        
+
         # avoid mpi.comm if mpi is not used
         if not self.sampler.use_mpi:
             self.sampler.comm = None
 
     def __restore__(self, pool, **kwargs):
-        
+
         # re-initialize vectorized probabilities
         if pool is not None:
-            
+
             if not self.sampler.draw_multiple:
                 logger.warning("Inconsitency revealed between current settings and resumed object, turning on multiple draws.")
                 self.sampler.draw_multiple = True
@@ -177,7 +175,7 @@ class SamplerUltraNest(SamplerBody):
                             'resume':           'resume',
                             'storage_backend':  'hdf5',
                             'wrapped_params' :  wrapped_params}
-        
+
         # check proposal method
         import ultranest.stepsampler as stepsampler
         use_slice = False
@@ -219,7 +217,7 @@ class SamplerUltraNest(SamplerBody):
         return args
 
     def __run__(self):
-        
+
         # final store inference
         for result in self.sampler.run_iter(**self.run_kwargs):
             self.results = result
@@ -230,7 +228,7 @@ class SamplerUltraNest(SamplerBody):
     def get_posterior(self):
 
         logger.info('  H = {:.4f} +- {:.4f}'.format(self.results['H'],self.results['Herr']))
-        
+
         if self.results['insertion_order_MWW_test']['converged'] and np.isfinite(self.results['insertion_order_MWW_test']['independent_iterations']):
             logger.info('Converged chain with correlation %(independent_iterations)s' % (self.results['insertion_order_MWW_test']))
         else:
@@ -238,7 +236,7 @@ class SamplerUltraNest(SamplerBody):
                 logger.warning('Sampler did not converged, consider to increase the number of mcmc iterations.')
             if not np.isfinite(self.results['insertion_order_MWW_test']['independent_iterations']):
                 logger.warning('Samples are highly correlated, consider to increase the number of mcmc iterations.')
-            
+
         # get posterior samples
         names                   = np.append(self.names , ['logL', 'logPrior'])
         samples                 = np.array(self.results['samples'])
@@ -276,12 +274,11 @@ class SamplerUltraNest(SamplerBody):
     def make_plots(self):
 
         try:
-            
+
             from ultranest.plot import cornerplot
             cornerplot(self.results)
             self.sampler.plot_trace()
 
-        except ImportError:
+        except Exception:
             logger.info("Standard plots of ultranest are not procuded if checkpoint is disabled.")
             logger.warning("Unable to produce standard plots, check if matplotlib and corner are installed.")
-

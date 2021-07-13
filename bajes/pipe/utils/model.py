@@ -30,7 +30,7 @@ class GWLikelihood(Likelihood):
                  nweights=0, len_weights=None,
                  marg_phi_ref=False, marg_time_shift=False,
                  **kwargs):
-        
+
         # run standard initialization
         super(GWLikelihood, self).__init__()
 
@@ -41,32 +41,32 @@ class GWLikelihood(Likelihood):
         # set marginalization flags
         self.marg_phi_ref       = marg_phi_ref
         self.marg_time_shift    = marg_time_shift
-        
+
         n_freqs     = None
         f_min_check = None
         f_max_check = None
-        
+
         # iterate over detectors
         for ifo in self.ifos:
-            
+
             self.dets[ifo].store_measurement(datas[ifo], noises[ifo],
                                              nspcal, spcal_freqs,
                                              nweights, len_weights)
-            
+
             if f_min_check == None:
                 f_min_check = datas[ifo].f_min
             else:
                 if datas[ifo].f_min != f_min_check:
                     logger.error("Input f_min of data and model do not match in detector {}.".format(ifo))
                     raise ValueError("Input f_min of data and model do not match in detector {}.".format(ifo))
-            
+
             if f_max_check == None:
                 f_max_check = datas[ifo].f_max
             else:
                 if datas[ifo].f_max != f_max_check:
                     logger.error("Input f_max of data and model do not match in detector {}.".format(ifo))
                     raise ValueError("Input f_max of data and model do not match in detector {}.".format(ifo))
-                        
+
             if n_freqs == None:
                 n_freqs = len(datas[ifo].freqs)
             else:
@@ -136,21 +136,21 @@ class GWLikelihood(Likelihood):
         logger.debug("Generating waveform for {}".format(params))
         wave    = self.wave.compute_hphc(params)
         logger.debug("Waveform generated".format(params))
-        
+
         # if hp, hc == [None], [None]
         # the requested parameters are unphysical
         # Then, return -inf
         if not any(wave.plus):
             return -np.inf
-        
+
         hh = 0.
         dd = 0.
         _psd_fact = 0.
-        
+
         if self.marg_time_shift:
-        
+
             dh_arr = np.zeros(self.Nfr, dtype=complex)
-        
+
             # compute inner products
             for ifo in self.ifos:
                 logger.debug("Projecting over {}".format(ifo))
@@ -159,7 +159,7 @@ class GWLikelihood(Likelihood):
                 hh += np.real(hh_thisifo)
                 dd += np.real(dd_thisifo)
                 _psd_fact += _psdf
-    
+
             # evaluate logL
             logger.debug("Estimating likelihood")
             if self.marg_phi_ref:
@@ -169,11 +169,11 @@ class GWLikelihood(Likelihood):
             else:
                 re_dh   = np.real(dh_arr)
                 R       = logsumexp(re_dh-np.log(self.Nfr))
-    
+
         else:
-            
+
             dh = 0.+0.j
-        
+
             # compute inner products
             for ifo in self.ifos:
                 logger.debug("Projecting over {}".format(ifo))
@@ -190,7 +190,7 @@ class GWLikelihood(Likelihood):
                 R   = np.log(i0e(dh)) + dh
             else:
                 R   = np.real(dh)
-                
+
         logL =  -0.5*(hh + dd) + R - self.logZ_noise - 0.5*_psd_fact
         return logL
 
@@ -207,10 +207,10 @@ class KNLikelihood(Likelihood):
 
         # run standard initialization
         super(KNLikelihood, self).__init__()
-        
+
         # set data properties
         self.filters = filters
-        
+
         # compute data normalization
         self.logZ_noise = -0.5*sum([np.power(self.filters.magnitudes[bi]/self.filters.mag_stdev[bi],2.) for bi in self.filters.bands()])
 
@@ -218,14 +218,14 @@ class KNLikelihood(Likelihood):
         if t_start > 86400:
             logger.warning("Initial time for lightcurve evaluation is larger than a day (86400 s). Setting t_start to 1h")
             t_start = 3600
-        
+
         # the time axis passed to the lightcurve goes from t_start (~0) to the size of the measurement times
         # subsequently (line 489) the time axis is rescaled such that t=0 goes to t_gps
         t_size = np.max(filters.all_times)- np.min(filters.all_times)
         if 'time_shift' in priors.names:
             ip = priors.names.index('time_shift')
             t_size += priors.bounds[ip][1]-priors.bounds[ip][0]
-        
+
         if t_scale=='linear':
             t_axis  = np.linspace(t_start, t_size+t_start, n_time)
         elif t_scale=='log':

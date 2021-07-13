@@ -12,10 +12,10 @@ from ..utils.tov import TOVSolver
 
 from collections import namedtuple
 PolarizationTuple = namedtuple("PolarizationTuple", ("plus","cross"), defaults=([None],[None]))
-# TODO : introduce scalar, vector, tensor polarizations for polarization tests 
+# TODO : introduce scalar, vector, tensor polarizations for polarization tests
 
 def tailing(hp, hc, srate, npt):
-    
+
     # estimate initial properties
     dt      = 1./srate
     h       = hp - 1j*hc
@@ -24,7 +24,7 @@ def tailing(hp, hc, srate, npt):
     a0      = np.abs(amp)[0]
     p0      = phi[0]
     f0      = np.abs(phi[2]-phi[1])/dt/(2*np.pi)
-    
+
     # generate tail and attach
     t       = np.arange(npt)*dt
     amp_t   = a0*0.5*(1. - np.cos(np.pi*t/np.max(t)))
@@ -35,25 +35,25 @@ def tailing(hp, hc, srate, npt):
     return np.real(h), -np.imag(h)
 
 def centering_tdwave(hp, hc, seglen, srate, alpha_tukey = 0.1):
-    
+
     h           = hp - 1j*hc
     imax        = np.argmax(np.abs(h))
     lenFin      = int(srate*seglen)
-    
+
     # if waveform is already centered
     # return input+window
     if len(h) == lenFin and imax == lenFin//2:
         hp, wfact = windowing(hp, alpha_tukey)
         hc, wfact = windowing(hc, alpha_tukey)
         return hp, hc
-    
+
     # if waveform is not smoot,
     # append a tail (constant freq) at the beginning
     if hp[0] != 0 or hc[0] != 0:
         hp, hc  = tailing(hp, hc, srate, int(len(hp)*alpha_tukey))
         h       = hp - 1j*hc
         imax    = np.argmax(np.abs(h))
-    
+
     # waveform centering
     lenIni      = len(h)
     lenFin_top  = lenFin//2
@@ -79,22 +79,22 @@ class Waveform(object):
     """
         Waveform model object for compact binary coalescences
     """
-    
+
     def __init__(self, freqs, srate, seglen, approx):
         """
             Initialize the Waveform with a frequency axis and the name of the approximant
         """
-    
+
         self.freqs  = freqs
         self.seglen = seglen
         self.srate  = srate
-        
+
         self.f_max  = np.max(self.freqs)
         self.df     = 1./self.seglen
         self.dt     = 1./self.srate
-        
+
         self.times  = np.arange(int(self.srate*self.seglen))*self.dt
-        
+
         self.approx = approx
         logger.info("Setting {} waveform ...".format(self.approx))
 
@@ -112,7 +112,7 @@ class Waveform(object):
             from .approx.taylorf2 import taylorf2_55pn_wrapper
             self.wave_func = taylorf2_55pn_wrapper
             self.domain     = 'freq'
-        
+
         elif self.approx == 'TaylorF2_5.5PN_7.5PNTides':
             from .approx.taylorf2 import taylorf2_55pn75pntides_wrapper
             self.wave_func = taylorf2_55pn75pntides_wrapper
@@ -137,7 +137,7 @@ class Waveform(object):
             from .approx.teobresums import teobresums_spa_wrapper
             self.wave_func  = teobresums_spa_wrapper
             self.domain     = 'freq'
-        
+
         elif self.approx == 'HypTEOBResumS':
             from .approx.teobresums import teobresums_hyperb_wrapper
             self.wave_func  = teobresums_hyperb_wrapper
@@ -147,7 +147,17 @@ class Waveform(object):
             from .approx.nrpm import nrpm_wrapper
             self.wave_func  = nrpm_wrapper
             self.domain     = 'time'
-        
+
+        elif self.approx == 'NRPMw':
+            from .approx.nrpm import nrpmw_wrapper
+            self.wave_func  = nrpmw_wrapper
+            self.domain     = 'freq'
+
+        elif self.approx == 'NRPMw_recal':
+            from .approx.nrpm import nrpmw_recal_wrapper
+            self.wave_func  = nrpmw_recal_wrapper
+            self.domain     = 'freq'
+
         elif self.approx == 'TEOBResumS_NRPM':
             from .approx.teobresums import teobresums_nrpm_wrapper
             self.wave_func  = teobresums_nrpm_wrapper
@@ -180,21 +190,21 @@ class Waveform(object):
             from .approx.mlgw import mlgw_wrapper
             self.wave_func = mlgw_wrapper(self.seglen, self.srate)
             self.domain = 'time'
-        
+
         elif self.approx == 'MLTEOBNQC':
             # OBS: MLGW functions are class with a __call__ method,
             # instead of standard methods, because it has to initilize the generator
             from .approx.mlgw import mlteobnqc_wrapper
             self.wave_func = mlteobnqc_wrapper(self.seglen, self.srate)
             self.domain = 'time'
-        
+
         elif self.approx == 'MLSEOBv4':
             # OBS: MLGW functions are class with a __call__ method,
             # instead of standard methods, because it has to initilize the generator
             from .approx.mlgw import mlseobv4_wrapper
             self.wave_func = mlseobv4_wrapper(self.seglen, self.srate)
             self.domain = 'time'
-        
+
         elif 'LALSimFD' in self.approx:
             # OBS: LALSim functions are class with a __call__ method,
             # instead of standard methods
@@ -202,7 +212,7 @@ class Waveform(object):
             lal_approx      = self.approx.split('-')[1]
             self.domain     = 'freq'
             self.wave_func  = lal_wrapper(lal_approx, self.domain)
-        
+
         elif 'LALSimTD' in self.approx:
             # OBS: LALSim functions are class with a __call__ method,
             # instead of standard methods
@@ -210,7 +220,7 @@ class Waveform(object):
             lal_approx      = self.approx.split('-')[1]
             self.domain     = 'time'
             self.wave_func  = lal_wrapper(lal_approx, self.domain)
-        
+
         else:
             from . import __known_approxs__
             raise AttributeError("Unable to read approximant string. Please use a valid value (see bajes.__known_approxs__):\n{}.\nIf you are using a LAL approximant, it is possible to know the full list at https://lscsoft.docs.ligo.org/lalsuite/".format(__known_approxs__))
@@ -220,11 +230,11 @@ class Waveform(object):
             --------
             params : dictionary
             Dictionary of the parameters, with the following
-            
+
                 [masses notation n.1 ]
                 mchirp      : chirp mass [solar masses]
                 q           : mass ratio [ > 1 ]
-                
+
                 [spins notation n.1 - cartesian]
                 s1x         : primary spin component along x axis [dimensionless]
                 s1y         : primary spin component along y axis [dimensionless]
@@ -232,7 +242,7 @@ class Waveform(object):
                 s2x         : secondary spin component along x axis [dimensionless]
                 s2y         : secondary spin component along y axis [dimensionless]
                 s2z         : secondary spin component along z axis [dimensionless]
-        
+
                 [spins notation n.2 - spherical]
                 s1          : primary spin magnitude [dimensionless]
                 tilt1       : azimuathal angle primary spin [rad]
@@ -240,17 +250,17 @@ class Waveform(object):
                 s2          : secondary spin magnitude [dimensionless]
                 tilt2       : azimuathal angle secondary spin [rad]
                 phi_2l      : equatorial angle secondary spin [rad]
-                
+
                 [tides]
                 lambda1     : primary tidal component [dimensionless]
                 lambda2     : secondary tidal component [dimensionless]
-                
+
                 [extrinsic]
                 distance    : luminosiry distance [Mpc]
                 iota        : inclination angle [rad]
                 cosi        : cos(iota), alternative to iota
                 phi_ref     : reference phase [rad]
-                
+
                 [others]
                 (these values may be used from the waveform generator,
                 depending on the selected approximant)
@@ -258,7 +268,7 @@ class Waveform(object):
                 f_max       : maximum frequency [Hz]
                 srate       : sampling rate [Hz]
                 seglen      : duration of the segment [s]
-                
+
                 [used to project on the detector]
                 (in general these values are not needed,
                 but they are mandatory if you want to call
@@ -268,7 +278,7 @@ class Waveform(object):
                 psi         : polarization angle [rad]
                 time_shift  : time-shift from t-gps to t-ref at Earth's geocenter [sec]
                 t_gps       : GPS trigger time
-                
+
             --------
             return hp, hc
         """
@@ -293,35 +303,35 @@ class Waveform(object):
 
         # parse for TOV solver
         if 'eos_gamma0' in params.keys():
-            
+
             logger.debug("Solving EOS for [{}, {}, {}, {}]".format(params['eos_gamma0'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3']))
-            
+
             # initialize EOS solver
             tov = TOVSolver(params['eos_gamma0'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3'])
-            
+
             if not tov.is_physical:
                 return PolarizationTuple()
-            
+
             # compute tidal deformabilities
             if 'lambda1' not in params.keys():
                 m1  = params['mtot']*params['q']/(1.+params['q'])
                 if m1 > tov.Mmax: return PolarizationTuple()
                 params['lambda1'] = tov.tidal_deformability(m1)
                 logger.debug("Estimated lambda={} for mass={}".format(params['lambda1'], m1))
-            
+
             if 'lambda2' not in params.keys():
                 m2  = params['mtot']/(1.+params['q'])
                 if m2 > tov.Mmax: return PolarizationTuple()
                 params['lambda2'] = tov.tidal_deformability(m2)
                 logger.debug("Estimated lambda={} for mass={}".format(params['lambda2'], m2))
-        
+
         # include iota
         if 'cosi' in params.keys():
             params['iota'] = np.arccos(params['cosi'])
 
         # compute hplus and hcross according with approx
         hp , hc = self.wave_func(self.freqs, params)
-        
+
         # if hp,hc is None, return Nones
         if not any(hp):
             return PolarizationTuple()
@@ -329,10 +339,10 @@ class Waveform(object):
         if self.domain == 'time':
             # padding + time-shifting (amplitude peak as central value)
             hp, hc = centering_tdwave(hp, hc, self.seglen, self.srate, params['tukey'])
-        
+
         elif self.domain == 'freq':
             # time-shifting (amplitude peak as central value)
             hp = hp * np.exp(1j*np.pi*self.freqs*self.seglen)
             hc = hc * np.exp(1j*np.pi*self.freqs*self.seglen)
-        
+
         return PolarizationTuple(plus=hp, cross=hc)

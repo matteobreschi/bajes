@@ -27,7 +27,6 @@ __known_approxs__          = ['TaylorF2_3.5PN','TaylorF2_5.5PN',
                               'TaylorF2_5.5PN_7.5PNTides', 'TaylorF2_5.5PN_7.5PNTides2020',
                               'TaylorF2_5.5PN_3.5PNQM_7.5PNTides',
                               'TEOBResumS','TEOBResumSPA','HypTEOBResumS',
-                              'NRPM', 'TEOBResumS_NRPM',
+                              'NRPM', 'TEOBResumS_NRPM', 'NRPMw', 'NRPMw_recal',
                               'NRSur7dq4','NRHybSur3dq8','NRHybSur3dq8Tidal',
                               'MLGW', 'MLTEOBNQC', 'MLSEOBv4', 'LALSimFD', 'LALSimTD']
-

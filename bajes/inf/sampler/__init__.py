@@ -10,6 +10,8 @@ import signal
 import tracemalloc
 import numpy as np
 
+from shutil import copyfile
+
 from ...pipe import data_container, display_memory_usage
 
 class SamplerBody(object):
@@ -18,17 +20,25 @@ class SamplerBody(object):
                  ncheckpoint=0,
                  outdir='./',
                  resume='/resume.pkl',
+                 back  ='/backup.pkl',
                  seed=None,
                  rank = 0,
                  **kwargs):
 
+        # engine tag
         self._engine = engine
-        self.resume = resume
-        self.outdir = outdir
+
+        # output directory
+        self.outdir  = outdir
+
+        # resuming options
+        self.resume         = resume
+        self.back           = back
+        self.lock_backup    = False
 
         # restore inference from existing container
         if os.path.exists(self.outdir + self.resume) and (rank==0):
-            
+
             kwargs['posterior'] = self._restore_posterior()
             self.restore(**kwargs)
 
@@ -81,15 +91,15 @@ class SamplerBody(object):
     def __initialize__(self, posterior, **kwargs):
         # initialize specific sampler
         pass
-    
+
     def __restore__(self, **kwargs):
         # restore specific sampler
         pass
-    
+
     def __run__(self):
         # run specific sampler
         pass
-    
+
     def __update__(self):
         # update specific sampler
         return {}
@@ -100,7 +110,7 @@ class SamplerBody(object):
         logger.info("Restoring inference from existing container ...")
         dc          = data_container(self.outdir + self.resume)
         container   = dc.load()
-        
+
         # sampler check
         if container.tag != self._engine:
             logger.error("Container carries a {} inference, while {} was requested.".format(container.tag.upper(), self._engine.upper()))
@@ -122,7 +132,7 @@ class SamplerBody(object):
 
         # re-initialize seed
         np.random.seed(self.seed)
-            
+
         # restore specific sampler
         self.__restore__(**kwargs)
 
@@ -135,29 +145,65 @@ class SamplerBody(object):
             pass
         os._exit(signum)
 
+    def backup(self):
+
+        if self.lock_backup == False:
+
+            # check if resume is accessible
+            access = self._check_resume()
+
+            if access == 2:
+                # if container is safe, rename it as backup
+                logger.debug("Resume file is safe, updating backup ...")
+                copyfile(self.outdir+self.resume, self.outdir+self.back)
+            elif access == 1:
+                # if container is safe, rename it as backup
+                logger.debug("Resume file is safe")
+            else:
+                # otherwise lock previous backup to the last safe iteration
+                logger.warning("Unable to safely restore resume file. Locking backup file.")
+                self.lock_backup = True
+
     def store(self):
+
+        # backup of the previous container
+        logger.debug("Backup of the previous container ...")
+        self.backup()
+
         # save inference in pickle file
         logger.debug("Storing sampler in pickle ...")
         dc = data_container(self.outdir+self.resume)
-        state = self.__getstate__()
-        logger.debug("Storing following arguments: {}".format(', '.join(list(state.keys()))))
-        dc.store('inference', state)
+        dc.store('inference', self.__getstate__())
         dc.save()
-    
+
     def _first_store(self, posterior):
-        # save inference in pickle file
+        # save posterior in pickle file
         logger.debug("Storing posterior ({}) in pickle ...".format(posterior))
         dc = data_container(self.outdir+self.resume)
         dc.store('tag', self._engine)
         dc.store('posterior', posterior)
         dc.save()
-    
+
     def _restore_posterior(self):
-        # save inference in pickle file
+        # restore posterior from pickle file
         logger.debug("Extracting posterior from existing file ...")
-        dc          = data_container(self.outdir+self.resume)
-        container   = dc.load()
-        return container.posterior
+        dc = data_container(self.outdir+self.resume).load()
+        return dc.posterior
+
+    def _check_resume(self):
+        # check container
+        # return 0 if container is empty
+        # return 1 if container contains posterior
+        # return 2 if container contains inference and posterior
+        logger.debug("Extracting posterior from existing file ...")
+        container   = data_container(self.outdir+self.resume).load()
+        _keys       = list(container.__dict__.keys())
+        if 'posterior' in _keys and 'inference' in _keys:
+            return 2
+        elif 'posterior' in _keys:
+            return 1
+        else:
+            return 0
 
     def run(self):
         # run the chains
@@ -165,7 +211,7 @@ class SamplerBody(object):
         self.__run__()
 
     def update(self, **kwargs):
-        
+
         # get arguments
         prints = self.__update__(**kwargs)
 
@@ -175,7 +221,7 @@ class SamplerBody(object):
 
         # print update
         logger.info(''.join([' - {} : {}'.format(ki, prints[ki]) for ki in list(prints.keys())]))
-        
+
         # print tracing
         if tracemalloc.is_tracing():
             display_memory_usage(tracemalloc.take_snapshot())
@@ -186,5 +232,3 @@ class SamplerBody(object):
 
     def make_plots(self):
         pass
-
-

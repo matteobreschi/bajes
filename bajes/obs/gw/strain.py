@@ -24,7 +24,7 @@ def fft_doublesided(h, dt):
     """
     N       = len(h)
     hfft    = np.fft.fft(h) * dt
-    f       = np.linspace(-1./(2.*dt),1./(2.*dt),len(hfft))
+    f       = np.fft.fftfreq(N, d=dt)
     return f , hfft
 
 def fft(h, dt):
@@ -119,7 +119,7 @@ def padding(h, dt, where='center', padlen=None):
     if padlen == None:
         Tin = dt * len(h)
         padlen = int(np.ceil((next_power_of_2(Tin) - Tin)/dt))
-    
+
     if isinstance(where,str):
         if where == 'bottom':
             return np.append(np.zeros(padlen), h)
@@ -139,7 +139,7 @@ def padding(h, dt, where='center', padlen=None):
         return np.append(np.zeros(Nbelow),np.append(h,np.zeros(Nabove)))
 
     else:
-        raise ValueError("Invalid location variable (where) for padding.\nPlease use 'bottom', 'center', 'top' or the value for the requested central index.")
+        raise ValueError("Invalid location variable (where) for padding. Please use 'bottom', 'center', 'top' or the value for the requested central index.")
 
 def windowing(h, alpha=0.1):
     """ Perform windowing with Tukey window on a given strain (time-domain)
@@ -209,11 +209,11 @@ def highpassing(h, srate, f_max, order=4):
 class Series(object):
     """ A strain series in time/frequency domain
     """
-    
+
     def __init__(self, type , series , srate , seglen=None,
                  f_min=None, f_max=None, t_gps = 0.,
                  only=False, filter=False, alpha_taper=None, importfreqs = []):
-        
+
         """ Initialize series
             ___________
             type    : string, specify the type of input series, i.e. 'time' or 'freq'
@@ -233,9 +233,9 @@ class Series(object):
             alpha_taper : float (optional), alpha parameter of the Tukey window. Default 0.4/seglen
             importfreqs : array (optional), in the case of a given freq-series, it is possible to pass manually the frequency axis
         """
-        
+
         self.window_factor = 1.
-        
+
         if type == 'time':
             self.srate      = srate
             self.dt         = 1./self.srate
@@ -243,38 +243,38 @@ class Series(object):
             self.f_max      = f_max
             self.t_gps      = t_gps
             self.f_Nyq      = self.srate/2.
-            
+
             # temporary values
             raw_N           = len(series)
-            
+
             if self.f_min == None:
                 self.f_min = 0.
             if self.f_max == None:
                 self.f_max = self.f_Nyq
-            
+
             # read time series + windowing + padding
             # and fix input seglen if not None
             if seglen == None:
-                
+
                 seglen = len(series) * self.dt
-                
+
                 # check alpha from input
                 # if alpha not provided, window == 0.4s
                 if alpha_taper == None:
                     alpha_taper = 0.4/seglen
-                
+
                 wind_series, wfact  = windowing(series,alpha_taper)
                 self.time_series    = padding(wind_series,self.dt,'center')
                 self.seglen         = len(series) * self.dt
-            
+
             else:
-                
+
                 self.seglen = seglen
                 finalN      = int(np.ceil(self.seglen*self.srate))
-                
+
                 if finalN%2 == 1 :
                     finalN += 1
-            
+
                 # check alpha from input
                 # if alpha not provided, window == 0.4s
                 if alpha_taper == None:
@@ -283,7 +283,7 @@ class Series(object):
                 if raw_N == finalN:
                     wind_series, wfact  = windowing(series,alpha_taper)
                     self.time_series    = wind_series
-            
+
                 elif finalN > raw_N:
                     logger.warning("Input seglen for time series is greater than the effective seglen. The series will be padded to get the requested input.")
                     padlen              = finalN - raw_N
@@ -297,13 +297,13 @@ class Series(object):
                     Nhalf = int(len(series)//2)
                     wind_series, wfact  = windowing(series[Nhalf-finalN//2:Nhalf+finalN//2],alpha_taper)
                     self.time_series    = wind_series
-                
+
             self.window_factor  = wfact
             self.alpha_taper    = alpha_taper
-            
+
             if filter:
                 self.time_series    = bandpassing(self.time_series , self.srate, self.f_min , self.f_max)
-            
+
             self.df                 = 1/self.seglen
             self.times              = get_time_ax(len(self.time_series), self.srate, self.t_gps)
 
@@ -314,22 +314,22 @@ class Series(object):
                 self.freqs, self.freq_series    = fft(self.time_series, self.dt)
 
         elif type == 'freq':
-            
+
             self.srate  = srate
             self.dt     = 1./self.srate
             self.f_Nyq  = self.srate/2.
             raw_N       = len(series)
-            
+
             if seglen == None:
                 logger.warning("Frequency series defined without seglen. Seglen will be estimated assuming f_max = f_Nyq and f_min = 0")
                 self.seglen = self.f_Nyq/raw_N
             else:
                 self.seglen = seglen
-            
+
             self.df          = 1./self.seglen
             self.dt          = 1./self.srate
             self.t_gps       = t_gps
-            
+
             self.f_min       = f_min
             self.f_max       = f_max
             if self.f_min == None:
@@ -342,12 +342,12 @@ class Series(object):
                 self.freqs  = get_freq_ax((len(series)-1)*2, self.dt, self.f_min)
             else:
                 self.freqs  = importfreqs
-    
+
             if filter:
                 self.freq_series    = filtering(self.freqs, series, [self.f_min,self.f_max] , type='bandpass')
             else:
                 self.freq_series    = series
-            
+
             assert len(self.freqs) == len(self.freq_series)
 
             if only:
@@ -360,7 +360,7 @@ class Series(object):
         else:
             logger.error("Type of series not specified or wrong. Please use 'time' or 'freq'.")
             raise AttributeError("Type of series not specified or wrong. Please use 'time' or 'freq'.")
-        
+
         if isinstance(self.freqs, (np.ndarray, list)):
             self.mask = np.where((self.freqs>=self.f_min)&(self.freqs<=self.f_max))
 
@@ -372,19 +372,19 @@ class Series(object):
 
     def __prod__(self,  other):
         return np.conj(self.freq_series) * other.freq_series
-    
+
     def bandpassing(self, flow, fhigh, order=4):
         self.time_series    = bandpassing(self.time_series, self.srate, flow, fhigh, int(order))
         _, self.freq_series = fft(self.time_series, self.dt)
-    
+
     def lowpassing(self, flow, order=4):
         self.time_series    = lowpassing(self.time_series, self.srate, flow, int(order))
         _, self.freq_series = fft(self.time_series, self.dt)
-    
+
     def highpassing(self, fhigh, order=4):
         self.time_series    = highpassing(self.time_series, self.srate, fhigh, int(order))
         _, self.freq_series = fft(self.time_series, self.dt)
-    
+
     def whitening(self, noise):
         self.freq_series                = self.freq_series/noise.interp_asd_pad(self.freqs)
         self.times, self.time_series    = ifft(self.freq_series, self.srate, self.seglen, self.t_gps)
@@ -404,7 +404,7 @@ class Series(object):
         phi_interp  = interp1d(self.freqs, phi)
         amp_interp  = interp1d(self.freqs, phi)
         return amp_interp(new_freqs) * np.exp(1j * phi_interp(new_freqs))
-    
+
     def shift_freq_series(self, dt):
         return self.freq_series * np.exp(-2j*np.pi*dt*self.freqs)
 
@@ -418,7 +418,7 @@ class Series(object):
         num     = np.conj(self.freq_series)*series2.freq_series
         den     = psd * self.window_factor
         return 4.*np.sum(np.real(num/den))*self.df
-    
+
     def imag_product(self, series2, psd):
         """ Real inner-product:
             Im(s|h) = 4 * Im( sum( h^* s / PSD ) )
@@ -428,7 +428,7 @@ class Series(object):
             """
         num     = np.conj(self.freq_series)*series2.freq_series
         return 4.*np.sum(np.imag(num/psd))*self.df
-    
+
     def complex_product(self, series2, psd):
         """ Real inner-product:
             (s|h) = 4 * sum( h^* s / PSD )
@@ -439,7 +439,7 @@ class Series(object):
         num     = np.conj(self.freq_series)*series2.freq_series
         den     = psd * self.window_factor
         return 4.*np.sum(num/den)*self.df
-    
+
     def abs_product(self, series2, psd):
         """ Abs inner-product:
             |(s|h)| = 4 * sum( | h^* s | / PSD ) )
@@ -455,7 +455,7 @@ class Series(object):
         num     = np.conj(self.freq_series)*series2.freq_series
         den     = psd * self.window_factor
         return 4.*np.sum(np.abs(num/den))*self.df
-    
+
     def self_product(self, psd):
         """ Self inner-product:
             (s|s) = 4 * sum( |s|^2 / PSD )
@@ -471,7 +471,7 @@ class Series(object):
         num = np.abs(self.freq_series)**2.
         den     = psd * self.window_factor
         return 4.*np.sum(num/den)*self.df
-    
+
     def inner_product(self, series2, noise, f_bounds=None):
         """ Compute inner product (complex) between the input series and an other series
             in the frequency range [f_min,f_max].
@@ -498,14 +498,14 @@ class Series(object):
             fr      = self.freqs[mask]
             fs1     = self.freq_series[mask]
             fs2     = series2.freq_series[mask]
-            
+
         # interpolate PSD and frequency series
         psd   = noise.interp_psd_pad(fr)
-        
+
         num     = np.conj(fs1)*fs2
         den     = psd * self.window_factor
         return 4.*np.sum(num/den)*self.df
-    
+
     def residuals(self, series2, psd):
         """ Compute residuals between the input series and an other series
             on the frequency axis of the primary series.
@@ -528,7 +528,7 @@ class Series(object):
         num     = np.conj(res)*res
         den     = psd * self.window_factor
         return 4.*np.sum(np.real(num/den))*self.df
-    
+
     def snr(self, series2, noise, norm=None):
         """ Compute SNR between the input series and an other series,
             on the frequency axis of the primary series.
@@ -543,15 +543,15 @@ class Series(object):
         """
         l       = len(self.freq_series)
         den     = psd * self.window_factor
-    
+
         if norm == None:
             norm    = np.sqrt(series2.self_product(den))
-        
+
         s1_conj             = np.zeros(l, dtype=complex)
         s1_conj[self.mask]  = np.conj(self.freq_series[self.mask])
         s2                  = np.zeros(l, dtype=complex)
         s2[self.mask]       = series2.freq_series[self.mask]
-        
+
         snr_oftime  = 4.*self.df*np.real(np.fft.fft(s1_conj*s2/den))/norm
         tshift      = np.arange(len(snr_oftime))*self.dt
 
@@ -579,7 +579,7 @@ class Series(object):
         s1_conj[self.mask]  = np.conj(self.freq_series[self.mask])
         s2                  = np.zeros(l, dtype=complex)
         s2[self.mask]       = series2.freq_series[self.mask]
-        
+
         snr_oftime  = 4.*self.df*np.abs(np.fft.fft(s1_conj*s2/den))/norm
         tshift      = np.arange(len(snr_oftime))*self.dt
 
@@ -597,7 +597,7 @@ class Series(object):
             ----------
             return tshift, snr_oftime
         """
-        
+
         den     = noise.interp_psd_pad(self.freqs) * self.window_factor
 
         if norm == None:
@@ -640,7 +640,3 @@ class Series(object):
         tshift  = inds*self.dt
 
         return np.max(overlap), (tshift, overlap)
-
-
-
-
