@@ -410,7 +410,9 @@ def parse_core_options():
     parser.add_option('--alpha',    dest='alpha',       default=None,   type='float',   help='alpha parameter of the Tukey window')
 
     # Waveform model
-    parser.add_option('--approx',   dest='approx',      default=None,   type='string',  help='gravitational-wave approximant')
+    parser.add_option('--approx',          dest='approx',         default=None,   type='string',  help='gravitational-wave approximant')
+    parser.add_option('--extra-option',    dest='extra_opt',      default=[],     type='string',  action="append", help='Names of the additional parameters for the chosen approximant')
+    parser.add_option('--extra-option-val',dest='extra_opt_val',  default=[],     type='int',   action="append", help='Values of the additional parameters for the chosen approximant')
 
     # Prior flags
     parser.add_option('--data-flag',    dest='data_flag',           default=None,           type='string',  help='spin prior flag')
@@ -888,6 +890,7 @@ def initialize_gwlikelihood_kwargs(opts):
                                                                                   dist_flag=opts.dist_flag,
                                                                                   time_shift_bounds=[opts.time_shift_min, opts.time_shift_max],
                                                                                   fixed_names=opts.fixed_names, fixed_values=opts.fixed_values,
+                                                                                  extra_opt=opts.extra_opt, extra_opt_val=opts.extra_opt_val,
                                                                                   spcals = spcals, nspcal = opts.nspcal , nweights = opts.nweights,
                                                                                   ej_flag = opts.ej_flag, ecc_flag = opts.ecc_flag,
                                                                                   energ_bounds=e_bounds, angmom_bounds=j_bounds, ecc_bounds=ecc_bounds,
@@ -990,6 +993,7 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
                        dist_max=None, dist_min=None, dist_flag='vol',
                        time_shift_bounds=None,
                        fixed_names=[], fixed_values=[],
+                       extra_opt =[], extra_opt_val=[],
                        spcals=None, nspcal=0, nweights=0,
                        ej_flag = False, ecc_flag = False,
                        energ_bounds=None, angmom_bounds=None, ecc_bounds=None,
@@ -1411,6 +1415,12 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
                 continue
             else:
                 dict[ni] = Constant(ni, vi)
+
+    # set the extra options for the approximants
+    if len(extra_opt) !=0:
+        assert len(extra_opt) == len(extra_opt_val)
+        for ni,vi in zip(extra_opt,extra_opt_val) :
+            dict[ni] = Constant(ni, vi)
 
     # fill values for the waveform and the likelihood
     dict['f_min']  = Constant('f_min',  f_min)

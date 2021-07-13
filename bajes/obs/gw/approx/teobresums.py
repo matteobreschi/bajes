@@ -26,6 +26,15 @@ def l_to_k(lmax):
     modes = np.concatenate([[[li,mi] for mi in range(1,li+1)] for li in all_l])
     return [int(x[0]*(x[0]-1)/2 + x[1]-2) for x in modes]
 
+def  additional_opts(params_teob, params):
+
+    # set additional flags (present in params) in params_teob
+    names = ['project_spins', 'postadiabatic_dynamics', 'use_flm', 'nqc', 'nqc_coefs_flx', 'nqc_coefs_hlm']
+
+    for flag in names:
+        if params.get(flag) is not None:
+            params_teob[flag] = params[flag]
+
 def teobresums(params_teob):
     """ Compute TEOBResumS time-domain waveform for spin-aligned compact binary coalescences.
         --------
@@ -96,6 +105,9 @@ def teobresums_wrapper(freqs, params):
     check = params['s1x']**2+params['s1y']**2+params['s2x']**2+params['s2y']**2
     if check > 1e-7:
         params_teob['use_spins'] = 2
+
+    # check for additional options
+    additional_opts(params_teob, params)
 
     t , hp , hc     = teobresums(params_teob)
     return hp , hc
