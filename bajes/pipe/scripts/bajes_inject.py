@@ -28,7 +28,7 @@ def make_spectrogram_plot(ifo, time, inj_strain, noise, outdir):
     asd     = noise.interp_asd_pad(freq)
     inj_hfft_whit = inj_hfft/(asd*np.sqrt(fNyq))
 
-    time_whit, inj_strain_whit = ifft(inj_hfft_whit , srate)
+    time_whit, inj_strain_whit = ifft(inj_hfft_whit , srate=srate, seglen=seglen)
 
     Nfft    = int (fNyq)//2
     Novl    = int (Nfft * 0.9)
@@ -50,7 +50,7 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
     fig = plt.figure(figsize=(12,9))
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212)
-    
+
     # plot injected strain (black) and signal (red)
     ax1.set_title("{} injection".format(ifo), size = 14)
     ax1.plot(time , inj_strain, c='k', lw=0.7, label='injected strain')
@@ -58,34 +58,34 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
     ax1.legend(loc='best')
     ax1.set_xlabel('time [s]')
     ax1.set_ylabel('strain')
-    
+
     # plot central 1s of signal
     mask_ax2 = np.where((time>=np.median(time)-0.5)&(time<=np.median(time)+0.5))
     ax2.plot(time[mask_ax2], wave_strain[mask_ax2], c='r')
-    
+
     plt.savefig(outdir + '/{}_strains.png'.format(ifo), dpi=250)
     plt.close()
-    
+
     from scipy.signal import tukey
-    
+
     dt = np.median(np.diff(time))
     freq_proj, hfft_proj = fft(wave_strain, dt)
     freq_inj, hfft_inj = fft(inj_strain*tukey(len(inj_strain),alpha=0.1), dt)
 
     fig = plt.figure(figsize=(12,9))
     ax1 = fig.add_subplot(111)
-    
+
     # plot injected strain (black) and signal (red)
     ax1.set_title("{} spectra".format(ifo), size = 14)
     ax1.loglog(freq_inj , np.abs(hfft_inj), c='k', lw=0.7, label='injected strain')
     ax1.loglog(freq_proj , np.abs(hfft_proj), c='r', label='projected wave')
     ax1.loglog(freq_inj , noise.interp_asd_pad(freq_inj), c='g', label='ASD')
     ax1.legend(loc='best')
-    
+
     ax1.set_xlim((f_min,1./dt/2.))
     ax1.set_xlabel('frequency [Hz]')
     ax1.set_ylabel('amplitude spectrum')
-    
+
     plt.savefig(outdir + '/{}_spectra.png'.format(ifo), dpi=250)
     plt.close()
 
@@ -109,16 +109,17 @@ class Injection(object):
         self.psi    = psi
         self.t_gps  = t_gps
         self.tukey  = tukey
-        
+        self.snrs   = {}
+
         self.data_path  = os.path.abspath(data_path)
         tag             = self.data_path.split('.')[-1]
-        
+
         # read injection section using txt/dat polarizations
         if tag == 'txt' or tag == 'dat':
-            
+
             logger.info("... reading polarizations from ascii file ...")
             times, hp, hc = np.genfromtxt(self.data_path, usecols=[0,1,2], unpack=True)
-        
+
             from scipy.signal import tukey
             if wind_flag == 'low':
                 window  = tukey(len(hp), alpha=0.1)
@@ -132,10 +133,10 @@ class Injection(object):
                 window  = np.ones(len(hp))
             else:
                 raise ValueError("Invalid window flag passed to the injection. Please use 'low', 'both' or 'none'.")
-        
+
             hp = hp * window
             hc = hc * window
-            
+
             # create series in order to cut the strain
             # obs. avoid window since it is already applied
             ser_hp  = Series('time', hp, srate=self.srate, seglen=self.seglen,
@@ -153,14 +154,14 @@ class Injection(object):
             amp     = np.abs(hp - 1j*hc)
             dt_mrg  = np.argmax(amp)*ser_hp.dt
             t_gps_mrg = self.t_gps - self.seglen/2. + dt_mrg
-            
+
             self.wave_strains   = {}
             self.noise_strains  = {}
             self.inj_strains    = {}
             self.times          = {}
 
             for ifo in self.ifos:
-            
+
                 self.wave_strains[ifo]  = calc_project_array_td(self.dets[ifo], hp, hc,
                                                                 1/self.srate,self.ra,self.dec,self.psi,t_gps_mrg)
                 if not zero_flag:
@@ -168,30 +169,40 @@ class Injection(object):
                     self.inj_strains[ifo]   = self.noise_strains[ifo] + self.wave_strains[ifo]
                 else:
                     self.inj_strains[ifo]   = self.wave_strains[ifo]
-                
                 self.times[ifo]             = ser_hp.times
-            
+
+                # compute SNR
+                _f, _w = fft(self.wave_strains[ifo], 1./self.srate)
+                _f, _d = fft(self.inj_strains[ifo], 1./self.srate)
+                _i     = np.where(_f>=self.f_min)
+                psd    = noises[ifo].innterp_psd_pad(_f[_i])
+                d_inner_h = (4/self.seglen)*np.sum(np.conj(_w[_i])*_d[_i]/psd)
+                h_inner_h = (4/self.seglen)*np.sum(np.conj(_d[_i])*_d[_i]/psd)
+                self.snrs[ifo] = d_inner_h/np.sqrt(h_inner_h)
+                logger.info("  - SNR in {} = {:.3f} ".format(ifo, self.snrs[ifo]))
+
         # read injection section of params.ini and generate TDWaveform
         elif tag == 'ini':
-            
+
             logger.info("... generating polarizations from config file ...")
 
             params = read_params(self.data_path, 'injection')
-            
+
             if 'approx' not in params.keys():
                 raise AttributeError("Impossible to generate the waveform for injection. Approximant field is missing.")
-            
-            # check skylocation
-            if 'ra' not in list(params.keys()):
+
+            # check skylocation,
+            # overwrite command-line input if skyloc is in params.ini
+            if 'ra' in list(params.keys()):
                 logger.info("... right ascension found in parameter file ...")
                 params['ra']    = self.ra
-            if 'dec' not in list(params.keys()):
+            if 'dec' in list(params.keys()):
                 logger.info("... declination found in parameter file ...")
                 params['dec']   = self.dec
-            if 'psi' not in list(params.keys()):
+            if 'psi' in list(params.keys()):
                 logger.info("... polarization found in parameter file ...")
                 params['psi']   = self.psi
-            
+
             # fix missing information
             params['f_min']     = self.f_min
             params['f_max']     = self.srate/2
@@ -199,24 +210,27 @@ class Injection(object):
             params['srate']     = self.srate
             params['t_gps']     = self.t_gps
             params['tukey']     = self.tukey
-            
+
             params_keys = list(params.keys())
-            
+
             if 'approx' not in params_keys:
+                logger.error("Unspecified approximant model for gravitational-wave injection")
                 raise RuntimeError("Unspecified approximant model for gravitational-wave injection")
 
             if ('mchirp' not in params_keys) and ('mtot' not in params_keys):
+                logger.error("Unspecified total mass / chirp mass parameter for gravitational-wave injection")
                 raise RuntimeError("Unspecified total mass / chirp mass parameter for gravitational-wave injection")
 
             if 'q' not in params_keys:
+                logger.error("Unspecified mass ratio parameter for gravitational-wave injection")
                 raise RuntimeError("Unspecified mass ratio parameter for gravitational-wave injection")
 
             wave        = Waveform(np.linspace(0,self.srate/2,int(self.seglen*self.srate)//2 +1),  self.srate, self.seglen, params['approx'])
             self.time   = wave.times - self.seglen/2 + self.t_gps
-            
+
             if wave.domain == 'freq':
                 raise AttributeError("Selected waveform model ({}) exists only in frequency-domain. Please use time-domain approximant to perform the injection.".format(params['approx']))
-            
+
             signal_template  = wave.compute_hphc(params)
             hp      = signal_template.plus
             hc      = signal_template.cross
@@ -224,15 +238,17 @@ class Injection(object):
                              seglen=self.seglen, f_min=self.f_min,
                              f_max=self.srate/2, t_gps=self.t_gps,
                              alpha_taper=0.0)
-            
+
             self.wave_strains   = {}
             self.noise_strains  = {}
             self.inj_strains    = {}
             self.times          = {}
-            
+
             for ifo in self.ifos:
-                
+
+                # initialize detector with empty data
                 self.dets[ifo].store_measurement(series, noises[ifo])
+                # compute the data
                 self.wave_strains[ifo]  = self.dets[ifo].project_tdwave(signal_template, params, wave.domain)
                 if not zero_flag:
                     self.noise_strains[ifo] = noises[ifo].generate_fake_noise(self.seglen, self.srate, self.t_gps, filter=True)
@@ -241,11 +257,28 @@ class Injection(object):
                     self.inj_strains[ifo]   = self.wave_strains[ifo]
                 self.times[ifo]             = self.time
 
+                # re-initialize detector with actual data
+                self.dets[ifo].store_measurement(Series('time', self.inj_strains[ifo],
+                                                        srate=self.srate, seglen=self.seglen, f_min=self.f_min,
+                                                        f_max=self.srate/2, t_gps=self.t_gps, alpha_taper=0.0),
+                                                 noises[ifo])
+
+                # compute SNR
+                d_inner_h, h_inner_h, d_inner_d = self.dets[ifo].compute_inner_products(signal_template, params, wave.domain)
+                d_inner_h = np.sum(d_inner_h)
+                self.snrs[ifo] = d_inner_h/np.sqrt(h_inner_h)
+                logger.info("  - SNR in {} = {:.3f} ".format(ifo, self.snrs[ifo]))
+
         else:
-            
+
             logger.error("Impossible to generate injection from {} file. Use txt/dat or ini.".format(tag))
             ValueError("Impossible to generate injection from {} file. Use txt/dat or ini.".format(tag))
-        
+
+        # print network SNR
+        if list(self.snrs.keys()):
+            net_snr = np.sqrt(sum([ self.snrs[ifo]**2. for ifo in  list(self.snrs.keys()) ]))
+            logger.info("  - SNR in the Network = {:.3f} ".format(net_snr))
+
     def write_injections(self, outdir):
         for ifo in self.ifos:
             injectionfile = open(outdir + '/{}_INJECTION.txt'.format(ifo), 'w')
@@ -259,7 +292,7 @@ class Injection(object):
 
 
 if __name__ == "__main__":
-    
+
     parser=op.OptionParser()
     parser.add_option('--ifo',      dest='ifos',        type='string',  action="append", help='IFO tag, i.e. H1, L1, V1, K1, G1')
     parser.add_option('--asd',      dest='asds',        type='string',  action="append", help='path to ASD files')
@@ -267,35 +300,35 @@ if __name__ == "__main__":
     parser.add_option('--wave',     dest='wave',        type='string',   help='path to strain data to inject, the file should contains 3 cols [t, reh, imh]')
     parser.add_option('--srate',    dest='srate',       type='float',   help='sampling rate of the injected waveform [Hz] and it will be the srate of the sampling, please check that everything is consistent')
     parser.add_option('--seglen',   dest='seglen',      type='float',   help='length of the segment of the injected waveform [sec], if it is not a power of 2, the final segment will be padded')
-    
+
     parser.add_option('--f-min',    dest='f_min',       type='float',   default=20.,            help='minimum frequency [Hz], default 20Hz')
     parser.add_option('--t-gps',    dest='t_gps',       type='float',   default=1187008882,    help='GPS time of the series, default 1187008882 (GW170817)')
-    
+
     parser.add_option('--zero-noise',    dest='zero',   action="store_true",   default=False,            help='use zero noise')
 
     parser.add_option('--ra',   dest='ra',      default=None,   type='float',   help='right ascencion location of the injected source, default best location for first IFO.')
     parser.add_option('--dec',  dest='dec',     default=None,   type='float',   help='declination location of the injected source, default best location for first IFO.')
     parser.add_option('--pol',  dest='psi',     default=0.,     type='float',   help='polarization angle of the injected source, default 0.')
     parser.add_option('--window',  dest='window',     default='low',     type='string',   help='location of the window, low or both')
-    
+
     parser.add_option('--tukey',  dest='tukey',     default=0.1,     type='float',   help='tukey window parameter')
-    
+
     parser.add_option('-o','--outdir',default=None,type='string',dest='outdir',help='output directory')
     (opts,args) = parser.parse_args()
 
     dets    = {}
     noises  = {}
-    
+
     if opts.outdir == None:
         raise ValueError("Unable to ensure output directory.")
-    
+
     opts.outdir = os.path.abspath(opts.outdir)
     ensure_dir(opts.outdir)
-    
+
     global logger
     logger = set_logger(outdir=opts.outdir, label='bajes_inject')
     logger.info("Running bajes inject:")
-    
+
     for i in range(len(opts.ifos)):
         ifo = opts.ifos[i]
         logger.info("... setting detector {} for injection ...".format(ifo))

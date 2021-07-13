@@ -61,21 +61,21 @@ def set_logger(label=None, outdir=None, level='INFO', silence=True):
 # memory
 
 def display_memory_usage(snapshot, limit=5):
-    
+
     import tracemalloc
-    
+
     # get snapshot information ignoring importlib and unknown packages
     snapshot = snapshot.filter_traces((tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
                                        tracemalloc.Filter(False, "<frozen importlib._bootstrap_external>"),
                                        tracemalloc.Filter(False, "<unknown>"),
                                        ))
-    
+
     # display memory usage
     memory_lineno(snapshot)
     memory_traceback(snapshot)
 
 def memory_traceback(snapshot, limit=1):
-    
+
     # get snapshot statistics (as traceback)
     top_stats = snapshot.statistics('traceback')
 
@@ -86,9 +86,9 @@ def memory_traceback(snapshot, limit=1):
         logger.info("{}".format(line))
 
 def memory_lineno(snapshot, limit=5):
-    
+
     import linecache
-    
+
     # get snapshot statistics (as line+number)
     top_stats = snapshot.statistics('lineno')
 
@@ -99,7 +99,7 @@ def memory_lineno(snapshot, limit=5):
         filename = os.sep.join(frame.filename.split(os.sep)[-2:])
         logger.info(">>> n.{} - {}:{}: {:.1f} KiB".format(i, filename, frame.lineno, stat.size / 1024.))
         logger.info("\t{}".format(linecache.getline(frame.filename, frame.lineno).strip()))
-    
+
     other = top_stats[limit:]
     if other:
         size = sum(stat.size for stat in other)
@@ -207,7 +207,7 @@ def save_container(path, kwargs):
         - path : path string to outpuot
         - kwargs : dictionary of objects, the keys will define the arguments of the container
     """
-    
+
     pkl_kwarg = {}
     for ki in list(kwargs.keys()):
         if is_picklable(kwargs[ki]):
@@ -237,15 +237,14 @@ class data_container(object):
         self.__dict__[name] = data
 
     def save(self):
-        
+
         # check stored objects
         if os.path.exists(self.__file__):
-            _stored     = self.load()
+            _stored = self.load()
 
             # join old and new data if the container is not empty
             if _stored is not None:
-                _current        = list(self.__dict__.keys())
-                _old            = {ki: _stored.__dict__[ki] for ki in list(_stored.__dict__.keys()) if ki not in _current}
+                _old            = {ki: _stored.__dict__[ki] for ki in _stored.__dict__.keys() if ki not in self.__dict__.keys()}
                 self.__dict__   = {**self.__dict__, **_old}
 
         # save objects into filename
@@ -256,11 +255,16 @@ class data_container(object):
     def load(self):
         # load from existing filename
         f = open(self.__file__, 'rb')
+
         try:
+
+            # get data
             n = pickle.load(f)
             f.close()
             return n
+
         except Exception as e:
+            f.close()
             logger.warning("Exception ({}) occurred while loading {}.".format(e, self.__file__))
             return None
 
@@ -271,7 +275,7 @@ def parse_main_options():
     from .. import __version__, __doc__
     from ..inf import __known_samplers__
     import optparse as op
-    
+
     usage   = "python -m bajes [options]\n"+"Version: bajes {}".format(__version__)
     parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
 
@@ -300,7 +304,7 @@ def parse_main_options():
     parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='[nest] number of live points for batch (dynesty-dyn)')
     parser.add_option('--dkl',          dest='dkl',         default=0.5,    type='float',   help='[nest] target KL divergence (ultranest)')
     parser.add_option('--z-frac',       dest='z_frac',      default=None,   type='float',   help='[nest] remaining Z fraction (ultranest)')
-    
+
     # MCMC options
     parser.add_option('--nout',         dest='nout',        default=10000,  type='int',     help='[mcmc] number of posterior samples')
     parser.add_option('--nwalk',        dest='nwalk',       default=256,    type='int',     help='[mcmc] number of parallel walkers')
@@ -327,7 +331,7 @@ def parse_core_options():
     from .. import __version__, __doc__
     from ..inf import __known_samplers__
     import optparse as op
-    
+
     usage   = "bajes_core.py [options]"+"Version: bajes {}".format(__version__)
     parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
 
@@ -353,7 +357,7 @@ def parse_core_options():
     parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='number of live points for batch (dynesty-dyn)')
     parser.add_option('--dkl',          dest='dkl',         default=0.5,    type='float',   help='target KL divergence (ultranest)')
     parser.add_option('--z-frac',       dest='z_frac',      default=None,   type='float',   help='remaining Z fraction (ultranest)')
-    
+
     # MCMC options
     parser.add_option('--nout',         dest='nout',        default=4000,   type='int',     help='number of posterior samples')
     parser.add_option('--nwalk',        dest='nwalk',       default=256,    type='int',     help='number of parallel walkers')
@@ -498,7 +502,7 @@ def parse_core_options():
 
 
 def init_sampler(posterior, pool, opts, proposals=None, rank=0):
-    
+
     from ..inf import Sampler
 
     # ensure nwalk is even
@@ -533,7 +537,7 @@ def init_sampler(posterior, pool, opts, proposals=None, rank=0):
     return Sampler(opts.engine, posterior, **kwargs)
 
 def init_proposal(engine, post, use_slice=False, use_gw=False, maxmcmc=4096, minmcmc=32, nact=5.):
-    
+
     logger.info("Initializing proposal methods ...")
 
     if engine == 'emcee':
@@ -555,53 +559,67 @@ def init_proposal(engine, post, use_slice=False, use_gw=False, maxmcmc=4096, min
     elif engine == 'ultranest':
         return None
 
-#def get_roq_training_grid(prior, n_train):
+# def get_roq_training_grid(prior, n_train):
 #
-#    _intrinsic_names = ['mchirp', 'mtot', 'q',
-#                        's1z', 's2z', 's1', 's2',
-#                        'tilt1', 'tilt2', 'phi_1l', 'phi_2l',
-#                        'lambda1', 'lambda2']
+#     _intrinsic_names = ['mchirp', 'mtot', 'q',                  # masses
+#                         's1z', 's2z',                           # aligned spins
+#                         's1', 'tilt1', 'phi_1l',                # precessing spin 1
+#                         's2', 'tilt2', 'phi_2l',                # precessing spin 2
+#                         'lambda1', 'lambda2',                   # tides
+#                         'eccentricity', 'angmom', 'energy'      # non-circular
+#                         ]
 #
-#    _n = []
-#    _b = []
-#    for i,ni in enumerate(prior.names):
-#        if ni in _intrinsic_names:
-#            _n.append(ni)
-#            _b.append(prior.bounds[i])
+#     # default values for extrinsic parameters
+#     _default = {'phi_ref':0., 'time_shift':0., 'cosi': 1.}
+#     if 'distance' in prior.names:
+#         _default['distance'] = np.min(prior.bounds[prior.names.index('distance')])
 #
-#    # check eos sampling
-#    eos = sum([1 for ni in prior.names if 'eos' in ni else 0])
-#    if eos:
-#        _n.append('lambda1')
-#        _b.append([0,5000])
-#        _n.append('lambda2')
-#        _b.append([0,5000])
+#     _n = []
+#     _b = []
 #
-#    n_per_dim = int(float(n_train)**(1./len(_n)))
+#     _o = {}
 #
-#    return
-
-def initialize_roq(freqs, srate , seglen, noise, prior, approx, n_training_points, epsilon):
-    logger.error("ROQ not yet available.")
-    raise AttributeError("ROQ not yet available.")
-    
-#    # set parameter
-#    params  = get_roq_training_grid(prior, n_training_points)
+#     for i,ni in enumerate(prior.names):
 #
-#    # initialize waveform generator and compute waveforms
-#    from ...obs.gw.waveform import Waveform
-#    wave    = Waveform(freqs, srate , seglen, approx)
-#    waves   = []
+#         if ni in _intrinsic_names:
+#             _n.append(ni)
+#             _b.append(prior.bounds[i])
+#         else:
+#             if ni in _default.keys():
+#                 _o[ni] = _default[ni]
+#             else:
+#                 _o[ni] = np.mean(prior.bounds[i])
 #
-#    # compute PSD
-#    psd     = noise.interp_psd_pad(freqs)
+#     # check eos sampling
+#     eos = sum([1 if 'eos' in ni for ni in prior.names else 0])
+#     if eos:
+#         _n.append('lambda1')
+#         _b.append([0,5000])
+#         _n.append('lambda2')
+#         _b.append([0,5000])
 #
-#    # compute ROQ
-#    from .utils.roq import ROQ
-#    roq     = ROQ(freqs, 1./psd, params, waves, epsilon)
-#    x, i, w = roq.produceROQ()
+#     n_per_dim = int(float(n_train)**(1./len(_n)))
 #
-#    return i, w
+#     return
+#
+# def initialize_roq(freqs, srate , seglen, noise, prior, approx, n_training_points, epsilon):
+#     # set parameter
+#     params  = get_roq_training_grid(prior, n_training_points)
+#
+#     # initialize waveform generator and compute waveforms
+#     from ...obs.gw.waveform import Waveform
+#     wave    = Waveform(freqs, srate , seglen, approx)
+#     waves   = []
+#
+#     # compute PSD
+#     psd     = noise.interp_psd_pad(freqs)
+#
+#     # compute ROQ
+#     from .utils.roq import ROQ
+#     roq     = ROQ(freqs, 1./psd, params, waves, epsilon)
+#     x, i, w = roq.produceROQ()
+#
+#     return i, w
 
 def get_likelihood_and_prior(opts):
 
@@ -618,33 +636,37 @@ def get_likelihood_and_prior(opts):
             if opts.binning and opts.roq:
                 logger.error("Unable to set simultaneusly frequency-binning and ROQ approximation. Please choose one of the two options.")
                 raise AttributeError("Unable to set simultaneusly frequency-binning and ROQ approximation. Please choose one of the two options.")
-            
+
             # read arguments for likelihood and compute prior
             l_kwas, pr = initialize_gwlikelihood_kwargs(opts)
-            
-            if opts.binning:
-                
-                from .utils.binning import GWBinningLikelihood as GWLikelihood
-            
-            elif opts.roq:
-                
-                from .utils.roq import ROQGWLikelihood as GWLikelihood
-                
-                # compute ROQ weights
-                l_kwas['roq_weights'] = {}
 
-                for ifo in opts.ifos:
-                    
-                    logger.info("Computing ROQ weights for {} ...".format(ifo))
-                    inds, wghts = initialize_roq(l_kwas['freqs'][l_kwas['datas'][ifo].mask],
-                                                 l_kwas['srate'], l_kwas['seglen'],
-                                                 l_kwas['noises'][ifo], pr, l_kwas['approx'],
-                                                 opts.roq_epsilon, opts.roq_points)
-                    l_kwas['roq_weights'][ifo] = [inds,wghts]
+            if opts.binning:
+
+                from .utils.binning import GWBinningLikelihood as GWLikelihood
+
+            elif opts.roq:
+
+                logger.error("ROQ approximation not yet implemented.")
+                raise AttributeError("ROQ approximation not yet implemented.")
+
+                # from .utils.roq import ROQGWLikelihood as GWLikelihood
+                #
+                # # compute ROQ weights
+                # l_kwas['roq_weights'] = {}
+                #
+                # for ifo in opts.ifos:
+                #
+                #     logger.info("Computing ROQ weights for {} ...".format(ifo))
+                #     inds, wghts = initialize_roq(l_kwas['freqs'][l_kwas['datas'][ifo].mask],
+                #                                  l_kwas['srate'], l_kwas['seglen'],
+                #                                  l_kwas['noises'][ifo], pr, l_kwas['approx'],
+                #                                  opts.roq_epsilon, opts.roq_points)
+                #     l_kwas['roq_weights'][ifo] = [inds,wghts]
+
             else:
-                
+
                 from .utils.model import GWLikelihood
-            
+
             logger.info("Initializing GW likelihood ...")
 
             likes.append(GWLikelihood(**l_kwas))
@@ -673,7 +695,7 @@ def get_likelihood_and_prior(opts):
     if len(opts.tags) == 0:
         logger.error("Unknown tag for likelihood initialization. Please use gw, kn or a combination.")
         raise ValueError("Unknown tag for likelihood initialization. Please use gw, kn or a combination.")
-    
+
     elif len(opts.tags) == 1:
         l_obj   = likes[0]
         p_obj   = priors[0]
@@ -685,7 +707,7 @@ def get_likelihood_and_prior(opts):
 
         l_kwas              = {}
         l_kwas['likes']     = likes
-        
+
         p_obj   = JointPrior(priors=priors, prior_grid=opts.priorgrid)
         l_obj   = JointLikelihood(**l_kwas)
 
@@ -1023,7 +1045,7 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
                                     min=mchirp_bounds[0],
                                     max=mchirp_bounds[1],
                                     prior='linear')
-            
+
         dict['q']       = Parameter(name='q',
                                     min=1.,
                                     max=q_max,
@@ -1392,17 +1414,30 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
 
     # include extra parameters: eccentricity
     if ecc_flag:
-
         if ecc_bounds == None:
             logger.warning("Requested bounds for eccentricity parameter is empty. Setting standard bound [1e-3,1]")
             ecc_bounds = [0.001, 1.]
-
         dict['eccentricity'] = Parameter(name='eccentricity', min=ecc_bounds[0], max=ecc_bounds[1])
-
     else:
         dict['eccentricity'] = Constant('eccentricity', 0.)
 
+    # include NRPMw additional parameters
+    if 'NRPMw' in approx:
+        dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0.)              # post-merger phase
+        dict['NRPMw_phi_fm']    = Parameter(name='NRPMw_phi_fm',    max = 2.*np.pi, min = 0.)              # frequency-modulation phase
+        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    prior='log-uniform', max=1e5, min=1)   # time of collapse after merger [secs]
+        dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-5, min=-1e-5)                     # f_2 slope [Hz^2]
+        dict['NRPMw_delta_fm']  = Parameter(name='NRPMw_delta_fm',  min=0, max=0.15)                     # frequency-modulation amplitude [Hz]
+        dict['NRPMw_gamma_fm']  = Parameter(name='NRPMw_gamma_fm',  min=0, max=0.04)                     # frequency-modulation inverse damping time [1/secs]
+
+    # include NRPMw recalibration parameters
+    if 'NRPMw_recal' in approx:
+        from ..obs.gw.approx.nrpmw import __recalib_names__, __ERRS__
+        for ni in __recalib_names__:
+            dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni, max = 1., min = -1., prior='normal', mu = 0., sigma = __ERRS__[ni])
+
     # set fixed parameters
+    # OBS. This step must be done when all parameters are in dict
     if len(fixed_names) != 0 :
         assert len(fixed_names) == len(fixed_values)
         for ni,vi in zip(fixed_names,fixed_values) :
@@ -1573,4 +1608,3 @@ def initialize_knprior(comps, mej_bounds, vel_bounds, opac_bounds, t_gps,
     logger.info("Initializing prior ...")
 
     return Prior(parameters=params, variables=variab, constants=const)
-

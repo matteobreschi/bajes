@@ -392,12 +392,12 @@ class ROQGWLikelihood(Likelihood):
 #        for ifo in self.ifos:
 #            logger.debug("Projecting over {}".format(ifo))
 #            proj_wave = self.dets[ifo].project_fdwave(wave, params, self.wave.domain)
-#            
+#
 #            logger.debug("Computing ROQ products for {}".format(ifo))
 #            dh_thisifo  = innerProduct(self.roq_weights[ifo], self.dets[ifo].data, proj_wave) #*df ?
 #            hh_thisifo  = innerProduct(self.roq_weights[ifo], proj_wave, proj_wave)
 #            dd_thisifo  = self.dets[ifo]._dd
-#            
+#
 #            dh += dh_thisifo
 #            hh += np.real(hh_thisifo)
 #            dd += np.real(dd_thisifo)

@@ -19,41 +19,62 @@ def reflect(u):
     u[~idxs_even] = 1 - np.mod(u[~idxs_even], 1)
     return u
 
-def initialize_proposals(maxmcmc, minmcmc, nact):
+def initialize_proposals(maxmcmc, minmcmc, nact, use_slice=False):
     # initialize proposals
-    return BajesDynestyProposal(maxmcmc, walks=minmcmc, nact=nact)
+    return BajesDynestyProposal(maxmcmc, walks=minmcmc, nact=nact, use_slice=use_slice)
 
-def resample(samples, weights):
-    
-    if abs(np.sum(weights) - 1.) > 1e-30:
-        # Guarantee that the weights will sum to 1.
-        weights = np.array(weights) / np.sum(weights)
-    
-    # Make N subdivisions and choose positions with a consistent random offset.
-    nsamples = len(weights)
-    positions = (np.random.random() + np.arange(nsamples)) / nsamples
+# def resample(samples, weights):
+#     """
+#     Resample a new set of points from the weighted set of inputs
+#     such that they all have equal weight.
+#
+#     Inspired from dynesty.utils.resample_equal
+#     https://github.com/joshspeagle/dynesty/blob/master/py/dynesty/utils.py
+#     """
+#
+#     if abs(np.sum(weights) - 1.) > 1e-30:
+#         # Guarantee that the weights will sum to 1.
+#         weights = np.array(weights) / np.sum(weights)
+#
+#     # Make N subdivisions and choose positions with a consistent random offset.
+#     nsamples = len(weights)
+#     positions = (np.random.random() + np.arange(nsamples)) / nsamples
+#
+#     # Resample the data.
+#     idx = np.zeros(nsamples, dtype=int)
+#     cumulative_sum = np.cumsum(weights)
+#     i, j = 0, 0
+#     while i < nsamples:
+#         if positions[i] < cumulative_sum[j]:
+#             idx[i] = j
+#             i += 1
+#         else:
+#             j += 1
+#
+#     return samples[idx]
 
-    # Resample the data.
-    idx = []
-    cumulative_sum = np.cumsum(weights)
-    i, j = 0, 0
-    while i < nsamples:
-        if positions[i] < cumulative_sum[j]:
-            idx.append(j)
-            i += 1
-        else:
-            j += 1
+def draw_posterior(data, log_wts):
+    """
+    Draw points from the given data (of shape (Nsamples, Ndim))
+    with associated log(weight) (of shape (Nsamples,)). Draws uniquely so
+    there are no repeated samples
 
-    idx = np.array(idx,  dtype=np.int)
-    return samples[idx]
+    Inspired from cpnest.nes2pos.draw_posterior
+    https://github.com/johnveitch/cpnest/blob/master/cpnest/nest2pos.py#L73
+    """
+    maxWt=max(log_wts)
+    normalised_wts=log_wts-maxWt
+    selection=[n > np.log(np.random.uniform()) for n in normalised_wts]
+    idx=list(filter(lambda i: selection[i], range(len(selection))))
+    return data[idx]
 
 def get_prior_samples_dynesty(nlive, ndim, like_fn, ptform_fn):
-    
+
     n = 0
     u = []
     v = []
     logl = []
-    
+
     while n < nlive:
         _u = np.random.uniform(0,1,ndim)
         _v = ptform_fn(_u)
@@ -67,13 +88,13 @@ def get_prior_samples_dynesty(nlive, ndim, like_fn, ptform_fn):
     return [np.array(u), np.array(v), np.array(logl)]
 
 class SamplerDynesty(SamplerBody):
-    
+
     def store_and_exit(self, signum=None, frame=None):
         # exit function when signal is revealed
         import os
         logger.warning("Run interrupted by signal {}, checkpoint and exit.".format(signum))
         os._exit(signum)
-    
+
     def __initialize__(self, posterior,
                        nlive, tolerance=0.1,
                        # bounding
@@ -82,20 +103,21 @@ class SamplerDynesty(SamplerBody):
                        bootstrap=0, enlarge=1.5, facc=0.5, update_interval=None,
                        # proposal
                        proposals=None, nact = 5., maxmcmc=4096, minmcmc=32,
+                       proposals_kwargs={'use_slice': False},
                        # first update
                        first_min_ncall = None, first_min_eff = 10,
                        # parallelization
                        nprocs=None, pool=None,
                        **kwargs):
-        
+
 
         # initialize nested parameters
         self.nlive          = nlive
         self.tol            = tolerance
-            
+
         # auxiliary arguments
         self.log_prior_fn = posterior.log_prior
-            
+
         # warnings
         if self.nlive < self.ndim*(self.ndim-1)//2:
             logger.warning("Given number of live points < Ndim*(Ndim-1)/2. This may generate problems in the exploration of the parameters space.")
@@ -107,7 +129,7 @@ class SamplerDynesty(SamplerBody):
         # initialize proposals
         if proposals == None:
             logger.info("Initializing proposal methods ...")
-            proposals = initialize_proposals(maxmcmc, minmcmc, nact)
+            proposals = initialize_proposals(maxmcmc, minmcmc, nact, use_slice=proposals_kwargs['use_slice'])
 
         # check additional sampler arguments
         if first_min_ncall == None:
@@ -137,29 +159,35 @@ class SamplerDynesty(SamplerBody):
 
         like_fn         = posterior.log_like
         ptform_fn       = posterior.prior_transform
-        self.sampler    = self._initialize_sampler(like_fn, ptform_fn, sampler_kwargs)
+        self.sampler    = self._initialize_sampler(like_fn, ptform_fn, proposals, sampler_kwargs)
 
-        # clean up sampler
-        del self.sampler.cite
-        del self.sampler.kwargs['cite']
-        self.sampler.rstate = np.random
-
-        # set proposal
-        self.sampler.evolve_point = proposals.propose
-
-    def _initialize_sampler(self, like_fn, ptform_fn, kwargs):
+    def _initialize_sampler(self, like_fn, ptform_fn, proposals, kwargs):
         # extract prior samples, ensuring finite logL
         logger.info("Extracting prior samples ...")
         live_points = get_prior_samples_dynesty(kwargs['nlive'], kwargs['ndim'], like_fn, ptform_fn)
         kwargs['live_points'] = live_points
-        
+
         # initialize dynesty sampler
         logger.info("Initializing nested sampler ...")
         sampler = dynesty.NestedSampler(loglikelihood=like_fn, prior_transform=ptform_fn, **kwargs)
+
+        # set proposal
+        sampler.evolve_point = proposals.propose
+
+        if proposals.use_slice :
+            sampler.update_proposal = sampler.update_slice
+        else:
+            sampler.update_proposal = sampler.update_rwalk
+
+        # clean up sampler
+        del sampler.cite
         del sampler._PROPOSE
         del sampler._UPDATE
+        del sampler.kwargs['cite']
+        sampler.rstate = np.random
+
         return sampler
-            
+
     def __restore__(self, pool, **kwargs):
 
         # re-initialize pool
@@ -174,10 +202,10 @@ class SamplerDynesty(SamplerBody):
         self.sampler.rstate = np.random
 
     def __run__(self):
-        
+
         # run the sampler
         for results in self.sampler.sample(dlogz=self.tol,save_samples=True,add_live=False):
-            
+
             if self.sampler.it%self.ncheckpoint==0:
                 self._last_iter = results
                 self.update()
@@ -192,7 +220,7 @@ class SamplerDynesty(SamplerBody):
     def __update__(self):
 
         (worst, ustar, vstar, loglstar, logvol, logwt, logz, logzvar, h, nc, worst_it, boundidx, bounditer, eff, delta_logz) = self._last_iter
-        
+
         args = {'it' :      self.sampler.it,
                 'eff' :     '{:.2f}%'.format(eff),
                 'nc' :      nc,
@@ -201,36 +229,37 @@ class SamplerDynesty(SamplerBody):
                 'logZ' :    '{:.3f}'.format(logz),
                 'H' :       '{:.2f}'.format(h),
                 'dZ' :      '{:.3f}'.format(delta_logz)}
-        
+
         return args
 
     def get_posterior(self):
-        
+
         self.results            = self.sampler.results
         self.nested_samples     = self.results.samples
         logger.info(" - number of nested samples : {}".format(len(self.nested_samples)))
-        
+
         # extract posteriors
         ns = []
         wt = []
         scale = np.array(self.sampler.saved_scale)
         for i in range(len(self.nested_samples)):
-            
+
             this_params = list_2_dict(self.nested_samples[i], self.names)
             logpr       = self.log_prior_fn(this_params)
             logl        = np.float(self.results.logl[i])
-        
+
             ns.append(np.append(self.nested_samples[i], [logl, logpr]))
             wt.append(np.float(self.results.logwt[i]-self.results.logz[-1]))
-        
+
         ns      = np.array(ns)
-        wt      = np.exp(np.array(wt))
+        wt      = np.array(wt)
         names   = np.append(self.names , ['logL', 'logPrior'])
-        
+        self.log_weights = wt
+
         # resample nested samples into posterior samples
-        self.posterior_samples  = resample(ns, wt)
+        self.posterior_samples  = draw_posterior(ns, wt)
         self.real_nout          = len(self.posterior_samples)
-        
+
         # extract evidence
         self.logZ       = np.array(self.results.logz)
         self.logZerr    = self.results.logzerr
@@ -250,32 +279,32 @@ class SamplerDynesty(SamplerBody):
             post_file.write('\n')
 
         post_file.close()
-        
+
         evidence_file = open(self.outdir + '/evidence.dat', 'w')
         evidence_file.write('#\tlogX\tlogZ\tlogZerr\n')
         for xi,zi,ei in zip(self.results.logvol,self.logZ,self.logZerr):
             evidence_file.write('{}\t{}\t{}\n'.format(xi,zi,ei))
 
         evidence_file.close()
-        
+
     def make_plots(self):
-        
+
         try:
-        
+
             from dynesty import plotting as dyplot
             import matplotlib.pyplot as plt
-            
+
             from ...pipe import ensure_dir
             import os
             auxdir = os.path.join(self.outdir,'dynesty')
             ensure_dir(auxdir)
-            
+
             fig, axes = dyplot.runplot(self.results)
             plt.savefig(auxdir+'/runplot.png', dpi=200)
-        
+
             fig, axes = dyplot.traceplot(self.results, show_titles=True, labels=self.names)
             plt.savefig(auxdir+'/traceplot.png', dpi=200)
-        
+
             fig, axes = dyplot.cornerplot(self.results, color='royalblue', show_titles=True, labels=self.names)
             plt.savefig(auxdir+'/cornerplot.png', dpi=200)
 
@@ -283,28 +312,33 @@ class SamplerDynesty(SamplerBody):
             logger.warning("Unable to produce standard plots, check if matplotlib is installed.")
 
 class SamplerDynestyDynamic(SamplerDynesty):
-    
+
     def __initialize__(self, posterior, nbatch=512, **kwargs):
 
         # initialize dynamic nested parameters
         self.nbatch      = nbatch
         self.init_flag   = False
 
+        # slice sampling not available with dynamic dynesty
+        if kwargs['proposals_kwargs']['use_slice']:
+            logger.warning("Slice sampling not available with dynamic dynesty. Setting random-walk sampling.")
+            kwargs['proposals_kwargs']['use_slice'] = False
+
         # initialize dynesty inference
         super(SamplerDynestyDynamic, self).__initialize__(posterior, **kwargs)
-    
+
         # extract prior samples, ensuring finite logL
         logger.info("Extracting prior samples ...")
         self.p0 = get_prior_samples_dynesty(kwargs['nlive'], self.ndim, self.sampler.loglikelihood, self.sampler.prior_transform)
-    
+
         # set customized proposal
         dynesty.dynesty._SAMPLING["rwalk"] = self.sampler.evolve_point
         dynesty.nestedsamplers._SAMPLING["rwalk"] = self.sampler.evolve_point
-        
-    def _initialize_sampler(self, like_fn, ptform_fn, kwargs):
+
+    def _initialize_sampler(self, like_fn, ptform_fn, proposals, kwargs):
         logger.info("Initializing nested sampler ...")
         return dynesty.DynamicNestedSampler(like_fn, ptform_fn, **kwargs)
-    
+
     def __getstate__(self):
         state   = self.__dict__.copy()
         state['sampler'].pool   = None
@@ -313,25 +347,25 @@ class SamplerDynestyDynamic(SamplerDynesty):
         return state
 
     def __run__(self):
-        
+
         # perform initial sampling if necessary
         if not self.init_flag:
             self._run_nested_initial()
-        
+
         logger.info("Completing initial sampling ...")
         logger.info("Running batches with {} live points ...".format(self.nbatch))
         self._run_batches()
 
         # final store inference
         self.store()
-            
+
     def _store_current_live_points(self):
         self.p0 = [self.sampler.sampler.live_u,
                    self.sampler.sampler.live_v,
                    self.sampler.sampler.live_logl]
 
     def _run_nested_initial(self):
-        
+
         # check if a non-empty set of live points already exist
         if len(self.p0) == 0:
             # if none, the sampler has to be initialized
@@ -367,10 +401,10 @@ class SamplerDynestyDynamic(SamplerDynesty):
         return args
 
     def _run_batches(self):
-        
+
         # use new updating
         self.__update__ = self.__update_batches__
-        
+
         logger.info("Adding batches to the sampling ...")
         from dynesty.dynamicsampler import stopping_function, weight_function
 
@@ -390,21 +424,19 @@ class SamplerDynestyDynamic(SamplerDynesty):
 
 class BajesDynestyProposal(object):
 
-    def __init__(self, maxmcmc, walks=100, nact=5.):
+    def __init__(self, maxmcmc, walks=100, nact=5., use_slice=False):
 
         self.maxmcmc    = maxmcmc
         self.walks      = walks     # minimum number of steps
         self.nact       = nact      # Number of ACT (safety param)
+        self.use_slice  = use_slice
 
-#    def update_rwalk(self, blob):
-#        scale = blob['scale']
-#        accept, reject = blob['accept'], blob['reject']
-#        facc = (1. * accept) / (accept + reject)
-#        norm = max(self.facc, 1. - self.facc) * self.ndim
-#        scale *= np.exp((facc - self.facc) / norm)
-#        return min(scale, np.sqrt(self.ndim))
+        if use_slice:
+            self.propose = self.sample_rslice
+        else:
+            self.propose = self.sample_rwalk
 
-    def propose(self, args):
+    def sample_rwalk(self, args):
         """
             Inspired from bilby-implemented version of dynesty.sampling.sample_rwalk
             The difference is that if chain hits maxmcmc, slice sampling is proposed
@@ -506,9 +538,10 @@ class BajesDynestyProposal(object):
             v = v_list[idx]
             logl = logl_list[idx]
         else:
-            logger.debug("Unable to find a new point using random walk. Performing slice step.")
-            u, v, logl, _nc, blb = self.sample_rslice(args)
-            nc += _nc
+            logger.warning("Unable to find a new point using random walk. Returning prior sample.")
+            u = np.random.uniform(size=n)
+            v = prior_transform(u)
+            logl = loglikelihood(v)
 
         blob    = {'accept': accept, 'reject': reject, 'fail': nfail, 'scale': scale}
         ncall   = accept + reject + nc
@@ -522,22 +555,29 @@ class BajesDynestyProposal(object):
         rstate = np.random
 
         # Periodicity.
-        nonperiodic = kwargs.get('reflective', None)
+        nonbounded  = None # all, used for sanity check
+        periodic    = kwargs.get('periodic', None)
+        reflective  = kwargs.get('reflective', None)
+        old_act     = np.copy(self.walks)
 
         # Setup.
         n = len(u)
-        slices = len(u)//2
+        slices = self.walks
         nc = 0
         nexpand = 0
         ncontract = 0
         fscale = []
+
+        u_list  = [u]
+        v_list  = [prior_transform(u)]
+        logl_list = [loglikelihood(v_list[-1])]
 
         # Modifying axes and computing lengths.
         axes = scale * axes.T  # scale based on past tuning
         axlens = [np.linalg.norm(axis) for axis in axes]
 
         # Slice sampling loop.
-        for it in range(slices):
+        while len(logl_list) < slices*1.5+1:
 
             # Propose a direction on the unit n-sphere.
             drhat = rstate.randn(n)
@@ -551,16 +591,33 @@ class BajesDynestyProposal(object):
             r = rstate.rand()  # initial scale/offset
 
             u_l = u - r * axis  # left bound
-            if unitcheck(u_l, nonperiodic):
+
+            # Wrap periodic parameters
+            if periodic is not None:
+                u_l[periodic] = np.mod(u_l[periodic], 1)
+            # Reflect
+            if reflective is not None:
+                u_l[reflective] = reflect(u_l[reflective])
+
+            if unitcheck(u_l, nonbounded):
                 v_l = prior_transform(np.array(u_l))
                 logl_l = loglikelihood(np.array(v_l))
             else:
                 logl_l = -np.inf
+
             nc += 1
             nexpand += 1
 
             u_r = u + (1 - r) * axis  # right bound
-            if unitcheck(u_r, nonperiodic):
+
+            # Wrap periodic parameters
+            if periodic is not None:
+                u_r[periodic] = np.mod(u_r[periodic], 1)
+            # Reflect
+            if reflective is not None:
+                u_r[reflective] = reflect(u_r[reflective])
+
+            if unitcheck(u_r, nonbounded):
                 v_r = prior_transform(np.array(u_r))
                 logl_r = loglikelihood(np.array(v_r))
             else:
@@ -568,20 +625,37 @@ class BajesDynestyProposal(object):
             nc += 1
             nexpand += 1
 
-
             # "Stepping out" the left and right bounds.
             while logl_l > loglstar:
+
                 u_l -= axis
-                if unitcheck(u_l, nonperiodic):
+
+                # Wrap periodic parameters
+                if periodic is not None:
+                    u_l[periodic] = np.mod(u_l[periodic], 1)
+                # Reflect
+                if reflective is not None:
+                    u_l[reflective] = reflect(u_l[reflective])
+
+                if unitcheck(u_l, nonbounded):
                     v_l = prior_transform(np.array(u_l))
                     logl_l = loglikelihood(np.array(v_l))
                 else:
                     logl_l = -np.inf
                 nc += 1
                 nexpand += 1
+
             while logl_r > loglstar:
                 u_r += axis
-                if unitcheck(u_r, nonperiodic):
+
+                # Wrap periodic parameters
+                if periodic is not None:
+                    u_l[periodic] = np.mod(u_l[periodic], 1)
+                # Reflect
+                if reflective is not None:
+                    u_l[reflective] = reflect(u_l[reflective])
+
+                if unitcheck(u_r, nonbounded):
                     v_r = prior_transform(np.array(u_r))
                     logl_r = loglikelihood(np.array(v_r))
                 else:
@@ -600,16 +674,11 @@ class BajesDynestyProposal(object):
 
                 # Check if the slice has shrunk to be ridiculously small.
                 if window < 1e-10 * window_init:
-                    logger.warning("Slice sampling appears to be stuck. Returning uniform sample.")
-                    u = np.random.uniform(size=n)
-                    v = prior_transform(u)
-                    logl = loglikelihood(v)
-                    blob = {'fscale': 1., 'nexpand': nexpand, 'ncontract': ncontract}
-                    return u, v, logl, nc, blob
+                    break
 
                 # Propose new position.
                 u_prop = u_l + rstate.rand() * u_hat  # scale from left
-                if unitcheck(u_prop, nonperiodic):
+                if unitcheck(u_prop, nonbounded):
                     v_prop = prior_transform(np.array(u_prop))
                     logl_prop = loglikelihood(np.array(v_prop))
                 else:
@@ -621,6 +690,9 @@ class BajesDynestyProposal(object):
                 if logl_prop > loglstar:
                     fscale.append(window / axlen)
                     u = u_prop
+                    u_list.append(u_prop)
+                    v_list.append(v_prop)
+                    logl_list.append(logl_prop)
                     break
                 # If we fail, check if the new point is to the left/right of
                 # our original point along our proposal axis and update
@@ -633,12 +705,24 @@ class BajesDynestyProposal(object):
                         u_r = u_prop
                     else:
                         # If `s = 0` something has gone horribly wrong.
-                        logger.warning("Slice sampler has failed to find a valid point. Returning uniform sample.")
-                        u = np.random.uniform(size=n)
-                        v = prior_transform(u)
-                        logl = loglikelihood(v)
-                        blob = {'fscale': 1., 'nexpand': nexpand, 'ncontract': ncontract}
-                        return u, v, logl, nc, blob
+                        break
+
+            # If we've taken too many likelihood evaluations then break
+            if ncontract + nexpand > self.maxmcmc:
+                logger.warning("Hit maxmcmc iterations ({}) with contract={}, and expand={}.".format(self.maxmcmc, ncontract, nexpand))
+                break
+
+        # If the act is finite, pick randomly from within the chain
+        if len(logl_list) >= self.walks:
+            idx = np.random.randint(int(self.walks+1), len(u_list))
+            u = u_list[idx]
+            v = v_list[idx]
+            logl = logl_list[idx]
+        else:
+            logger.warning("Unable to find a new point using random slice. Returning prior sample.")
+            u = np.random.uniform(size=n)
+            v = prior_transform(u)
+            logl = loglikelihood(v)
 
         blob = {'fscale': np.mean(fscale), 'nexpand': nexpand, 'ncontract': ncontract}
         return u_prop, v_prop, logl_prop, nc, blob

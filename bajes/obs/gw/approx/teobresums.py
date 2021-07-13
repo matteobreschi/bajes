@@ -31,7 +31,7 @@ def teobresums(params_teob):
         --------
         params_teob dictionary with the following
         key-arguments :
-        
+
         M = total mass [solar masses]
         q = mass ratio [dimensionless]
         s1z = primary spin component along z axis [dimensionless]
@@ -84,7 +84,7 @@ def teobresums_wrapper(freqs, params):
 
     if params['eccentricity'] != 0:
         params_teob['ecc'] = params['eccentricity']
-    
+
     if params['s1x'] != 0:
         params_teob['s1x'] = params['s1x']
     if params['s1y'] != 0:
@@ -101,7 +101,7 @@ def teobresums_wrapper(freqs, params):
     return hp , hc
 
 def teobresums_hyperb_wrapper(freqs, params):
-    
+
     # unwrap lm modes
     if params['lmax'] == 0:
         modes = [1]
@@ -111,7 +111,7 @@ def teobresums_hyperb_wrapper(freqs, params):
 #    # compute J_lso
     nu = params['q']/np.power(1+params['q'], 2.)
     pphi_lso = EOB.pph_lso_orbital_py(nu)
-    r = 1500. 
+    r = 1500.
 
     if params['angmom'] >= pphi_lso:
 #
@@ -161,7 +161,7 @@ def teobresums_hyperb_wrapper(freqs, params):
       return [None], [None]
 
 def teobresums_spa_wrapper(freqs, params):
-    
+
     #unwrap lm modes
     if params['lmax'] == 0:
         modes = [1]
@@ -178,8 +178,8 @@ def teobresums_spa_wrapper(freqs, params):
                     'distance':             params['distance'],
                     'inclination':          params['iota'],
                     'coalescence_angle':    params['phi_ref'],
-                    'srate':                np.max(freqs)*2,
-                    'interp_FD_waveform':   1,
+                    'srate':                params['srate'],
+                    'srate_interp':         params['srate'],
                     'use_geometric_units':  0,
                     'output_hpc':           0,
                     'output_multipoles':    0,
@@ -187,6 +187,7 @@ def teobresums_spa_wrapper(freqs, params):
                     'domain':               1,
                     'interp_freqs':         1,
                     'freqs':                freqs.tolist(),
+                    'initial_frequency':    params['f_min']
                     }
 
     f , rhplus, ihplus, rhcross, ihcross = teobresums(params_teob)
@@ -197,7 +198,7 @@ def teobresums_nrpm_wrapper(freqs, params):
     # generate TEOB
     hp_eob, hc_eob = teobresums_wrapper(freqs, params)
     h_eob = hp_eob - 1j*hc_eob
-    
+
     # estimate merger frequency
     phi_last    = np.angle(h_eob[-1])
     f_merg      = np.abs(np.gradient(np.unwrap(np.angle(h_eob[-100:])))*params['srate'])[-1]/(2*np.pi)
@@ -205,18 +206,18 @@ def teobresums_nrpm_wrapper(freqs, params):
     # generate NRPM
     from .nrpm import NRPM
     from ..utils import lambda_2_kappa
-    
+
     kappa2T = lambda_2_kappa(params['mtot']/(1.+1./params['q']),
                              params['mtot']/(1.+ params['q']),
                              params['lambda1'], params['lambda2'])
-                             
+
     if kappa2T < 60 :
         return hp_eob, hc_eob
-        
+
     hp_pm, hc_pm = NRPM(params['srate'], params['seglen'], params['mtot'], params['q'], kappa2T,
                         params['distance'], params['iota'], phi_last,
                         f_merg = f_merg, alpha = None, phi_kick = None)
-    
+
     h_pm = hp_pm - 1j*hc_pm
 
     # remove tail before merger and rescale amplitude
@@ -227,7 +228,7 @@ def teobresums_nrpm_wrapper(freqs, params):
     return np.real(h), -np.imag(h)
 
 def D4(f, dx):
-    
+
     n       = len(f)
     oo12dx  = 1./(12*dx)
     df      = list(map(lambda i: (8.*(f[i+1]-f[i-1]) - f[i+2] + f[i-2])*oo12dx, range(2, n-2)))

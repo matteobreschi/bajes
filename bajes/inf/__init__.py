@@ -11,7 +11,7 @@ __known_samplers__     = ['emcee', 'ptmcmc', 'cpnest', 'ultranest', 'dynesty', '
 def Sampler(engine, model, **kwargs):
     """
         Initialize a sampler object
-        
+
         Arguments:
         engine  : str, specify the kind of sampler
                   mcmc, ptmcmc, nest, cpnest, dynest
@@ -20,19 +20,19 @@ def Sampler(engine, model, **kwargs):
                   [bajes.inf.prior.Prior, bajes.inf.likelihood.Likelihood]
         kwargs  : further arguments to be passed to the sampler
     """
-    
+
     if isinstance(model, list):
-    
+
         if isinstance(model[0], Prior):
             pr = model[0]
             lk = model[1]
             posterior = Posterior(like=lk, prior=pr)
-                
+
         elif isinstance(model[1], Prior):
             pr = model[1]
             lk = model[0]
             posterior = Posterior(like=lk, prior=pr)
-                
+
         else:
             raise ValueError("Unable to define {} sampler. The model-list must contain two arguments, e.g. [bajes.inf.prior.Prior, bajes.inf.likelihood.Likelihood]".format(engine))
 
@@ -105,7 +105,7 @@ class LinearProbability:
         self._norm = 0.5*(max**2. - min**2.)
         self._lognorm = np.log(self._norm)
         self._min2 = min**2.
-    
+
     def log_density(self, x):
         return np.log(x) - self._lognorm
 
@@ -146,15 +146,15 @@ class PowerLawProbability:
         min : lower bound
         max : upper bound
         """
-    
+
     def __init__(self, min, max, deg):
-        
+
         self._deg   = deg
         self._degp1 = deg + 1.
-        
+
         max2degp1 = max**self._degp1
         self._min2degp1 = min**self._degp1
-        
+
         self._norm = (max2degp1 - self._min2degp1)/self._degp1
         self._lognorm = np.log(self._norm)
 
@@ -177,9 +177,9 @@ class TriangularProbability:
         max  : upper bound
         mode : modal value
     """
-    
+
     def __init__(self, min, max, mode):
-        
+
         self._min   = min
         self._max   = max
         self._mode  = mode
@@ -210,9 +210,9 @@ class LogUniformProbability:
         min  : lower bound
         max  : upper bound
     """
-    
+
     def __init__(self, min, max):
-        
+
         self._min       = min
         self._r         = max/min
         self._norm      = np.log(self._r)
@@ -235,9 +235,9 @@ class SinusoidalProbability:
         min  : lower bound
         max  : upper bound
         """
-    
+
     def __init__(self, min, max):
-        
+
         self._cosmin    = np.cos(min)
         self._norm      = np.cos(min) - np.cos(max)
         self._lognorm   = np.log(self._norm)
@@ -322,7 +322,7 @@ class NormalProbability:
         sigma   : stdev
     """
     def __init__(self, min, max, mu, sigma):
-        
+
         self._mu        = mu
         self._sigma     = sigma
 
@@ -333,7 +333,7 @@ class NormalProbability:
 
         a   = (min - mu)/sigma
         b   = (max - mu)/sigma
-        
+
         self._zeta      = 0.5*(erf(b/self._sqrt2) - erf(a/self._sqrt2))
         self._norm      = np.sqrt(2*np.pi)*sigma*self._zeta
         self._lognorm   = np.log(self._norm)

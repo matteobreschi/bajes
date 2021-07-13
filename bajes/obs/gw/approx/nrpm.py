@@ -1,6 +1,8 @@
 from __future__ import division, absolute_import
 import numpy as np
 
+from .nrpmw import NRPMw
+
 MSUN_SI     = 1.9885469549614615e+30
 MTSUN_SI    = 4.925491025543576e-06
 MRSUN_SI    = 1476.6250614046494
@@ -44,7 +46,7 @@ def NRPM_AmpModel_exp( ti , bmerg, b3 , t3 , tc, alpha = None):
 
     if alpha == None:
         alpha = np.log(100 * b3/bmerg)/(tc-t3)
-    
+
     if alpha < 0:
         alpha = 0.
 
@@ -52,11 +54,11 @@ def NRPM_AmpModel_exp( ti , bmerg, b3 , t3 , tc, alpha = None):
     return amp
 
 def NRPM_AmpModel_exp2( ti , bmerg, b3 , t3 , tc, alpha = None):
-    
+
     if alpha == None:
         a       = bmerg/(b3*100)
         alpha   = - (tc - t3)*np.log((1-a)/(1+a))
-    
+
     amp = b3 * (2./(1.+np.exp(-alpha/(ti - t3))) - 1.)
     return amp
 
@@ -65,12 +67,12 @@ def NRPM_TaperBeforeMerger( ti , Mtot , eta , f_merg , A_merg ):
 
     # Use taper assuming chirp-like evolution
     Mchirp = Mtot * np.power(eta , 3./5.)
-    
+
     t_merg  = (5./256.) * np.power(np.pi*f_merg,-8./3.) * np.power(Mchirp*MTSUN_SI,-5./3.)
     phase   = -2. * np.power(5. * Mchirp*MTSUN_SI,-5./8.) * np.power(t_merg - ti,5./8.)
     freq    = (1/np.pi) * np.power(5./(256. * (t_merg - ti)), 3./8.) * np.power(Mchirp * MTSUN_SI,-5./8.)
     dfreq   = (96./6.) * np.power(np.pi, 8./3.) * np.power(Mchirp * MTSUN_SI, 5./3.) * np.power( freq , 11./3.)
-    
+
     # set taper 0.5ms before merger
     tcut = -0.0005
     indcut = np.where(ti>=tcut)
@@ -92,7 +94,7 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
     inc_cross   = cosi
     spherharm_norm = np.sqrt(5/(4*np.pi))
     distance    *= 1e6*PC_SI
-    
+
     if kappa2T < 60 :
         return np.zeros(int(seglen*srate)), np.zeros(int(seglen*srate))
 
@@ -105,7 +107,7 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
     a1 = bns_postmerger_amplitude(1, kappa2T, Mtot, eta)
     a2 = bns_postmerger_amplitude(2, kappa2T, Mtot, eta)
     a3 = bns_postmerger_amplitude(3, kappa2T, Mtot, eta)
-    am = bns_postmerger_amplitude('m', kappa2T, Mtot, eta)    
+    am = bns_postmerger_amplitude('m', kappa2T, Mtot, eta)
 
     t0 = bns_postmerger_time(0, kappa2T, Mtot, eta)
     t1 = bns_postmerger_time(1, kappa2T, Mtot, eta)
@@ -186,7 +188,7 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
     return np.array(hplus), np.array(hcross)
 
 def nrpm_wrapper(freqs, params):
-    
+
     kappa2T = lambda_2_kappa(params['mtot']/(1.+1./params['q']),
                              params['mtot']/(1.+ params['q']),
                              params['lambda1'], params['lambda2'])
@@ -194,7 +196,11 @@ def nrpm_wrapper(freqs, params):
     hp, hc = NRPM(params['srate'], params['seglen'], params['mtot'], params['q'], kappa2T,
                   params['distance'], params['iota'], params['phi_ref'],
                   f_merg = None, alpha = None, phi_kick = None)
-    
+
     return hp, hc
 
+def nrpmw_wrapper(freqs, params):
+    return NRPMw(freqs, params)
 
+def nrpmw_recal_wrapper(freqs, params):
+    return NRPMw(freqs, params, recalib=True)

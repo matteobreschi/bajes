@@ -21,19 +21,22 @@ class nrsur7dq4_wrapper(object):
         return hp, hc
 
     def td_waveform(self, params):
-        srate = params['srate']
-        chiA = [params['s1x'],params['s1y'],params['s1z']]
-        chiB = [params['s2x'],params['s2y'],params['s2z']]
-        
+
+        nrsurr_params = {}
+        nrsurr_params['dt']     = 1./params['srate']
+        nrsurr_params['f_low']  = 0.
+
+        chiA   = [params['s1x'],params['s1y'],params['s1z']]
+        chiB   = [params['s2x'],params['s2y'],params['s2z']]
+
         if params['lmax'] < 2:
-            params['lmax'] = 2
+            nrsurr_params['mode_list'] = [(2,2)]
+        else:
+            nrsurr_params['ellMax'] = params['lmax']
 
         t, h, dyn = self.sur(params['q'], chiA, chiB,
-                             dt         = 1./srate,
                              # if f_low, start from the minimum freq of the surrogate
                              # without f_ref, f_ref = f_low
-                             f_low      = 0,
-                             ellMax     = params['lmax'],
                              M          = params['mtot'],
                              dist_mpc   = params['distance'],
                              inclination = params['iota'],
@@ -41,12 +44,12 @@ class nrsur7dq4_wrapper(object):
                              tidal_opts = {'Lambda1': params['lambda1'],
                                            'Lambda2': params['lambda2']},
                              units      = 'mks',
-                             skip_param_checks = True)
+                             skip_param_checks = True,
+                             **nrsurr_params)
 
         hp = h.real
         hc = h.imag
-        dt = np.median(np.diff(t))
-        return hp, hc, dt
+        return hp, hc, nrsurr_params['dt']
 
 class nrhybsur3dq8_wrapper(object):
 
@@ -65,7 +68,7 @@ class nrhybsur3dq8_wrapper(object):
         srate = params['srate']
         chiA = [params['s1x'],params['s1y'],params['s1z']]
         chiB = [params['s2x'],params['s2y'],params['s2z']]
-        
+
         if params['lmax'] < 2:
             params['lmax'] = 2
 
@@ -107,7 +110,7 @@ class nrhybsur3dq8tidal_wrapper(object):
         srate = params['srate']
         chiA = [params['s1x'],params['s1y'],params['s1z']]
         chiB = [params['s2x'],params['s2y'],params['s2z']]
-        
+
         if params['lmax'] < 2:
             params['lmax'] = 2
 
@@ -130,4 +133,3 @@ class nrhybsur3dq8tidal_wrapper(object):
         hc = h.imag
         dt = np.median(np.diff(t))
         return hp, hc, dt
-
