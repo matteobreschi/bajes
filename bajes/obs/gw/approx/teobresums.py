@@ -86,15 +86,15 @@ def teobresums_wrapper(freqs, params):
         params_teob['ecc'] = params['eccentricity']
 
     if params['s1x'] != 0:
-        params_teob['s1x'] = params['s1x']
+        params_teob['chi1x'] = params['s1x']
     if params['s1y'] != 0:
-        params_teob['s1y'] = params['s1y']
+        params_teob['chi1y'] = params['s1y']
     if params['s2x'] != 0:
-        params_teob['s2x'] = params['s2x']
+        params_teob['chi2x'] = params['s2x']
     if params['s2y'] != 0:
-        params_teob['s2y'] = params['s2y']
-    spin_perp = params['s1x']**2+params['s1y']**2+params['s2x']**2+params['s2y']**2
-    if spin_perp > 1e-7:
+        params_teob['chi2y'] = params['s2y']
+    check = params['s1x']**2+params['s1y']**2+params['s2x']**2+params['s2y']**2
+    if check > 1e-7:
         params_teob['use_spins'] = 2
 
     t , hp , hc     = teobresums(params_teob)
