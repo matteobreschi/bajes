@@ -174,9 +174,9 @@ class Injection(object):
                 _f, _w = fft(self.wave_strains[ifo], 1./self.srate)
                 _f, _d = fft(self.inj_strains[ifo], 1./self.srate)
                 _i     = np.where(_f>=self.f_min)
-                psd    = noises[ifo].innterp_psd_pad(_f[_i])
-                d_inner_h = (4/self.seglen)*np.sum(np.conj(_w[_i])*_d[_i]/psd)
-                h_inner_h = (4/self.seglen)*np.sum(np.conj(_d[_i])*_d[_i]/psd)
+                psd    = noises[ifo].interp_psd_pad(_f[_i])
+                d_inner_h = (4/self.seglen)*np.real(np.sum(np.conj(_w[_i])*_d[_i]/psd))
+                h_inner_h = (4/self.seglen)*np.real(np.sum(np.conj(_w[_i])*_w[_i]/psd))
                 self.snrs[ifo] = d_inner_h/np.sqrt(h_inner_h)
                 logger.info("  - SNR in {} = {:.3f} ".format(ifo, self.snrs[ifo]))
 
