@@ -208,18 +208,28 @@ def save_container(path, kwargs):
         - kwargs : dictionary of objects, the keys will define the arguments of the container
     """
 
-    pkl_kwarg = {}
-    for ki in list(kwargs.keys()):
-        if is_picklable(kwargs[ki]):
-            pkl_kwarg[ki] = kwargs[ki]
-        else:
-            logger.warning("Impossible to store {} object in data container, it is not picklable".format(ki))
+    # identify master process
+    try:
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+    except Exception:
+        rank = 0
 
-    dc = data_container(path)
-    for ki in list(pkl_kwarg.keys()):
-        logger.debug("Storing {} object in data container".format(ki))
-        dc.store(ki, pkl_kwarg[ki])
-    dc.save()
+    # save container
+    if rank == 0:
+        pkl_kwarg = {}
+        for ki in list(kwargs.keys()):
+            if is_picklable(kwargs[ki]):
+                pkl_kwarg[ki] = kwargs[ki]
+            else:
+                logger.warning("Impossible to store {} object in data container, it is not picklable".format(ki))
+
+        dc = data_container(path)
+        for ki in list(pkl_kwarg.keys()):
+            logger.debug("Storing {} object in data container".format(ki))
+            dc.store(ki, pkl_kwarg[ki])
+        dc.save()
 
 class data_container(object):
     """
@@ -389,7 +399,7 @@ def parse_core_options():
     parser.add_option('--seed',             dest='seed',        default=None,   type='int',             help='seed for the pseudo-random chain')
     parser.add_option('--debug',            dest='debug',       default=False,  action="store_true",    help='use debugging mode for logger')
     parser.add_option('--verbose',          dest='silence',     default=True,  action="store_false",    help='activate stream handler, use this if you are running on terminal')
-    parser.add_option('--tracing',            dest='trace_memory',       default=False,  action="store_true",    help='keep track of memory usage')
+    parser.add_option('--tracing',          dest='trace_memory',       default=False,  action="store_true",    help='keep track of memory usage')
     parser.add_option('-o', '--outdir',     default=None,       type='string',  dest='outdir',          help='directory for output')
 
     #

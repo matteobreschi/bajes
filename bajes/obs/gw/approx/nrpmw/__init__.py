@@ -3,7 +3,6 @@ __import__("pkg_resources").declare_namespace(__name__)
 
 from ...utils import compute_lambda_tilde , compute_delta_lambda
 from ..... import MTSUN_SI
-from numpy import pi as PI
 
 #####################################################
 #                                                   #

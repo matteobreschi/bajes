@@ -1,13 +1,13 @@
 # Credits
 
-*bajes* has been developed by Matteo Breschi 
-at Friedrich-Schiller-Universität Jena with the contribution of 
-Rossella Gamba, Emil Donkersloot and Sebastiano Bernuzzi. 
+*bajes* has been developed by Matteo Breschi
+at Friedrich-Schiller-Universität Jena with the contribution of
+Rossella Gamba, Emil Donkersloot and Sebastiano Bernuzzi.
 If you use this software, please include the following [citation](https://arxiv.org/abs/2102.00017):
 
     @article{Bajes:2021,
              author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
-             title          = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data, 
+             title          = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data,
                               methods and application to gravitational-waves",
              eprint         = "2102.00017",
              archivePrefix  = "arXiv",
@@ -19,7 +19,7 @@ The posterior samples computed with the *bajes* pipeline of the gravitational-wa
 
     @misc{bajes_eob_catalog,
           author    = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
-          title     = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data, 
+          title     = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data,
                       methods and application to gravitational-waves",
           month     = jan,
           year      = 2021,
@@ -46,10 +46,10 @@ If you use one of the following gravitational-wave approximants, please provide 
 * `NRHybSur3dq8Tidal`: K. Barkett et al., [arxiv](https://arxiv.org/abs/1911.10440)
 * `TaylorF2_5.5PN`: F. Messina et al., [arxiv](https://arxiv.org/abs/1904.09558)
     * `7.5PNTides` are taken from T. Damour et al., [arxiv](https://arxiv.org/abs/1203.4352)
-    * `7.5PNTides2020` corresponds to Q. Henry et al., [arxiv](https://arxiv.org/abs/2005.13367) 
+    * `7.5PNTides2020` corresponds to Q. Henry et al., [arxiv](https://arxiv.org/abs/2005.13367)
 * For the documentation of `LALSimulation` waveforms, please visit this [link](https://lscsoft.docs.ligo.org/lalsuite/)
 
-The *bajes* repository contains the official ASDs and the calibration envelopes 
+The *bajes* repository contains the official ASDs and the calibration envelopes
 released with GWTC-1 (LVC, [arxiv](https://arxiv.org/abs/1811.12907)) and the design
 ASDs for current and future detectors,
 * LIGO Design sensitivity, LIGO Scientific Collaboration, [arxiv](https://arxiv.org/abs/1411.4547)
@@ -57,4 +57,3 @@ ASDs for current and future detectors,
 * KAGRA Design sensitivity, T. Akutsu et al., [arxiv](https://arxiv.org/abs/1811.08079)
 * Einstein Telescope (configuration D) sensitivity, S. Hild et al., [arxiv](https://arxiv.org/abs/1012.0908)
 * Cosmic Explorer sensitivity, D. Reitze et al., [arxiv](https://arxiv.org/abs/1907.04833)
-

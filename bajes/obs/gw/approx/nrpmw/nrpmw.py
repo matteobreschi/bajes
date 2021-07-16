@@ -1,6 +1,6 @@
 from __future__ import division, unicode_literals, absolute_import
 import numpy as np
-from scipy.special import wofz, factorial, binom
+from scipy.special import wofz, erfc, factorial, binom
 
 from . import _nrpmw_fits
 from ..... import MTSUN_SI, MRSUN_SI, PARSEC_SI
@@ -14,6 +14,7 @@ SQRTPI      = np.sqrt(np.pi)
 EmIPIHALF   = np.exp(-1j*PIHALF)
 
 SPHARM_22   = np.sqrt(5./(4.*np.pi))
+WI_FACT     = -0.5j*SQRTPI
 _prefact    = SPHARM_22*MRSUN_SI*MTSUN_SI/1e6/PARSEC_SI
 
 #####################################################
@@ -22,32 +23,35 @@ _prefact    = SPHARM_22*MRSUN_SI*MTSUN_SI/1e6/PARSEC_SI
 #                                                   #
 #####################################################
 
-def __nan_in_array(x):
-    if any(np.isnan(x)):
-        return True
-    else:
-        return False
+def __check_nans(ax):
+    # check the NANs
+    nans = np.isnan(ax)
+    ax[nans]  = 0.
+    return ax
 
-def _wavelet_integral_extremes(x,b):
+def _wavelet_integral_extremes_erfc(x,b):
     """
         Compute Gaussian integral given the extremal values
     """
-    # compute wofz
-    b_plus_x = b+x
-    d1 = wofz(b_plus_x)
-    d2 = wofz(x)
-    out = -0.5j*SQRTPI*(np.exp(b*b + 2.*x*b)*d1 - d2)
-    if __nan_in_array(out):
-        logger.warning("NRPMw is unable to compute wavelet integral, returning zero for this wavelet component")
-        return 0.
-    else:
-        return out
+    # compute erfc integral
+    out = WI_FACT*np.exp(-x**2)*(erfc(-1j*(b+x))-erfc(-1j*x))
+    return __check_nans(out)
+
+def _wavelet_integral_extremes_wofz(x,b):
+    """
+        Compute Gaussian integral given the extremal values
+    """
+    # compute wofz integral
+    out = WI_FACT*(np.exp(b*b + 2.*x*b)*wofz(b+x) - wofz(x))
+    # check values
+    if any(np.abs(out)>1e13): logger.warning("Numerical error encoutered, WOFZ returned unexpectedly large values for this axes:\n{}\n".format('* x = [ {} ... {} ]\n* b = {}'.format(x[0],x[-1],b)))
+    return __check_nans(out)
 
 def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
     """
         Frequency-domain representation of
 
-            W(t) = eta * exp( alpha * t**2 + beta*t)
+            W(t) = eta * exp( alpha * t**2 + beta*t )
 
         with eta, alpha, beta in C integrated over t in [0, tau]
         and shifted of a time tshift
@@ -88,39 +92,9 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
 
         return (c1 + c2) * np.exp(-1j*TWOPI*freq*tshift)
 
-    elif np.abs(imalpha) < 1e-4 and imalpha > 0:
+    elif np.abs(imalpha) < 1e-3:
 
-        # gaussian case, im(alpha) small and positive
-
-        eta     = complex(eta)
-        alpha   = complex(alpha)
-        beta    = complex(beta)
-        sqrta   = np.sqrt(alpha)
-
-        x1      = 0.5*(beta-2.j*np.pi*freq)/sqrta
-        b1      = sqrta*tau
-        c1      = 0.5*eta/sqrta
-
-        return c1 * _wavelet_integral_extremes(x1,b1) * np.exp(-1j*TWOPI*freq*tshift)
-
-    elif np.abs(imalpha) < 1e-4 and imalpha < 0:
-
-        # gaussian case, im(alpha) small and negative
-
-        alpha   = np.conj(complex(alpha))
-        beta    = np.conj(complex(beta))
-        eta     = np.conj(complex(eta))
-        sqrta   = np.sqrt(alpha)
-
-        x2      = 0.5*(beta-2.j*np.pi*freq)/sqrta
-        b2      = sqrta*tau
-        c2      = 0.5*eta/sqrta
-
-        return c2 * _wavelet_integral_extremes(x2,b2) * np.exp(-1j*TWOPI*freq*tshift)
-
-    else:
-
-        # gaussian case, general
+        # gaussian case, small alphas
 
         eta     = complex(eta)
         alpha   = complex(alpha)
@@ -140,7 +114,29 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
         b2      = sqrta*tau
         c2      = 0.5*eta/sqrta
 
-        return (c1 * _wavelet_integral_extremes(x1,b1) + c2 * _wavelet_integral_extremes(x2,b2)) * np.exp(-1j*TWOPI*freq*tshift)
+        return (c1 * _wavelet_integral_extremes_erfc(x1,b1) + c2 * _wavelet_integral_extremes_erfc(x2,b2)) * np.exp(-1j*TWOPI*freq*tshift)
+
+    else:
+        # gaussian case, general
+        eta     = complex(eta)
+        alpha   = complex(alpha)
+        beta    = complex(beta)
+        sqrta   = np.sqrt(alpha)
+
+        x1      = 0.5*(beta-2.j*np.pi*freq)/sqrta
+        b1      = sqrta*tau
+        c1      = 0.5*eta/sqrta
+
+        alpha   = np.conj(alpha)
+        beta    = np.conj(beta)
+        eta     = np.conj(eta)
+        sqrta   = np.sqrt(alpha)
+
+        x2      = 0.5*(beta-2.j*np.pi*freq)/sqrta
+        b2      = sqrta*tau
+        c2      = 0.5*eta/sqrta
+
+        return (c1 * _wavelet_integral_extremes_wofz(x1,b1) + c2 * _wavelet_integral_extremes_wofz(x2,b2)) * np.exp(-1j*TWOPI*freq*tshift)
 
 def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi):
     """
@@ -150,7 +146,7 @@ def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, P
 
         with eta, alpha, beta in C integrated over t in [0, tau]
         and shifted of a time tshift.
-        F(t) is a sinusoidal+expontial function that defines the frequency modulations (FMs)
+        F(t) is a damped sinusoidal function that defines the frequency modulations (FMs)
         and it is characterized by the frequency Omega, inverse damping time Gamma,
         initial phase Phi and amplitude Delta
 
@@ -180,7 +176,7 @@ def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, P
         nu          = -Gamma - 1j*Omega
         d           = -0.5*Delta/np.abs(nu)**2
         phi_extra   = np.exp(1j*2.*d*(Gamma*np.sin(Phi)+Omega*np.cos(Phi)))
-        nmax        = min(max(1,int(2.*(1.+np.abs(Delta/Omega)))),12)
+        nmax        = min(max(1,int(2.*(1.+np.abs(Delta/Omega)))),8)
 
         # compute FM corrections
         h0  = (h0 + sum([(d**n/factorial(n))*sum([binom(n,k)*((-np.conj(nu))**k)*((nu)**(n-k))*_wavelet_func(freq,
@@ -220,7 +216,7 @@ def NRPMw(freqs, params, recalib=False):
 
     # if lambda1 or lambda2 = 0 , avoid PM segment
     if params['lambda1'] < 1 or params['lambda2'] < 1:
-        h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*(params['phi_ref'] + freqs*(TWOPI*params['time_shift']/(MTSUN_SI*params['mtot']))))
+        h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
         return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
 
     if params['NRPMw_t_coll'] > params['t_0'] :
@@ -298,5 +294,7 @@ def NRPMw(freqs, params, recalib=False):
                                      Phi     = PIHALF+params['NRPMw_phi_fm'])
 
     # compute hp,hc
-    h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*(params['phi_ref'] + freqs*(TWOPI*params['time_shift']/(MTSUN_SI*params['mtot']))))
+    h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
+    # check nans
+    h22 =  __check_nans(h22)
     return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
