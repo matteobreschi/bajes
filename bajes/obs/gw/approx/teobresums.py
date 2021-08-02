@@ -75,6 +75,8 @@ def teobresums_wrapper(freqs, params):
                     'q':                    params['q'],
                     'chi1':                 params['s1z'],
                     'chi2':                 params['s2z'],
+                    'chi1z':                params['s1z'],
+                    'chi2z':                params['s2z'],
                     'Lambda1':              params['lambda1'],
                     'Lambda2':              params['lambda2'],
                     'distance':             params['distance'],
