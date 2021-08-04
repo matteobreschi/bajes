@@ -127,9 +127,12 @@ def teobresums_hyperb_wrapper(freqs, params):
     r        = 1500.
 
     # Restrict to regions far from direct capture
-    # For the non-spinning case this was done through the prior,
+    # For the non-spinning case this is done through the prior,
     # while the spinning case has too much variability to impose the constraint through fixed J bounds.
-    if params['angmom'] >= 1.15*pphi_lso:
+    if(params['s1z']==0.0 and params['s2z']==0.0): pphi_lso_low_limit = 1.0
+    else:                                          pphi_lso_low_limit = 1.15
+
+    if params['angmom'] >= pphi_lso_low_limit*pphi_lso:
 
         # compute E_min and E_max
         Emn, Emx = EnergyLimits(r, params['q'], params['angmom'], params['s1z'], params['s2z'])
