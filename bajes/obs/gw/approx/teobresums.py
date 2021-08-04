@@ -26,7 +26,7 @@ def l_to_k(lmax):
     modes = np.concatenate([[[li,mi] for mi in range(1,li+1)] for li in all_l])
     return [int(x[0]*(x[0]-1)/2 + x[1]-2) for x in modes]
 
-def  additional_opts(params_teob, params):
+def additional_opts(params_teob, params):
 
     # set additional flags (present in params) in params_teob
     names = ['project_spins', 'postadiabatic_dynamics', 'use_flm', 'nqc', 'nqc_coefs_flx', 'nqc_coefs_hlm']
@@ -117,62 +117,72 @@ def teobresums_wrapper(freqs, params):
 def teobresums_hyperb_wrapper(freqs, params):
 
     # unwrap lm modes
-    if params['lmax'] == 0:
-        modes = [1]
-    else:
-        modes = l_to_k(params['lmax'])
+    if params['lmax'] == 0: modes = [1] # 22-only
+    else:                   modes = l_to_k(params['lmax'])
 
-#    # compute J_lso
+    a0 = (params['s1z'] * params['q'] + params['s2z'])/(1+params['q'])
     nu = params['q']/np.power(1+params['q'], 2.)
-    pphi_lso = EOB.pph_lso_orbital_py(nu)
-    r = 1500.
+    pphi_lso = EOB.pph_lso_spin_py(nu, a0)
+    # Asymptotic radius at which the evolution is started.
+    r        = 1500.
 
-    if params['angmom'] >= pphi_lso:
-#
+    # Restrict to regions far from direct capture
+    # For the non-spinning case this was done through the prior,
+    # while the spinning case has too much variability to impose the constraint through fixed J bounds.
+    if params['angmom'] >= 1.15*pphi_lso:
+
         # compute E_min and E_max
-        Emn, Emx, Einfl = EnergyLimits(r, params['q'], params['angmom'], params['s1z'], params['s2z'])
+        Emn, Emx = EnergyLimits(r, params['q'], params['angmom'], params['s1z'], params['s2z'])
         if params['energy'] >= Emn and params['energy'] <= Emx:
+        # Uncomment this line to use the UE0 prior (see arxiv:2106.05575)
+        # if params['energy'] >= Emn:
 
-    # set TEOB dict
-          params_teob = { 'M':              params['mtot'],
-                    'q':                    params['q'],
-                    'chi1':                 params['s1z'],
-                    'chi2':                 params['s2z'],
-                    'Lambda1':              params['lambda1'],
-                    'Lambda2':              params['lambda2'],
-                    'distance':             params['distance'],
-                    'inclination':          params['iota'],
-                    'initial_frequency':    params['f_min'],
-                    'coalescence_angle':    params['phi_ref'],
-                    'use_geometric_units':  0,
-                    'output_hpc':           0,
-                    'interp_uniform_grid':  2,
-                    'output_multipoles':    0,
-                    'use_mode_lm':          modes,
-                    'srate':                params['srate'],
-                    'srate_interp':         params['srate'],
-                    'domain':               0,
-                    'dt':                   0.5,
-                    'dt_interp':            0.5,
-                    'arg_out':              0,
-                    'r0':                   r,
-                    'ecc':                  0.18,
-                    'j_hyp':                params['angmom'],
-                    'r_hyp':                r,
-                    'H_hyp':                params['energy'],
-                    'ode_tmax':             20e4,
-                    'nqc':                  2,  # set NQCs manually
-                    'nqc_coefs_hlm':        0,  # turn NQC off for hlm
-                    'nqc_coefs_flx':        0   # turn NQC off for flx
+            # set TEOB dict
+            params_teob = { 
+                            # Standard source parameters
+                            'M':                   params['mtot']    ,
+                            'q':                   params['q']       ,
+                            'chi1':                params['s1z']     ,
+                            'chi2':                params['s2z']     ,
+                            'Lambda1':             params['lambda1'] ,
+                            'Lambda2':             params['lambda2'] ,
+                            'distance':            params['distance'],
+                            'inclination':         params['iota']    ,
+                            'coalescence_angle':   params['phi_ref'] ,
 
+                            # Hyperbolic parameters
+                            'ecc':                 0.0               ,
+                            'r0':                  r                 ,
+                            'r_hyp':               r                 ,
+                            'j_hyp':               params['angmom']  ,
+                            'H_hyp':               params['energy']  ,  
+
+                            # Waveform generation parameters
+                            'initial_frequency':   params['f_min']   ,
+                            'use_geometric_units': 0                 ,
+                            'output_hpc':          0                 ,
+                            'interp_uniform_grid': 2                 ,
+                            'output_multipoles':   0                 ,
+                            'use_mode_lm':         modes             ,
+                            'srate':               params['srate']   ,
+                            'srate_interp':        params['srate']   ,
+                            'domain':              0                 ,
+                            'dt':                  0.5               ,
+                            'dt_interp':           0.5               ,
+                            'arg_out':             0                 ,
+                            'ode_tmax':            20e4              ,
+                        # Uncomment if you want to disable NQC
+                        #   'nqc':                  2,  # set NQCs manually
+                        #   'nqc_coefs_hlm':        0,  # turn NQC off for hlm
+                        #   'nqc_coefs_flx':        0   # turn NQC off for flx
                     }
 
-          t , hp , hc     = teobresums(params_teob)
-          return hp , hc
+            t , hp , hc = teobresums(params_teob)
+            return hp , hc
         else:
-          return [None], [None]
+            return [None], [None]
     else:
-      return [None], [None]
+        return [None], [None]
 
 def teobresums_spa_wrapper(freqs, params):
 
@@ -241,29 +251,6 @@ def teobresums_nrpm_wrapper(freqs, params):
     h = np.append(h_eob , h_pm)
     return np.real(h), -np.imag(h)
 
-def D4(f, dx):
-
-    n       = len(f)
-    oo12dx  = 1./(12*dx)
-    df      = list(map(lambda i: (8.*(f[i+1]-f[i-1]) - f[i+2] + f[i-2])*oo12dx, range(2, n-2)))
-
-    i = 0
-    df0 = (-25.*f[i] + 48.*f[i+1] - 36.*f[i+2] + 16.*f[i+3] - 3.*f[i+4])*oo12dx
-    i = 1
-    df1 = (-3.*f[i-1] - 10.*f[i] + 18.*f[i+1] - 6.*f[i+2] + f[i+3])*oo12dx
-    i = n-2
-    df_2 = - (-3.*f[i+1] - 10.*f[i] + 18.*f[i-1] - 6.*f[i-2] + f[i-3])*oo12dx
-    i = n-1
-    df_1 = - (-25.*f[i] + 48.*f[i-1] - 36.*f[i-2] + 16.*f[i-3] - 3.*f[i-4])*oo12dx
-
-    return np.concatenate([[df0], [df1], df, [df_2], [df_1]])
-
-def E(r, pph, nu):
-    A, dA, d2A  = EOB.eob_metric_A5PNlog_py(r, nu)
-    Heff0       = np.sqrt(A*(1+(pph/r)**2))
-    E0          = np.sqrt(1 + 2*nu*(Heff0-1))
-    return E0
-
 def Espin(r, pph, q, chi1, chi2):
     # New energy potential energy function with the full spin dependence.
     hatH = EOB.eob_ham_s_py(r, q, pph, 0., chi1, chi2)
@@ -271,34 +258,19 @@ def Espin(r, pph, q, chi1, chi2):
     E0   = nu*hatH[0]
     return E0
 
-def EnergyLimits(rmx, q, pph_hyp, chi1, chi2):
+def EnergyLimits(rmx, q, pph_hyp, chi1, chi2, N=100000):
 
-    if chi1!=0 or chi2!=0:
-        # important: rmin should be smaller with spin
-        rmin = 1.1
-    else:
-        rmin = 1.3
+    # r_min is the smallest radius at which the potenatial can peak.
+    # For |chi|<0.5 and pphi < 1.55 * pphi_LSO, r_min > 1.5 (equal mass case, where r_min is smaller), 
+    # so we set 1.3 to be conservative and ignore nans.
+    # Without spin, same considerations with 1.5
+    if chi1!=0 or chi2!=0: rmin = 1.3
+    else:                  rmin = 1.5
 
-    x    = np.linspace(rmin,rmx+10, 100000)
+    x    = np.linspace(rmin, rmx, N)
     E0   = list(map(lambda i : Espin(i, pph_hyp, q, chi1, chi2), x))
     Emin = Espin(rmx, pph_hyp, q, chi1, chi2)
+    # Determine the max energy allowed. For large q, A will go below zero, so ignore those values by removing nans.
+    Emx  = np.nanmax(E0)     
 
-    dx   = x[1]-x[0]
-    dE0  = D4(E0,  dx)
-    d2E0 = D4(dE0, dx)
-
-    #-----------------------------------
-    #  determine the max energy allowed
-    #-----------------------------------
-
-    Emx = np.max(E0)
-
-    #---------------------------------------
-    # determine the inflection point of the
-    # potential energy E0.
-    #--------------------------------------
-
-    jflex = np.where(d2E0 >= 0)[0][0] #FIXME: this needs fixing
-    Einfl = E0[jflex]
-
-    return Emin, Emx, Einfl
+    return Emin, Emx
