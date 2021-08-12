@@ -145,8 +145,6 @@ class SamplerDynesty(SamplerBody):
                             'periodic':     periodic_inds,
                             'reflective':   reflective_inds,
                             'facc':         facc,
-                            'vol_check':    vol_check,
-                            'vol_dec':      vol_dec,
                             'walks':        minmcmc,
                             'enlarge':      enlarge,
                             'bootstrap':    bootstrap,
@@ -155,7 +153,13 @@ class SamplerDynesty(SamplerBody):
                             'update_interval': update_interval,
                             'first_update': {'min_ncall':first_min_ncall, 'min_eff': first_min_eff},
                             'use_pool':     {'prior_transform': True,'loglikelihood': True, 'propose_point': True,'update_bound': True}
+                            # save_history
                             }
+
+        _ver = dynesty.__version__.split('.')
+        if float(_ver[1]) < 1 :
+            sampler_kwargs['vol_check'] = vol_check
+            sampler_kwargs['vol_dec']   = vol_dec
 
         like_fn         = posterior.log_like
         ptform_fn       = posterior.prior_transform
