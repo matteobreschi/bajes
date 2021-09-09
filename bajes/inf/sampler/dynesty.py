@@ -68,24 +68,54 @@ def draw_posterior(data, log_wts):
     idx=list(filter(lambda i: selection[i], range(len(selection))))
     return data[idx]
 
-def get_prior_samples_dynesty(nlive, ndim, like_fn, ptform_fn):
+def _extract_live_point_from_prior(ndim, ptform, like):
+    _u = None
+    _v = None
+    _l = np.inf
+    while np.isinf(_l):
+        _u = np.random.uniform(size=ndim)
+        _v = ptform(_u)
+        _l = like(_v)
+    return _u, _v, _l
 
-    n = 0
+def _extract_live_point_from_prior_mp(args):
+    ndim, ptform, like, it, size = args
+    _u = None
+    _v = None
+    _l = np.inf
+    while np.isinf(_l):
+        # extract as many samples as the number of processes
+        # to ensure that all processes received a different sample
+        _u = np.random.uniform(size=ndim*size)[it*ndim:(it+1)*ndim]
+        _v = ptform(_u)
+        _l = like(_v)
+    return _u, _v, _l
+
+def get_prior_samples_dynesty(nlive, ndim, like_fn, ptform_fn, pool=None):
+
     u = []
     v = []
     logl = []
 
-    while n < nlive:
-        _u = np.random.uniform(0,1,ndim)
-        _v = ptform_fn(_u)
-        _l = like_fn(_v)
-        if not np.isinf(_l):
+    if pool == None:
+        logger.debug("Extracting prior samples in serial")
+        while len(u) < nlive:
+            _u, _v, _l = _extract_live_point_from_prior(ndim, ptform_fn, like_fn)
             u.append(_u)
             v.append(_v)
             logl.append(_l)
-            n +=1
 
-    return [np.array(u), np.array(v), np.array(logl)]
+    else:
+        logger.debug("Extracting prior samples in parallel with {} processes".format(pool._processes))
+        while len(u) < nlive:
+            _uvl = pool.map(_extract_live_point_from_prior_mp, [(ndim, ptform_fn, like_fn, _, pool._processes) for _ in range(pool._processes)])
+            #_uvl = list(zip(*_uvl))
+            for _ in range(pool._processes):
+                u.append(_uvl[_][0])
+                v.append(_uvl[_][1])
+                logl.append(_uvl[_][2])
+
+    return [np.array(u[:nlive]), np.array(v[:nlive]), np.array(logl[:nlive])]
 
 class SamplerDynesty(SamplerBody):
 
@@ -129,7 +159,8 @@ class SamplerDynesty(SamplerBody):
         # initialize proposals
         if proposals == None:
             logger.info("Initializing proposal methods ...")
-            proposals = initialize_proposals(maxmcmc, minmcmc, nact, use_slice=proposals_kwargs['use_slice'])
+            proposals = BajesDynestyProposal(maxmcmc, walks=minmcmc, nact=nact, use_slice=proposals_kwargs['use_slice'])
+            # initialize_proposals(maxmcmc, minmcmc, nact, use_slice=proposals_kwargs['use_slice'])
 
         # check additional sampler arguments
         if first_min_ncall == None:
@@ -168,7 +199,7 @@ class SamplerDynesty(SamplerBody):
     def _initialize_sampler(self, like_fn, ptform_fn, proposals, kwargs):
         # extract prior samples, ensuring finite logL
         logger.info("Extracting prior samples ...")
-        live_points = get_prior_samples_dynesty(kwargs['nlive'], kwargs['ndim'], like_fn, ptform_fn)
+        live_points = get_prior_samples_dynesty(kwargs['nlive'], kwargs['ndim'], like_fn, ptform_fn, kwargs['pool'])
         kwargs['live_points'] = live_points
 
         # initialize dynesty sampler
@@ -184,12 +215,9 @@ class SamplerDynesty(SamplerBody):
             sampler.update_proposal = sampler.update_rwalk
 
         # clean up sampler
-        del sampler.cite
         del sampler._PROPOSE
         del sampler._UPDATE
-        del sampler.kwargs['cite']
         sampler.rstate = np.random
-
         return sampler
 
     def __restore__(self, pool, **kwargs):
@@ -333,7 +361,7 @@ class SamplerDynestyDynamic(SamplerDynesty):
 
         # extract prior samples, ensuring finite logL
         logger.info("Extracting prior samples ...")
-        self.p0 = get_prior_samples_dynesty(kwargs['nlive'], self.ndim, self.sampler.loglikelihood, self.sampler.prior_transform)
+        self.p0 = get_prior_samples_dynesty(kwargs['nlive'], self.ndim, self.sampler.loglikelihood, self.sampler.prior_transform, kwargs['pool'])
 
         # set customized proposal
         dynesty.dynesty._SAMPLING["rwalk"] = self.sampler.evolve_point

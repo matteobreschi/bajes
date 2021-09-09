@@ -19,6 +19,7 @@ import numpy as np
 try:
     import EOBRun_module as EOB
 except Exception:
+    logger.warning("Unable to import TEOBResumS module")
     pass
 
 def l_to_k(lmax):
@@ -141,7 +142,7 @@ def teobresums_hyperb_wrapper(freqs, params):
         # if params['energy'] >= Emn:
 
             # set TEOB dict
-            params_teob = { 
+            params_teob = {
                             # Standard source parameters
                             'M':                   params['mtot']    ,
                             'q':                   params['q']       ,
@@ -158,7 +159,7 @@ def teobresums_hyperb_wrapper(freqs, params):
                             'r0':                  r                 ,
                             'r_hyp':               r                 ,
                             'j_hyp':               params['angmom']  ,
-                            'H_hyp':               params['energy']  ,  
+                            'H_hyp':               params['energy']  ,
 
                             # Waveform generation parameters
                             'initial_frequency':   params['f_min']   ,
@@ -264,7 +265,7 @@ def Espin(r, pph, q, chi1, chi2):
 def EnergyLimits(rmx, q, pph_hyp, chi1, chi2, N=100000):
 
     # r_min is the smallest radius at which the potenatial can peak.
-    # For |chi|<0.5 and pphi < 1.55 * pphi_LSO, r_min > 1.5 (equal mass case, where r_min is smaller), 
+    # For |chi|<0.5 and pphi < 1.55 * pphi_LSO, r_min > 1.5 (equal mass case, where r_min is smaller),
     # so we set 1.3 to be conservative and ignore nans.
     # Without spin, same considerations with 1.5
     if chi1!=0 or chi2!=0: rmin = 1.3
@@ -274,6 +275,6 @@ def EnergyLimits(rmx, q, pph_hyp, chi1, chi2, N=100000):
     E0   = list(map(lambda i : Espin(i, pph_hyp, q, chi1, chi2), x))
     Emin = Espin(rmx, pph_hyp, q, chi1, chi2)
     # Determine the max energy allowed. For large q, A will go below zero, so ignore those values by removing nans.
-    Emx  = np.nanmax(E0)     
+    Emx  = np.nanmax(E0)
 
     return Emin, Emx

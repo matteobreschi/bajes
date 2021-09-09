@@ -1,7 +1,7 @@
 # Credits
 
 *bajes* has been developed at Friedrich-Schiller-Universität Jena 
-with the contribution of Matteo Breschi, Rossella Gamba, Ssohrab Borhanian, Emil Donkersloot and Sebastiano Bernuzzi.
+with the contribution of Matteo Breschi, Rossella Gamba, Ssohrab Borhanian, Gregorio Carullo, Emil Donkersloot and Sebastiano Bernuzzi.
 
 If you use this software, please include the following [citation](https://arxiv.org/abs/2102.00017):
 
