@@ -148,6 +148,16 @@ class Waveform(object):
             self.wave_func  = nrpm_wrapper
             self.domain     = 'time'
 
+        elif self.approx == 'NRPM_ext':
+            from .approx.nrpm import nrpm_extended_wrapper
+            self.wave_func  = nrpm_extended_wrapper
+            self.domain     = 'time'
+
+        elif self.approx == 'NRPM_ext_recal':
+            from .approx.nrpm import nrpm_extended_recal_wrapper
+            self.wave_func  = nrpm_extended_recal_wrapper
+            self.domain     = 'time'
+
         elif self.approx == 'NRPMw':
             from .approx.nrpm import nrpmw_wrapper
             self.wave_func  = nrpmw_wrapper

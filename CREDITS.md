@@ -37,6 +37,7 @@ If you use one of the following gravitational-wave approximants, please provide 
 * `TEOBResumS`: A. Nagar et al., [arxiv](https://arxiv.org/abs/1806.01772)
     * Precessing contributions are discussed in S. Akcay et al., [arxiv](https://arxiv.org/abs/2005.05338)
     * Eccentric model is described in D. Chiaramello and A. Nagar, [arxiv](https://arxiv.org/abs/2001.11736)
+    * Template for hyperbolic captures is introduced in A. Nagar et al., [arxiv](https://arxiv.org/abs/2009.12857)
 * `TEOBResumSPA`: R. Gamba et al., [arxiv](https://arxiv.org/abs/2012.00027)
 * `HypTEOBResumS`: A. Nagar et al., [arxiv](https://arxiv.org/abs/2009.12857)
 * `NRPM`: M. Breschi et al., [arxiv](https://arxiv.org/abs/1908.11418)

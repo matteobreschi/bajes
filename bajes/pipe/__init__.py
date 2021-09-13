@@ -1450,6 +1450,17 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
         for ni in __recalib_names__:
             dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni, max = 1., min = -1., prior='normal', mu = 0., sigma = __ERRS__[ni])
 
+    # include NRPM recalibration and extended parameters
+    if 'NRPM_ext' in approx:
+        dict['NRPM_phi_pm']         = Parameter(name='NRPM_phi_pm',         max = 2.*np.pi, min = 0.)              # post-merger phase
+        dict['NRPM_alpha_inverse']  = Parameter(name='NRPM_alpha_inverse',  max = 1000,     min = 1.)              # post-merger damping time
+        dict['NRPM_beta']           = Parameter(name='NRPM_beta',           max = 1e-4,     min = -1e-4)           # post-merger frequency slope
+
+    if 'NRPM_ext_recal' in approx:
+        from ..obs.gw.approx.nrpm import __recalib_names__, __ERRS__
+        for ni in __recalib_names__:
+            dict['NRPM_recal_'+ni] = Parameter(name='NRPM_recal_'+ni, max = 1., min = -1., prior='normal', mu = 0., sigma = __ERRS__[ni])
+
     # set fixed parameters
     # OBS. This step must be done when all parameters are in dict
     if len(fixed_names) != 0 :
