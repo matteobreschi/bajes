@@ -90,7 +90,8 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
 
 class Injection(object):
 
-    def __init__(self, ifos, dets, noises, data_path, seglen, srate, f_min, ra, dec, psi, t_gps, wind_flag, zero_flag, tukey=0.1):
+    def __init__(self, ifos, dets, noises, data_path, seglen, srate, f_min, ra, dec, psi, t_gps, wind_flag, zero_flag,
+                 tukey=0.1, seed=None):
 
         self.ifos   = ifos
         self.dets   = dets
@@ -112,6 +113,9 @@ class Injection(object):
 
         self.data_path  = os.path.abspath(data_path)
         tag             = self.data_path.split('.')[-1]
+
+        if seed is not None:
+            np.random.seed(seed)
 
         # read injection section using txt/dat polarizations
         if tag == 'txt' or tag == 'dat':
@@ -304,6 +308,7 @@ if __name__ == "__main__":
     parser.add_option('--t-gps',    dest='t_gps',       type='float',   default=1187008882,    help='GPS time of the series, default 1187008882 (GW170817)')
 
     parser.add_option('--zero-noise',    dest='zero',   action="store_true",   default=False,            help='use zero noise')
+    parser.add_option('--seed',          dest='seed',   default=None,          help='seed for random number generator')
 
     parser.add_option('--ra',   dest='ra',      default=None,   type='float',   help='right ascencion location of the injected source, default best location for first IFO.')
     parser.add_option('--dec',  dest='dec',     default=None,   type='float',   help='declination location of the injected source, default best location for first IFO.')
@@ -346,7 +351,7 @@ if __name__ == "__main__":
 
     logger.info("... injecting waveform into detectors ...")
     inj = Injection(opts.ifos, dets, noises, opts.wave, opts.seglen, opts.srate, opts.f_min,
-                    opts.ra, opts.dec, opts.psi, opts.t_gps, opts.window, opts.zero, opts.tukey)
+                    opts.ra, opts.dec, opts.psi, opts.t_gps, opts.window, opts.zero, opts.tukey, opts.seed)
 
     logger.info("... writing strain data files ...")
     inj.write_injections(opts.outdir)
