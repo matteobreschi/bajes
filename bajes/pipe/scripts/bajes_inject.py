@@ -305,10 +305,10 @@ if __name__ == "__main__":
     parser.add_option('--seglen',   dest='seglen',      type='float',   help='length of the segment of the injected waveform [sec], if it is not a power of 2, the final segment will be padded')
 
     parser.add_option('--f-min',    dest='f_min',       type='float',   default=20.,            help='minimum frequency [Hz], default 20Hz')
-    parser.add_option('--t-gps',    dest='t_gps',       type='float',   default=1187008882,    help='GPS time of the series, default 1187008882 (GW170817)')
+    parser.add_option('--t-gps',    dest='t_gps',       type='float',   default=1187008882,     help='GPS time of the series, default 1187008882 (GW170817)')
 
-    parser.add_option('--zero-noise',    dest='zero',   action="store_true",   default=False,            help='use zero noise')
-    parser.add_option('--seed',          dest='seed',   default=None,          help='seed for random number generator')
+    parser.add_option('--zero-noise',    dest='zero',   action="store_true",    default=False,  help='use zero noise')
+    parser.add_option('--seed',          dest='seed',   type='int',             default=None,   help='seed for random number generator')
 
     parser.add_option('--ra',   dest='ra',      default=None,   type='float',   help='right ascencion location of the injected source, default best location for first IFO.')
     parser.add_option('--dec',  dest='dec',     default=None,   type='float',   help='declination location of the injected source, default best location for first IFO.')
