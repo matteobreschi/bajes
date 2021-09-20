@@ -1235,10 +1235,10 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
                                         prior='uniform')
 
         elif lambda_flag == 'bns-eos4p':
-            dict['eos_gamma0'] = Parameter(name='eos_gamma0', min=32., max=35.)
-            dict['eos_gamma1'] = Parameter(name='eos_gamma1', min=1.01, max=5.)
-            dict['eos_gamma2'] = Parameter(name='eos_gamma2', min=1.01, max=5.)
-            dict['eos_gamma3'] = Parameter(name='eos_gamma3', min=1.01, max=5.)
+            dict['eos_logp1'] = Parameter(name='eos_logp1', min=32., max=35.)
+            dict['eos_gamma1'] = Parameter(name='eos_gamma1', min=1.4,  max=5.)
+            dict['eos_gamma2'] = Parameter(name='eos_gamma2', min=0,    max=8.)
+            dict['eos_gamma3'] = Parameter(name='eos_gamma3', min=0.5,  max=8.)
 
         elif lambda_flag == 'bhns-tides':
             dict['lambda1'] = Constant('lambda1', 0.)
@@ -1249,10 +1249,10 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
 
         elif lambda_flag == 'bhns-eos4p':
             dict['lambda1'] = Constant('lambda1', 0.)
-            dict['eos_gamma0'] = Parameter(name='eos_gamma0', min=32., max=35.)
-            dict['eos_gamma1'] = Parameter(name='eos_gamma1', min=1.01, max=5.)
-            dict['eos_gamma2'] = Parameter(name='eos_gamma2', min=1.01, max=5.)
-            dict['eos_gamma3'] = Parameter(name='eos_gamma3', min=1.01, max=5.)
+            dict['eos_logp1'] = Parameter(name='eos_logp1', min=32., max=35.)
+            dict['eos_gamma1'] = Parameter(name='eos_gamma1', min=1.4,  max=5.)
+            dict['eos_gamma2'] = Parameter(name='eos_gamma2', min=0,    max=8.)
+            dict['eos_gamma3'] = Parameter(name='eos_gamma3', min=0.5,  max=8.)
 
         elif lambda_flag == 'nsbh-tides':
             dict['lambda1'] = Parameter(name='lambda1',
@@ -1263,10 +1263,10 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
 
         elif lambda_flag == 'nsbh-eos4p':
             dict['lambda2'] = Constant('lambda2', 0.)
-            dict['eos_gamma0'] = Parameter(name='eos_gamma0', min=32., max=35.)
-            dict['eos_gamma1'] = Parameter(name='eos_gamma1', min=1.01, max=5.)
-            dict['eos_gamma2'] = Parameter(name='eos_gamma2', min=1.01, max=5.)
-            dict['eos_gamma3'] = Parameter(name='eos_gamma3', min=1.01, max=5.)
+            dict['eos_logp1'] = Parameter(name='eos_logp1', min=32., max=35.)
+            dict['eos_gamma1'] = Parameter(name='eos_gamma1', min=1.4,  max=5.)
+            dict['eos_gamma2'] = Parameter(name='eos_gamma2', min=0,    max=8.)
+            dict['eos_gamma3'] = Parameter(name='eos_gamma3', min=0.5,  max=8.)
 
         else:
             logger.error("Unable to read tidal flag for Prior. Please use one of the following: 'no-tides', 'bns-tides', 'bhns-tides', 'nsbh-tides' or flags for parametrized EOS.")

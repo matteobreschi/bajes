@@ -312,12 +312,12 @@ class Waveform(object):
             params['s2x'], params['s2y'], params['s2z'] = sph2cart(params['s2'], params['tilt2'], params['phi_2l'])
 
         # parse for TOV solver
-        if 'eos_gamma0' in params.keys():
+        if 'eos_logp1' in params.keys():
 
-            logger.debug("Solving EOS for [{}, {}, {}, {}]".format(params['eos_gamma0'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3']))
+            logger.debug("Solving EOS for [{}, {}, {}, {}]".format(params['eos_logp1'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3']))
 
             # initialize EOS solver
-            tov = TOVSolver(params['eos_gamma0'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3'])
+            tov = TOVSolver([params['eos_logp1'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3']])
 
             if not tov.is_physical:
                 return PolarizationTuple()

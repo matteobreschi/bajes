@@ -73,9 +73,9 @@ def glue_crust_and_core(crust, core):
 def get_SLy_crust_eos():
     ##################################################
     #SLy (Skyrme) crust
-    KSLy = [6.80110e-9, 1.06186e-6, 5.32697e1, 3.99874e-8] #Scaling constants
-    GSLy = [1.58425, 1.28733, 0.62223, 1.35692] #polytropic indices
-    RSLy = [1.e4, 2.44034e7, 3.78358e11, 2.62780e12 ] #transition depths
+    KSLy = [6.80110e-9, 1.06186e-6, 5.32697e1, 3.99874e-8]  #Scaling constants
+    GSLy = [1.58425, 1.28733, 0.62223, 1.35692]             #polytropic indices
+    RSLy = [1.e4, 2.44034e7, 3.78358e11, 2.62780e12 ]       #transition depths
 
     tropes = []
     trans = []

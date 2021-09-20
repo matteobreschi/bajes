@@ -497,12 +497,8 @@ class BajesDynestyProposal(object):
         v_list  = []
         logl_list = []
 
-        ii = 0
-
-        # while .5 * self.nact * act > len(u_list):
-        while ii < self.nact * act:
-
-            ii += 1
+        while .5 * self.nact * act >= len(u_list):
+        #while count < self.nact * act:
 
             # Propose a direction on the unit n-sphere.
             drhat = rstate.randn(n)
