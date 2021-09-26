@@ -6,14 +6,18 @@ with the contribution of Matteo Breschi, Rossella Gamba, Ssohrab Borhanian, Greg
 If you use this software, please include the following [citation](https://arxiv.org/abs/2102.00017):
 
     @article{Bajes:2021,
-             author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
-             title          = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data,
-                              methods and application to gravitational-waves",
-             eprint         = "2102.00017",
-             archivePrefix  = "arXiv",
-             primaryClass   = "gr-qc",
-             month          = "1",
-             year           = "2021"}
+             author = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
+             title = "{Bayesian inference of multimessenger astrophysical data: Methods and applications to gravitational waves}",
+             eprint = "2102.00017",
+             archivePrefix = "arXiv",
+             primaryClass = "gr-qc",
+             doi = "10.1103/PhysRevD.104.042001",
+             journal = "Phys. Rev. D",
+             volume = "104",
+             number = "4",
+             pages = "042001",
+             year = "2021"
+            }
 
 The posterior samples computed with the *bajes* pipeline of the gravitational-wave events presented in GWTC-1 are available on [`Zenodo`](https://zenodo.org/record/4476594#.YBQcl3dKhQJ). If you use these data, please include the following citation:
 
