@@ -157,8 +157,8 @@ class Polytrope(object):
         # monotonicity
         de = np.diff(self.eds)
         dp = np.diff(self.prs)
-        e_err = len(np.concatenate(np.where(de < 0)))
-        p_err = len(np.concatenate(np.where(dp < 0)))
+        e_err = len(np.where(de < 0)[0])
+        p_err = len(np.where(dp < 0)[0])
         if p_err or e_err:
             mono_flag = False
         else:
@@ -166,7 +166,7 @@ class Polytrope(object):
 
         # causality
         quasi_vmax = self.dedp(pmax)
-        if quasi_vmax < 0 or np.isinf(quasi_vmax):
+        if quasi_vmax < 0 or (not np.isfinite(quasi_vmax)):
             cause_flag = False
         else:
             vmax = 1./np.sqrt(quasi_vmax)
@@ -229,14 +229,21 @@ class TOVSolver(object):
         TOV solver object for parametrized spectral EOS (with 4 coefficients)
     """
 
-    def __init__(self, gammas, transitions=None,
+    def __init__(self, gammas=None, transitions=None,
+                 polytrope = None,
                  n=750, rtol=1.e-8, atol=1.e-8, rmin=1., rmax=2e6,
                  logrhomin=14., logrhomax=16.):
 
         # initialize EOS
-        core_eos    = get_eos_from_spectral_params(gammas, trans=transitions)
-        crust_eos   = get_SLy_crust_eos()
-        self.EOS    = glue_crust_and_core(crust_eos, core_eos)
+        if isinstance(polytrope, Polytrope):
+            self.EOS    = polytrope
+        else:
+            if gammas is None:
+                logger.error("Unable to initialize TOVSolver, please provide gamma parameters.")
+                raise RuntimeWarning("Unable to initialize TOVSolver, please provide gamma parameters.")
+            core_eos    = get_eos_from_spectral_params(gammas, trans=transitions)
+            crust_eos   = get_SLy_crust_eos()
+            self.EOS    = glue_crust_and_core(crust_eos, core_eos)
 
         # initialize ODE integrator parameters
         self.N      = int(n)
@@ -249,8 +256,9 @@ class TOVSolver(object):
 
         # solve M-R diagramm
         self.mass, self.radius, self.rhoc = self.mass_radius()
-        self.Mmax   = np.max(self.mass)
-        self.Rmax   = self.radius[np.argmax(self.mass)]
+        self.Mmax       = np.max(self.mass)
+        self.Rmax       = self.radius[np.argmax(self.mass)]
+        self.rhocmax    = self.rhoc[np.argmax(self.mass)]
 
         # remove unphysical branch
         indxs = np.where(self.radius >= self.Rmax)
@@ -260,7 +268,7 @@ class TOVSolver(object):
         Pmax = self.EOS.pressure(self.rhoc[np.argmax(self.mass)])
         if not self.EOS._is_physical(Pmax):
             self.is_physical = False
-            logger.warning("Requested parameters [{:.1f},{:.2f},{:.2f},{:.2f}] gave an unphysical EOS.".format(gammas[0], gammas[1], gammas[2], gammas[3]))
+            #logger.warning("Requested parameters [{:.1f},{:.2f},{:.2f},{:.2f}] gave an unphysical EOS.".format(gammas[0], gammas[1], gammas[2], gammas[3]))
         else:
             self.is_physical = True
 
