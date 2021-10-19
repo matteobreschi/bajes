@@ -440,6 +440,8 @@ def parse_core_options():
     parser.add_option('--mass-max',     dest='mass_max',       default=None,   type='float',   help='upper mass component prior bound')
     parser.add_option('--mass-min',     dest='mass_min',       default=None,   type='float',   help='lower mass component prior bound')
     parser.add_option('--spin-max',     dest='spin_max',        default=None,   type='float',   help='upper spin prior bound')
+    parser.add_option('--spin1-max',     dest='spin1_max',      default=None,   type='float',   help='upper spin prior bound')
+    parser.add_option('--spin2-max',     dest='spin2_max',      default=None,   type='float',   help='upper spin prior bound')
     parser.add_option('--lambda-min',   dest='lambda_min',      default=None,   type='float',   help='lower tidal prior bound')
     parser.add_option('--lambda-max',   dest='lambda_max',      default=None,   type='float',   help='upper tidal prior bound')
     parser.add_option('--use-mtot',     dest='use_mtot',     default=False,  action="store_true",    help='Perform sampling in mtot instead of mchirp, default False')
@@ -913,6 +915,14 @@ def initialize_gwlikelihood_kwargs(opts):
     else:
         ecc_bounds=None
 
+    # check spins
+    if opts.spin_max is None and opts.spin_flag != 'no-spins':
+        # try to set individual spin priors
+        if opts.spin1_max is None or opts.spin2_max is None:
+            logger.error("Unable to set individual spin prior. Input value is missing.")
+            raise RuntimeError("Unable to set individual spin prior. Input value is missing.")
+        opts.spin_max = [opts.spin1_max,opts.spin2_max]
+
     # define priors
     priors, l_kwargs['spcal_freqs'], l_kwargs['len_weights'] = initialize_gwprior(opts.ifos, [opts.mchirp_min,opts.mchirp_max],opts.q_max,
                                                                                   opts.f_min, opts.f_max, opts.t_gps, opts.seglen, opts.srate, opts.approx,
@@ -1081,10 +1091,20 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
                                     interp_kwarg=interp_kwarg)
 
     # setting spins
-    if spin_max != None:
-        if spin_max > 1.:
-            logger.warning("Input spin-max is greater than 1, this is not a physical value. The input value will be ignored and spin-max will be 1.")
-            spin_max = 1.
+    if spin_max is not None:
+
+        if isinstance(spin_max,list):
+            if spin_max[0] > 1.:
+                logger.warning("Input spin1-max is greater than 1, this is not a physical value. The input value will be ignored and spin1-max will be 1.")
+                spin_max[0] = 1.
+            if spin_max[1] > 1.:
+                logger.warning("Input spin2-max is greater than 1, this is not a physical value. The input value will be ignored and spin2-max will be 1.")
+                spin_max[1] = 1.
+
+        else:
+            if spin_max > 1.:
+                logger.warning("Input spin-max is greater than 1, this is not a physical value. The input value will be ignored and spin-max will be 1.")
+                spin_max = 1.
 
     if spin_flag == 'no-spins':
         dict['s1x'] = Constant('s1x', 0.)
@@ -1096,25 +1116,43 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
 
     else:
 
-        if spin_max == None:
+        if spin_max is None:
             logger.error("Spinning model requested without input maximum spin specification. Please include argument spin_max in Prior")
             raise ValueError("Spinning model requested without input maximum spin specification. Please include argument spin_max in Prior")
 
         elif spin_flag == 'align-volumetric':
 
-            dict['s1z'] = Parameter(name='s1z',
-                                    min=-spin_max,
-                                    max=spin_max,
-                                    func=log_prior_spin_align_volumetric,
-                                    func_kwarg={'spin_max':spin_max},
-                                    interp_kwarg=interp_kwarg)
+            if isinstance(spin_max,list):
 
-            dict['s2z'] = Parameter(name='s2z',
-                                    min=-spin_max,
-                                    max=spin_max,
-                                    func=log_prior_spin_align_volumetric,
-                                    func_kwarg={'spin_max':spin_max},
-                                    interp_kwarg=interp_kwarg)
+                dict['s1z'] = Parameter(name='s1z',
+                                        min=-spin_max[0],
+                                        max=spin_max[0],
+                                        func=log_prior_spin_align_volumetric,
+                                        func_kwarg={'spin_max':spin_max[0]},
+                                        interp_kwarg=interp_kwarg)
+
+                dict['s2z'] = Parameter(name='s2z',
+                                        min=-spin_max[1],
+                                        max=spin_max[1],
+                                        func=log_prior_spin_align_volumetric,
+                                        func_kwarg={'spin_max':spin_max[1]},
+                                        interp_kwarg=interp_kwarg)
+
+            else:
+
+                dict['s1z'] = Parameter(name='s1z',
+                                        min=-spin_max,
+                                        max=spin_max,
+                                        func=log_prior_spin_align_volumetric,
+                                        func_kwarg={'spin_max':spin_max},
+                                        interp_kwarg=interp_kwarg)
+
+                dict['s2z'] = Parameter(name='s2z',
+                                        min=-spin_max,
+                                        max=spin_max,
+                                        func=log_prior_spin_align_volumetric,
+                                        func_kwarg={'spin_max':spin_max},
+                                        interp_kwarg=interp_kwarg)
 
             dict['s1x'] = Constant('s1x', 0.)
             dict['s2x'] = Constant('s2x', 0.)
@@ -1123,19 +1161,37 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
 
         elif spin_flag == 'align-isotropic':
 
-            dict['s1z'] = Parameter(name='s1z',
-                                    min=-spin_max,
-                                    max=spin_max,
-                                    func=log_prior_spin_align_isotropic,
-                                    func_kwarg={'spin_max':spin_max},
-                                    interp_kwarg=interp_kwarg)
+            if isinstance(spin_max,list):
 
-            dict['s2z'] = Parameter(name='s2z',
-                                    min=-spin_max,
-                                    max=spin_max,
-                                    func=log_prior_spin_align_isotropic,
-                                    func_kwarg={'spin_max':spin_max},
-                                    interp_kwarg=interp_kwarg)
+                dict['s1z'] = Parameter(name='s1z',
+                                        min=-spin_max[0],
+                                        max=spin_max[0],
+                                        func=log_prior_spin_align_isotropic,
+                                        func_kwarg={'spin_max':spin_max[0]},
+                                        interp_kwarg=interp_kwarg)
+
+                dict['s2z'] = Parameter(name='s2z',
+                                        min=-spin_max[1],
+                                        max=spin_max[1],
+                                        func=log_prior_spin_align_isotropic,
+                                        func_kwarg={'spin_max':spin_max[1]},
+                                        interp_kwarg=interp_kwarg)
+
+            else:
+
+                dict['s1z'] = Parameter(name='s1z',
+                                        min=-spin_max,
+                                        max=spin_max,
+                                        func=log_prior_spin_align_isotropic,
+                                        func_kwarg={'spin_max':spin_max},
+                                        interp_kwarg=interp_kwarg)
+
+                dict['s2z'] = Parameter(name='s2z',
+                                        min=-spin_max,
+                                        max=spin_max,
+                                        func=log_prior_spin_align_isotropic,
+                                        func_kwarg={'spin_max':spin_max},
+                                        interp_kwarg=interp_kwarg)
 
             dict['s1x'] = Constant('s1x', 0.)
             dict['s2x'] = Constant('s2x', 0.)
@@ -1145,14 +1201,29 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
         elif spin_flag == 'precess-volumetric':
             # if precessing, use polar coordinates for the sampling,
             # the waveform will tranform these values also in cartesian coordinates
-            dict['s1']      = Parameter(name='s1',
-                                        min=0.,
-                                        max=spin_max,
-                                        prior='quadratic')
-            dict['s2']      = Parameter(name='s2',
-                                        min=0.,
-                                        max=spin_max,
-                                        prior='quadratic')
+
+            if isinstance(spin_max,list):
+
+
+                dict['s1']      = Parameter(name='s1',
+                                            min=0.,
+                                            max=spin_max[0],
+                                            prior='quadratic')
+                dict['s2']      = Parameter(name='s2',
+                                            min=0.,
+                                            max=spin_max[1],
+                                            prior='quadratic')
+
+            else:
+
+                dict['s1']      = Parameter(name='s1',
+                                            min=0.,
+                                            max=spin_max,
+                                            prior='quadratic')
+                dict['s2']      = Parameter(name='s2',
+                                            min=0.,
+                                            max=spin_max,
+                                            prior='quadratic')
 
             dict['tilt1']   = Parameter(name='tilt1',
                                         min=0.,
@@ -1177,14 +1248,28 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
         elif spin_flag == 'precess-isotropic':
             # if precessing, use polar coordinates for the sampling,
             # the waveform will tranform these values also in cartesian coordinates
-            dict['s1']      = Parameter(name='s1',
-                                        min=0.,
-                                        max=spin_max,
-                                        prior_func='uniform')
-            dict['s2']      = Parameter(name='s2',
-                                        min=0.,
-                                        max=spin_max,
-                                        prior_func='uniform')
+
+            if isinstance(spin_max,list):
+
+                dict['s1']      = Parameter(name='s1',
+                                            min=0.,
+                                            max=spin_max[0],
+                                            prior_func='uniform')
+                dict['s2']      = Parameter(name='s2',
+                                            min=0.,
+                                            max=spin_max[1],
+                                            prior_func='uniform')
+
+            else:
+
+                dict['s1']      = Parameter(name='s1',
+                                            min=0.,
+                                            max=spin_max,
+                                            prior_func='uniform')
+                dict['s2']      = Parameter(name='s2',
+                                            min=0.,
+                                            max=spin_max,
+                                            prior_func='uniform')
 
             dict['tilt1']   = Parameter(name='tilt1',
                                         min=0.,

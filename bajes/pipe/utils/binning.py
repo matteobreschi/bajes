@@ -28,7 +28,7 @@ def setup_bins(f_full, f_lo, f_hi, chi=1., eps=0.5):
         return the number of bins, a list of bin-edge frequencies, and their positions in the full frequency grid
     """
     from scipy.interpolate import interp1d
-    
+
     f = np.linspace(f_lo, f_hi, 10000)
     # f^ga power law index
     ga = np.array([-5.0/3.0, -2.0/3.0, 1.0, 5.0/3.0, 7.0/3.0])
@@ -45,7 +45,7 @@ def setup_bins(f_full, f_lo, f_hi, chi=1., eps=0.5):
     fbin_ind = np.array([ np.argmin(np.absolute(f_full - ff)) for ff in fbin ])
     # make sure grid points are precise
     fbin = np.array([ f_full[i] for i in fbin_ind ])
-    
+
     return (Nbin, fbin, fbin_ind)
 
 # compute summary data given a bin partition and fiducial waveforms
@@ -67,7 +67,7 @@ def compute_sdat(f, fbin, fbin_ind, ndtct, psd, sFT, h0):
     Nbin = len(fbin) - 1
     # total duration of time-domain sequence
     T = 1.0/np.median(np.diff(f))
-    
+
     # arrays to store summary data
     sdat_A0 = []
     sdat_A1 = []
@@ -76,7 +76,7 @@ def compute_sdat(f, fbin, fbin_ind, ndtct, psd, sFT, h0):
 
     # loop over detectors
     for k in range(ndtct):
-        
+
         a0 = np.array([ (4.0/T)*np.sum(sFT[k][fbin_ind[i]:fbin_ind[i+1]]
                                      *np.conjugate(h0[k][fbin_ind[i]:fbin_ind[i+1]])
                                      /psd[k][fbin_ind[i]:fbin_ind[i+1]]) for i in range(Nbin)])
@@ -115,7 +115,7 @@ class GWBinningLikelihood(Likelihood):
                  nweights=0, len_weights=None,
                  marg_phi_ref=False, marg_time_shift=False,
                  **kwargs):
-        
+
         # run standard initialization
         super(GWBinningLikelihood, self).__init__()
 
@@ -137,7 +137,7 @@ class GWBinningLikelihood(Likelihood):
         i_wav       = np.where(freqs>=fiducial_params['f_min'])
         wave0       = Waveform(freqs[i_wav], self.srate , self.seglen, approx)
         h0p, h0c    = wave0.compute_hphc(fiducial_params)
-        
+
         # fill below f_min
         l_low   = len(freqs) - len(np.concatenate(i_wav))
         h0p     = np.append(np.zeros(l_low), h0p)
@@ -149,14 +149,14 @@ class GWBinningLikelihood(Likelihood):
 
         self.dd_nopsdweights = {}
         self.dd = 0.
-        
+
         f_min_check = None
         f_max_check = None
-        
+
         for i,ifo in enumerate(self.ifos):
-            
+
             self.dets[ifo].store_measurement(datas[ifo], noises[ifo])
-            
+
             # store initial data and noise, needed in line 177
             self.dets[ifo].store_measurement(datas[ifo], noises[ifo], nspcal=nspcal, spcal_freqs=spcal_freqs)
 
@@ -186,7 +186,7 @@ class GWBinningLikelihood(Likelihood):
 
             self.dd_nopsdweights[ifo] = datas[ifo].inner_product(datas[ifo],noises[ifo],[datas[ifo].f_min,datas[ifo].f_max])
             self.dd += np.real(self.dd_nopsdweights[ifo])
-    
+
         f_min = f_min_check
         f_max = f_max_check
 
@@ -198,7 +198,7 @@ class GWBinningLikelihood(Likelihood):
 
         # initialize waveform generator
         self.wave   = erase_init_wrapper(Waveform(self.fbin, self.srate , self.seglen, approx))
-        
+
         # modify detector frequency axis for projection
         for ifo in self.ifos:
             self.dets[ifo].data     = None
@@ -206,7 +206,7 @@ class GWBinningLikelihood(Likelihood):
             self.dets[ifo].freqs    = self.fbin
             self.dets[ifo].srate    = self.srate
             self.dets[ifo].seglen   = self.seglen
-        
+
         # set calibration envelopes
         self.nspcal     = nspcal
         if self.nspcal > 0.:
@@ -214,22 +214,22 @@ class GWBinningLikelihood(Likelihood):
 
         # set marginalization flags
         self.marg_phi_ref = marg_phi_ref
-    
+
     def inner_products_singleifo(self, i, ifo, params, hphc):
-        
+
         wav = self.dets[ifo].project_fdwave(hphc, params, self.wave.domain)
-        
+
         if self.nspcal > 0:
             cal = compute_spcalenvs(ifo, self.nspcal, params)
             cal = np.interp(self.fbin, self.spcal_freqs, cal)
             wav = wav*cal
-        
+
         rf      = self.compute_rf(wav, i)
         dh, hh  = self.prods_sdat(i, rf)
         return dh, hh
 
     def inner_prods(self, params):
-    
+
         #generate waveform
         hphc    = np.array(self.wave.compute_hphc(params))
 
@@ -258,7 +258,7 @@ class GWBinningLikelihood(Likelihood):
         inner_prods = np.transpose([list(self.inner_products_singleifo(i, ifo, params, hphc)) for i,ifo in enumerate(self.ifos)])
         dh = np.sum(inner_prods[0])
         hh = np.real(np.sum(inner_prods[1]))
-        
+
         if self.marg_phi_ref:
             dh  = np.abs(dh)
             R   = dh + np.log(i0e(dh))
@@ -294,7 +294,7 @@ class GWBinningLikelihood(Likelihood):
             par is list of parameters: [Mc, eta, chieff, chia, Lam, dtc]
             tc: best-fit time
             """
-        
+
         f       = self.fbin
         h0_bin  = self.h0_bin[i]
 
@@ -302,7 +302,5 @@ class GWBinningLikelihood(Likelihood):
         r   = h / h0_bin
         r0  = 0.5*(r[:-1] + r[1:])
         r1  = (r[1:] - r[:-1])/(f[1:] - f[:-1])
-        
+
         return np.array([r0, r1], dtype=np.complex128)
-
-
