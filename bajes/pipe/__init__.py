@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 # imports from pipe modules
 
 from .utils import is_picklable, save_container, data_container
-from .gw_likelihood_prior import initialize_gwlikelihood_kwargs
-from .kn_likelihood_prior import initialize_knlikelihood_kwargs
+from .gw_init import initialize_gwlikelihood_kwargs
+from .kn_init import initialize_knlikelihood_kwargs
 
 def set_logger(label=None, outdir=None, level='INFO', silence=True):
 

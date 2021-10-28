@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 from __future__ import division, unicode_literals, absolute_import
-__import__("pkg_resources").declare_namespace(__name__)
-
 import numpy as np
 
 # logger
-
 import logging
 logger = logging.getLogger(__name__)
 
