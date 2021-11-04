@@ -6,13 +6,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Network:
-    
+
     ###
     #-----init-----
     def __init__(self, ifos, t_gps):
         self.ifos        = ifos
         self.t_gps       = t_gps
-        self.detectors   = [ Detector(ifo, t_gps=t_gps) for ifo in ifos ]
+        self.detectors   = { ifo : Detector(ifo, t_gps=t_gps) for ifo in ifos }
         self.noise_ifos  = None
         self.series_ifos = None
         self.wave        = None
@@ -43,8 +43,8 @@ class Network:
 
     def store_measurement(self):
         assert (self.series_ifos is not None and self.noise_ifos is not None), "Prepare noise and series before storing measurement!"
-        for det in self.detectors:
-            det.store_measurement(self.series_ifos[det.ifo], self.noise_ifos[det.ifo])        
+        for ifo,det in self.detectors.items():
+            det.store_measurement(self.series_ifos[ifo], self.noise_ifos[ifo])
 
     ###
     #-----wave-----
@@ -52,18 +52,46 @@ class Network:
         assert self.series_ifos is not None, "Prepare series before wave!"
         assert np.all(np.array([ self.series_ifos[self.ifos[i]].freqs == self.series_ifos[self.ifos[j]].freqs for i,j in zip(range(0,len(self.ifos) - 1), range(1,len(self.ifos))) ])), "Mismatch in series.freqs for the various ifos!"
         self.wave = Waveform(self.series_ifos[self.ifos[0]].freqs, self.series_ifos[self.ifos[0]].srate, self.series_ifos[self.ifos[0]].seglen, approx)
-        
+
     def eval_wave(self, params):
         assert self.wave is not None, "Prepare wave before evaluating!"
         return self.wave.compute_hphc(params)
 
     def proj_fdwave(self, params):
         assert self.wave is not None, "Prepare wave before projecting!"
-        hpc = self.eval_wave(params)
-        return { det.ifo : det.project_fdwave(hpc, params, self.wave.domain) for det in self.detectors }
+        hphc = self.eval_wave(params)
+        return { ifo : det.project_fdwave(hphc, params, self.wave.domain) for ifo,det in self.detectors.items() }
 
     def proj_tdwave(self, params):
         assert self.wave is not None, "Prepare wave before projecting!"
-        hpc = self.eval_wave(params)
-        return { det.ifo : det.project_tdwave(hpc, params, self.wave.domain) for det in self.detectors }
+        hphc = self.eval_wave(params)
+        return { ifo : det.project_tdwave(hphc, params, self.wave.domain) for ifo,det in self.detectors.items() }
 
+    ###
+    #-----random stuff for GW likelihood-----
+    def comp_logZ_noise(self):
+        return np.sum(np.array([ -0.5 * det._dd for det in self.detectors.values() ]))
+
+    def prep_net_for_log_like(self, noise_dict, series_dict, approx):
+        self.prep_noise(noise_dict)
+        self.prep_series(series_dict)
+        self.prep_wave(approx)
+        self.whitening()
+        self.store_measurement()
+        return self.comp_logZ_noise()
+
+    def comp_inner_products(self, hphc, params, psd_weight_factor=True):
+        hh       = 0.
+        dd       = 0.
+        psd_fact = 0.
+        dh_arrs  = []
+
+        for ifo,det in self.detectors.items():
+            logger.debug("Projecting over {}".format(ifo))
+            dh_arr_, hh_, dd_, psd_fact_ = det.compute_inner_products(hphc, params, self.wave.domain, psd_weight_factor=True)
+            dh_arrs.append(dh_arr_)
+            hh       += np.real(hh_)
+            dd       += np.real(dd_)
+            psd_fact += psd_fact_
+
+        return dh_arrs, hh, dd, psd_fact
