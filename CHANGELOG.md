@@ -4,6 +4,7 @@
 * Introduce `NRPMw` model
 * Improve posterior extraction for `dynesty`
 * Reorganize `pipe/__init__.py`
+* Introduce `gw/network.py`.
 
 # [v0.2.0] March 2021
 * Introduce unified `SamplerBody`
