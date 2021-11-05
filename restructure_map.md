@@ -3,7 +3,7 @@
 ```
 bajes/
     __init__.py                     mods: minors
-    __main__.py                     mods: unify __main__ and core/parallel_core in single routine 
+    __main__.py                     mods: unify __main__ and core/parallel_core in single routine
     obs/                            mods: new module obs/gw/network.py
     inf/                            mods: minors
     pipe/                                               
@@ -14,7 +14,7 @@ bajes/
         bin/                        new: named scripts before
             bajes_inject            mods: mostly from script/bajes_inject.py
             bajes_gwosc             mods: mostly from script/bajes_read_gwosc.py
-            bajes_pipe              new: prepare submission scripts (bash, slurm, condor) 
+            bajes_pipe              new: prepare submission scripts (bash, slurm, condor)
             bajes_setup             new: prepare requested Likelihood and Prior objects
             bajes_postproc          mods: mostly from script/bajes_postproc.py
         run/                        new

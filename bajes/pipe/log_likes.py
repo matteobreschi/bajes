@@ -80,7 +80,7 @@ def prep_gw_params(bayes_params, run_settings, noise_dict, series_dict):
 
 def comp_dh_hh_dd_psd_fact(bayes_params, run_settings, noise_dict, series_dict):
     logger.debug("Preparing params")
-    params = prep_gw_params(bayes_params, run_settings, noise_dict, series_dict) 
+    params = prep_gw_params(bayes_params, run_settings, noise_dict, series_dict)
 
     logger.debug("Evaluatoing waveform for {}".format(params))
     hphc = net.eval_wave(params)
