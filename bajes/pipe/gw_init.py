@@ -130,7 +130,7 @@ def initialize_gwlikelihood_kwargs(opts):
         opts.spin_max = [opts.spin1_max,opts.spin2_max]
 
     # define priors
-    priors, l_kwargs['spcal_freqs'], l_kwargs['len_weights'] = initialize_gwprior(opts.ifos, [opts.mchirp_min,opts.mchirp_max],opts.q_max,
+    priors, l_kwargs['spcal_freqs'], l_kwargs['len_weights'] = initialize_gwprior(opts.ifos, [opts.mchirp_min,opts.mchirp_max],[opts.q_min, opts.q_max],
                                                                                   opts.f_min, opts.f_max, opts.t_gps, opts.seglen, opts.srate, opts.approx,
                                                                                   freqs, spin_flag=opts.spin_flag, lambda_flag=opts.lambda_flag,
                                                                                   spin_max=opts.spin_max, lambda_max=opts.lambda_max, lambda_min=opts.lambda_min,
@@ -178,7 +178,7 @@ def initialize_gwlikelihood_kwargs(opts):
     save_container(opts.outdir+'/gw_obs.pkl', cont_kwargs)
     return l_kwargs, priors
 
-def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, srate, approx, freqs,
+def initialize_gwprior(ifos, mchirp_bounds, q_bounds, f_min, f_max, t_gps, seglen, srate, approx, freqs,
                        spin_flag='no-spins', lambda_flag='no-tides',
                        spin_max=None, lambda_max=None, lambda_min=None,
                        dist_max=None, dist_min=None, dist_flag='vol',
@@ -209,34 +209,34 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
     # wrap everything into a dictionary
     dict = {}
 
-    # setting masses (mchirp,q)
-    # from scipy.special import hyp2f1
-    # norm_q  = 5.*(hyp2f1(-0.4, -0.2, 0.8, -1.)-hyp2f1(-0.4, -0.2, 0.8, -q_max)/np.power(q_max, 0.2))
-
     if use_mtot:
+        # setting masses (mtot,q)
         dict['mtot']    = Parameter(name='mtot',
                                     min=mchirp_bounds[0],
                                     max=mchirp_bounds[1],
                                     prior='linear')
 
         dict['q']       = Parameter(name='q',
-                                    min=1.,
-                                    max=q_max,
+                                    min=q_bounds[0],
+                                    max=q_bounds[1],
                                     func=log_prior_massratio_usemtot,
-                                    func_kwarg={'q_max': q_max},
+                                    func_kwarg={'q_max': q_bounds[1],
+                                                'q_min': q_bounds[0]},
                                     interp_kwarg=interp_kwarg)
 
     else:
+        # setting masses (mchirp,q)
         dict['mchirp']  = Parameter(name='mchirp',
                                     min=mchirp_bounds[0],
                                     max=mchirp_bounds[1],
                                     prior='linear')
 
         dict['q']       = Parameter(name='q',
-                                    min=1.,
-                                    max=q_max,
+                                    min=q_bounds[0],
+                                    max=q_bounds[1],
                                     func=log_prior_massratio,
-                                    func_kwarg={'q_max': q_max},
+                                    func_kwarg={'q_max': q_bounds[1],
+                                                'q_min': q_bounds[0]},
                                     interp_kwarg=interp_kwarg)
 
     # setting spins
@@ -663,26 +663,25 @@ def initialize_gwprior(ifos, mchirp_bounds, q_max, f_min, f_max, t_gps, seglen, 
     # include extra parameters: eccentricity
     if ecc_flag:
         if ecc_bounds == None:
-            logger.warning("Requested bounds for eccentricity parameter is empty. Setting standard bound [1e-3,1]")
-            ecc_bounds = [0.001, 1.]
+            logger.warning("Requested bounds for eccentricity parameter is empty. Setting standard bound [0,1]")
+            ecc_bounds = [0., 1.]
         dict['eccentricity'] = Parameter(name='eccentricity', min=ecc_bounds[0], max=ecc_bounds[1])
     else:
         dict['eccentricity'] = Constant('eccentricity', 0.)
 
     # include NRPMw additional parameters
     if 'NRPMw' in approx:
-        dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0.)              # post-merger phase
-        dict['NRPMw_phi_fm']    = Parameter(name='NRPMw_phi_fm',    max = 2.*np.pi, min = 0.)              # frequency-modulation phase
-        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    prior='log-uniform', max=1e5, min=1)   # time of collapse after merger [secs]
-        dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-5, min=-1e-5)                     # f_2 slope [Hz^2]
-        dict['NRPMw_delta_fm']  = Parameter(name='NRPMw_delta_fm',  min=0, max=0.15)                     # frequency-modulation amplitude [Hz]
-        dict['NRPMw_gamma_fm']  = Parameter(name='NRPMw_gamma_fm',  min=0, max=0.04)                     # frequency-modulation inverse damping time [1/secs]
+        dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0.)              # post-merger phase [rads]
+        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    prior='log-uniform', max=2000, min=1)   # time of collapse after merger [mass-rescaled geom. units]
+        dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-5, min=-1e-5)                   # f_2 slope [mass-rescaled geom. units]
 
     # include NRPMw recalibration parameters
     if 'NRPMw_recal' in approx:
-        from ..obs.gw.approx.nrpmw import __recalib_names__, __ERRS__
+        from ..obs.gw.approx.nrpmw import __recalib_names__, __ERRS__, __BNDS__
         for ni in __recalib_names__:
-            dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni, max = 1., min = -1., prior='normal', mu = 0., sigma = __ERRS__[ni])
+            dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,
+                                                max = __BNDS__[ni][1], min = __BNDS__[ni][0],
+                                                prior='normal', mu = 0., sigma = __ERRS__[ni])
 
     # include NRPM recalibration and extended parameters
     if 'NRPM_ext' in approx:

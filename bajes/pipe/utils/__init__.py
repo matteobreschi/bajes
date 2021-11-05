@@ -121,13 +121,13 @@ def log_prior_spin_precess_volumetric(x , spin_max):
 def log_prior_spin_precess_isotropic(x, spin_max):
     return -np.log(np.abs(spin_max))
 
-def log_prior_massratio(x, q_max):
+def log_prior_massratio(x, q_max, q_min=1.):
     from scipy.special import hyp2f1
-    n  = 5.*(hyp2f1(-0.4, -0.2, 0.8, -1.)-hyp2f1(-0.4, -0.2, 0.8, -q_max)/(q_max**0.2))
+    n  = 5.*(hyp2f1(-0.4, -0.2, 0.8, -q_min)/(q_min**0.2)-hyp2f1(-0.4, -0.2, 0.8, -q_max)/(q_max**0.2))
     return 0.4*np.log((1.+x)/(x**3.))-np.log(np.abs(n))
 
-def log_prior_massratio_usemtot(x, q_max):
-    n = 0.5 - 1./(1.+q_max)
+def log_prior_massratio_usemtot(x, q_max, q_min=1.):
+    n = 1./(1.+q_min) - 1./(1.+q_max)
     return -2.*np.log(1.+x)-np.log(np.abs(n))
 
 def log_prior_comoving_volume(x, cosmo):

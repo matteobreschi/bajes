@@ -3,14 +3,15 @@ from __future__ import absolute_import, unicode_literals
 __import__("pkg_resources").declare_namespace(__name__)
 
 def _get_git_hast():
-    
-    # look for git hash
+
     import os
+    import sys
     import pathlib
     from . import __path__
     git_hash = 'UNKNOWN'
 
-    for pi in __path__:
+    # search in __path__ and sys.path for git folder
+    for pi in __path__ + [di for di in sys.path if 'bajes' in di]:
 
         dir_path = os.path.abspath(os.path.join(pi,'..'))
         _ld = os.listdir(dir_path)

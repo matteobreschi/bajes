@@ -100,10 +100,6 @@ def get_time_ax(N,srate,tgps=0.):
 
 def lagging(h,n):
     return np.roll(h,n)
-#    if n >= 0:
-#        return np.concatenate((np.full(n, 0.), h[:-n]))
-#    else:
-#        return np.concatenate((h[-n:], np.full(-n, 0.)))
 
 def padding(h, dt, where='center', padlen=None):
     """ Perform zero-padding on a given strain (time-domain)

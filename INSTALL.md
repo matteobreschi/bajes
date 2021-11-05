@@ -29,7 +29,10 @@ The *bajes* installation is performed with `setuptools` running the command,
 * *Note*, *bajes* is not currently listed in the [`PyPI`](https://pypi.org/), then the command `pip install bajes` is not available.
     Alternatively, the package can be installed using `pip`, running the following command inside the *bajes* repository,
 
-        python -m pip install -e .
+        python -m pip install -U -e .
+        
+    We recommand to use the option `-e` in order to inlcude the project repository to `sys.path` allowing the system to identify your current git commit.
+    We suggest to include also the `-U` option in order to upgrade all specified packages to the newest available version.
     
 Once *bajes* is installed, it is possible to perform Bayesian inference on arbitrary models (see [`inf_tutorial`](docs/inf_tutorial.ipynb))
 and to execute the provided pipeline with a configuration file (see [`conifg_example`](docs/conifg_example.ini)).

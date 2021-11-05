@@ -1,12 +1,8 @@
 from __future__ import division, absolute_import
 import numpy as np
 
-from .nrpmw import NRPMw
-
-MSUN_SI     = 1.9885469549614615e+30
-MTSUN_SI    = 4.925491025543576e-06
-MRSUN_SI    = 1476.6250614046494
-PC_SI       = 3.085677581491367e+16
+from .... import MSUN_SI, MTSUN_SI, MRSUN_SI
+from .... import PARSEC_SI as PC_SI
 
 __recalib_names__ = ['a0', 'a1', 'a2', 'a3', 'am', 't0', 't1', 't2', 't3', 'f1', 'f2', 'f3', 'fm']
 __ERRS__ = {'a0':      0.5527843810575392,
@@ -260,9 +256,3 @@ def nrpm_extended_recal_wrapper(freqs, params):
                   recal     = {ki : params[ki] for ki in params.keys() if 'recal' in ki})
 
     return hp, hc
-
-def nrpmw_wrapper(freqs, params):
-    return NRPMw(freqs, params)
-
-def nrpmw_recal_wrapper(freqs, params):
-    return NRPMw(freqs, params, recalib=True)

@@ -348,11 +348,12 @@ def parse_core_options():
     parser.add_option('--tidal-flag',   dest='lambda_flag',         default='no-tides',     type='string',  help='tidal prior flag')
 
     # Prior bounds
-    parser.add_option('--mc-min',       dest='mchirp_min',      default=None,   type='float',   help='lower mchirp prior bound')
-    parser.add_option('--mc-max',       dest='mchirp_max',      default=None,   type='float',   help='upper mchirp prior bound')
+    parser.add_option('--mc-min',       dest='mchirp_min',      default=None,   type='float',   help='lower mchirp prior bound (if use-mtot, lower mtot prior bound)')
+    parser.add_option('--mc-max',       dest='mchirp_max',      default=None,   type='float',   help='upper mchirp prior bound (if use-mtot, upper mtot prior bound)')
     parser.add_option('--q-max',        dest='q_max',           default=None,   type='float',   help='upper mass ratio prior bound')
-    parser.add_option('--mass-max',     dest='mass_max',       default=None,   type='float',   help='upper mass component prior bound')
-    parser.add_option('--mass-min',     dest='mass_min',       default=None,   type='float',   help='lower mass component prior bound')
+    parser.add_option('--q-min',        dest='q_min',           default=1.,     type='float',   help='lower mass ratio prior bound')
+    # parser.add_option('--mass-max',     dest='mass_max',       default=None,   type='float',   help='upper mass component prior bound')
+    # parser.add_option('--mass-min',     dest='mass_min',       default=None,   type='float',   help='lower mass component prior bound')
     parser.add_option('--spin-max',     dest='spin_max',        default=None,   type='float',   help='upper spin prior bound')
     parser.add_option('--spin1-max',     dest='spin1_max',      default=None,   type='float',   help='upper spin prior bound')
     parser.add_option('--spin2-max',     dest='spin2_max',      default=None,   type='float',   help='upper spin prior bound')
