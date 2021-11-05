@@ -87,7 +87,8 @@ class Waveform(object):
         self.seglen = seglen
         self.srate  = srate
 
-        self.f_max  = np.max(self.freqs)
+        self.f_min  = np.amin(self.freqs)
+        self.f_max  = np.amax(self.freqs)
         self.df     = 1./self.seglen
         self.dt     = 1./self.srate
 
