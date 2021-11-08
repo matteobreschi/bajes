@@ -1,4 +1,4 @@
-# plan on how to restructure `bajes`
+# Plan on how to restructure `bajes`
 
 ```
 bajes/
