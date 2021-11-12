@@ -10,7 +10,7 @@
 * `inf`
    * Introduce hierarchical methods and error propagations
    * Introduce Gelman–Rubin convergence diagnostic for MCMC
-   * Check (old) JointPrior with new Parameter settings 
+   * Check (old) JointPrior with new Parameter settings
 * `pipe`
    * Check Binning
    * Check PSD weights
