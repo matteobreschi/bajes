@@ -21,4 +21,3 @@
    * Sampler is not compatible with kn module ?!
    * Write pipeline for Condor (?)
 * Improve `postproc`
-
