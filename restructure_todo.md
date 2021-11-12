@@ -1,4 +1,4 @@
-# TO-DO-LIST
+# To-do list
 
 * Use `pkgutil.extend_path` to extend `__path__` variable
 * Introduce interactive shell with `cmd.Cmd` (?! Maybe overkills)
