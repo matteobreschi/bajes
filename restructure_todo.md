@@ -21,7 +21,3 @@
    * Sampler is not compatible with kn module ?!
    * Write pipeline for Condor (?)
 * Improve `postproc`
-   * IMPROVEMENT STARTED, NEEDS TO BE COMPLETED!
-   * Compute detector masses
-   * Compute max value for marginalized quantities and introduce them in the posterior
-   * Compute prior samples & Save posteriors in hdf5 
