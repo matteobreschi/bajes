@@ -14,9 +14,16 @@
 * `pipe`
    * Check Binning
    * Check PSD weights
-   * Test of GR: PN tests
+   * Test of GR, e.g. PN tests
    * Parametrized EOS
    * ROQ : Emil
    * Include optional band-passing and padding
    * Sampler is not compatible with kn module ?!
 * Improve `postproc`
+<<<<<<< HEAD
+=======
+   * IMPROVEMENT STARTED, NEEDS TO BE COMPLETED!
+   * Compute detector masses
+   * Compute max value for marginalized quantities and introduce them in the posterior
+   * Compute prior samples & Save posteriors in hdf5 
+>>>>>>> Update restructure_todo.md
