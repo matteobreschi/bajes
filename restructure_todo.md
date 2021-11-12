@@ -14,9 +14,10 @@
 * `pipe`
    * Check Binning
    * Check PSD weights
-   * Test of GR: PN tests
+   * Test of GR, e.g. PN tests
    * Parametrized EOS
    * ROQ : Emil / Greg
    * Include optional band-passing and padding
    * Sampler is not compatible with kn module ?!
+   * Write pipeline for Condor (?)
 * Improve `postproc`
