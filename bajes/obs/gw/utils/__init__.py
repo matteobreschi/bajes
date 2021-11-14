@@ -162,7 +162,7 @@ def tdwf_2_fdwf(freqs , h, dt):
     # interpolate amplitude and phase
     amp_interp  = np.interp(freqs, fr, np.abs(h_fft))
     phi_interp  = np.interp(freqs, fr, np.unwrap(np.angle(h_fft)))
-    
+
     # return FD-WF
     return amp_interp * np.exp(1j * phi_interp)
 
@@ -171,7 +171,7 @@ def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
         Read GW OpenScience in order to fetch the data,
         this method uses gwpy
     """
-    
+
     from gwpy.timeseries import TimeSeries
     data    = TimeSeries.fetch_open_data(ifo, GPSstart, GPSend,
                                          sample_rate=srate,
@@ -180,13 +180,13 @@ def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
                                          tag='CLN',
                                          format='hdf5',
                                          host='https://www.gw-openscience.org')
-        
+
     s   = np.array(data.value)
     t   = np.arange(len(s))*(1./srate) + GPSstart
     return t , s
 
 def read_data(data_flag , data_path):
-    
+
     if data_flag == 'inject' or data_flag == 'local' or  data_flag == 'gwosc':
         data = np.genfromtxt(data_path, usecols = [1] , unpack=True)
     else:
@@ -276,9 +276,3 @@ def read_params(path, flag):
         params['lmax'] = 0.
 
     return params
-
-
-
-
-
-

@@ -421,23 +421,26 @@ def initialize_param_from_func(name, min, max, func, kwarg={}, ngrid=2000, kind=
 
     # check monotonicity
     if np.sum(np.diff(cdf)<0):
+        logger.warning("Unable to estimate customized prior for {} parameter with quadrature rule, switching to trapezoidal approximation".format(name))
 
-        # recompute CDF using trapezoidal rule
-        # obs. cruder approximation but improves discontinuity
+        # recompute CDF using trapezoidal rule, cruder approximation but improves discontinuity
         dx      = ax[1] - ax[0]
         exp_pdf = np.exp(pdf)
         cdf     = [np.trapz(exp_pdf[:(i+1)], dx = dx) for i in range(ngrid)]
 
         # recheck monotonicity
         if np.sum(np.diff(cdf)<0):
+            logger.error("Unable to estimate customized prior distribution for {} parameter, cumulative prior is not monotonic.".format(name))
             raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, cumulative prior is not monotonic.".format(name))
 
     # check NaNs
     if np.sum(np.isnan(cdf))+np.sum(np.isnan(pdf)):
+        logger.error("Unable to estimate customized prior distribution for {} parameter, NaN occured.".format(name))
         raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, NaN occured.".format(name))
 
     # check Infs
     if np.sum(np.isinf(cdf)):
+        logger.error("Unable to estimate customized prior distribution for {} parameter, Inf occured.".format(name))
         raise RuntimeError("Unable to estimate customized prior distribution for {} parameter, Inf occured.".format(name))
 
     # rescale to unit

@@ -671,9 +671,9 @@ def initialize_gwprior(ifos, mchirp_bounds, q_bounds, f_min, f_max, t_gps, segle
 
     # include NRPMw additional parameters
     if 'NRPMw' in approx:
-        dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0.)              # post-merger phase [rads]
-        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    prior='log-uniform', max=2000, min=1)   # time of collapse after merger [mass-rescaled geom. units]
-        dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-5, min=-1e-5)                   # f_2 slope [mass-rescaled geom. units]
+        dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0.)   # post-merger phase [rads]
+        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    max=2000, min=1)            # time of collapse after merger [mass-rescaled geom. units]
+        dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-4, min=-1e-4)        # f_2 slope [mass-rescaled geom. units]
 
     # include NRPMw recalibration parameters
     if 'NRPMw_recal' in approx:

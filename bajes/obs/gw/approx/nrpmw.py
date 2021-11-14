@@ -134,15 +134,17 @@ def _nrpmw_fits(pars, recalib=False):
     # check freqs
     pars['f_m']  = pars['f_m'] * pars['nu']
     pars['df_m'] = pars['df_m'] * pars['nu']
+    pars['f_0']  = max(0.,pars['f_0'])
     pars['B_2']  = max(0.,pars['B_2'])
-    pars['D_2']  = max(0.,pars['D_2'])
+    pars['D_2']  = max(1e-8,TWOPI*pars['D_2'])
     # check times
-    pars['t_0']             = 1./pars['1_t_0']
-    dt0                     = 0.5/pars['f_0']
-    pars['NRPMw_t_coll']    = min(pars['NRPMw_t_coll'], pars['seglen']/(pars['mtot']*MTSUN_SI) - pars['t_0'])
-    pars['t_1']             = min(pars['NRPMw_t_coll'], pars['t_0'] + dt0)
-    pars['t_2']             = min(pars['NRPMw_t_coll'], pars['t_0'] + 2.*dt0)
-    pars['t_3']             = min(pars['NRPMw_t_coll'], pars['t_0'] + 3.*dt0)
+    seglen_mass  = pars['seglen']/(pars['mtot']*MTSUN_SI)
+    pars['t_0']  = 1./np.max([pars['1_t_0'],1./seglen_mass])
+    dt0          = 0.5/np.max([pars['f_0'],0.5/seglen_mass])
+    pars['NRPMw_t_coll']    = min(pars['NRPMw_t_coll'], seglen_mass - pars['t_0'])
+    pars['t_1']  = min(pars['NRPMw_t_coll'], pars['t_0'] + dt0)
+    pars['t_2']  = min(pars['NRPMw_t_coll'], pars['t_0'] + 2.*dt0)
+    pars['t_3']  = min(pars['NRPMw_t_coll'], pars['t_0'] + 3.*dt0)
     return pars
 
 #####################################################
@@ -183,48 +185,35 @@ def _wavelet_func_exponential(freq, beta, eta, tau):
         Compute Gaussian wavelet
         Exponential case, alpha = 0
     """
-    x1      = beta-1j*TWOPI*freq
-    c1      = 0.5*eta*(np.exp(x1*tau) - 1. )/x1
-    beta    = np.conj(beta)
-    eta     = np.conj(eta)
-    x1      = beta-1j*TWOPI*freq
-    c2      = 0.5*eta*(np.exp(x1*tau) - 1. )/x1
-    return  c1 + c2
+    x1      = np.conj(beta)-1j*TWOPI*freq
+    return 0.5*np.conj(eta)*(np.exp(x1*tau) - 1. )/x1
 
-def _wavelet_func_smallalpha(freq, alpha, beta, eta, tau):
+def _wavelet_func_smallalpha(freq, alpha, beta, eta, tau, nmax=4):
     """
         Compute Gaussian wavelet
         Gaussian case, alpha < 1
     """
-    nmax    = 4
-    x1      = beta-1j*TWOPI*freq
-    cn1     = sum([_integral_xn_exp(ni, alpha, tau, x1) for ni in range(nmax+1)])
-    alpha   = np.conj(alpha)
-    beta    = np.conj(beta)
-    eta     = np.conj(eta)
-    x1      = beta-1j*TWOPI*freq
-    cn2     = sum([_integral_xn_exp(ni, alpha, tau, x1) for ni in range(nmax+1)])
-    return 0.5*eta*(cn1 + cn2)
+    alpha_c = np.conj(alpha)
+    x1      = np.conj(beta)-1j*TWOPI*freq
+    return 0.5*np.conj(eta)*sum([_integral_xn_exp(ni, alpha_c, tau, x1) for ni in range(nmax+1)])
 
 def _wavelet_func_generic(freq, alpha, beta, eta, tau):
     """
         Compute Gaussian wavelet
         Gaussian case, generic
     """
-    sqrta   = np.sqrt(alpha,dtype=complex)
-    x1      = 0.5*(beta-1j*TWOPI*freq)/sqrta
-    b1      = sqrta*tau
-    c1      = 0.5*eta/sqrta
-    alpha   = np.conj(alpha)
-    beta    = np.conj(beta)
-    eta     = np.conj(eta)
-    sqrta   = np.sqrt(alpha,dtype=complex)
-    x2      = 0.5*(beta-1j*TWOPI*freq)/sqrta
+    sqrta   = np.sqrt(np.conj(alpha),dtype=complex)
+    hlf_sqa = 0.5/sqrta
+    x2      = hlf_sqa*(np.conj(beta)-1j*TWOPI*freq)
     b2      = sqrta*tau
-    c2      = 0.5*eta/sqrta
-    out     = c1 * _wavelet_integral_extremes_erfcx(x1,b1) + c2 * _wavelet_integral_extremes_erfcx(x2,b2)
+    c2      = hlf_sqa*np.conj(eta)
+    return c2 * _wavelet_integral_extremes_erfcx(x2,b2)
 
-    return out
+def _sanity_check(ax):
+    # fill nan/inf values with zeros
+    nans    = np.logical_or(np.isnan(ax),np.isinf(ax))
+    if any(nans): ax[nans] = 0.j
+    return ax
 
 def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
     """
@@ -247,34 +236,40 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
         - tau               : strain duration
         - tshift            : additional time-shift, float
     """
-    # null wavelet if tau is negative
+    # zero wavelet if tau is negative
     if tau <= 0: return 0.
 
     eta     = complex(eta)
     alpha   = complex(alpha)
     beta    = complex(beta)
 
-    ab_alpha_tau2 = np.abs(alpha)*tau**2
-    re_alpha_tau2 = np.abs(np.real(alpha))*tau**2
+    # avoid exponential overflows
+    if np.real(alpha)*tau + np.real(beta) > 500./tau:
+        ra  = np.real(alpha)
+        u   = 0.5*np.real(beta)/ra
+        tau = np.sqrt(u*u + 500./ra)-u
 
-    if ab_alpha_tau2 < 1e-12:
+    # switch between approximations
+    at2        = alpha*tau**2.
+    ab_at2     = np.abs(alpha*tau**2.)
+    if ab_at2<1e-2 or -10.*ab_at2 > np.real(beta)*tau:
         # exponential case, alpha = 0
-        model = _wavelet_func_exponential(freq, beta, eta, tau)
-
-    elif ab_alpha_tau2 < 1. :
-        # gaussian case, alpha < 1
+        model   = _wavelet_func_exponential(freq, beta, eta, tau)
+    elif ab_at2<1:
+        # gaussian case, |alpha| < 1
         model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tau)
+    elif np.real(alpha)==0 and -np.abs(np.imag(at2)) > np.real(beta)*tau :
+        # gaussian case, Re(alpha) = 0
+        model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tau, nmax=min(10,2*(1+int(np.abs(np.imag(at2))))))
     else:
-        # check R(a)*t^2 in order to avoid overflows
-        if re_alpha_tau2 > 500.:
-            logger.debug("Setting upper bound on wavelet parameters in order to avoid numerical overflow.")
-            tau = np.sqrt(500./np.abs(np.real(alpha)))
         # gaussian case, general
-        model = _wavelet_func_generic(freq, alpha, beta, eta, tau)
+        try:
+            model   = _wavelet_func_generic(freq, alpha, beta, eta, tau)
+        except Exception:
+            model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tau, nmax=1)
+    return _sanity_check(model) * np.exp(-1j*TWOPI*freq*tshift)
 
-    return model * np.exp(-1j*TWOPI*freq*tshift)
-
-def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi):
+def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=8):
     """
         Frequency-domain representation of frequency-modulated wavelet;
 
@@ -301,18 +296,19 @@ def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, P
         - Delta             : FM initial amplitude
         - Gamma             : FM inverse damping time
         - Phi               : FM initial phase
+        - nthr (optional)   : Threshold value for approximation order (default 8)
     """
 
     # compute baseline
     h0  = _wavelet_func(freq, eta, alpha, beta, tau, tshift)
 
-    if np.abs(Delta) > 1e-12 and tau > 0:
+    if (Delta > 1e-8) and (tau > 0) and (Omega > 0):
 
         # set constants
         nu          = -Gamma - 1j*Omega
         d           = -0.5*Delta/np.abs(nu)**2
         phi_extra   = np.exp(1j*2.*d*(Gamma*np.sin(Phi)+Omega*np.cos(Phi)))
-        nmax        = min(max(1,int(2.*(1.+np.abs(Delta/Omega)))),8)
+        nmax        = min(max(1,int(2.*(1.+np.abs(Delta/Omega)))),nthr)
 
         # compute FM corrections
         h0  = (h0 + sum([(d**n/factorial(n))*sum([binom(n,k)*((-np.conj(nu))**k)*((nu)**(n-k))*_wavelet_func(freq,
@@ -380,7 +376,6 @@ def NRPMw(freqs, params, recalib=False):
         phi_pulse   = phi_bounce + TWOPI*params['f_2']*(params['t_1']-params['t_0']) + dphi_mod
         mu          = 1 - params['a_2']/np.sqrt(params['a_1']*params['a_3'])
         b_pulse     = np.log(params['a_3']/params['a_1'])/(params['t_3']-params['t_1'])
-
         h22 = h22 + sum([(1-mu/2.)*_fm_wavelet_func(freqs,
                                                     eta     = params['a_1']*np.exp(-1j*phi_pulse),
                                                     alpha   = 0.,
@@ -417,7 +412,6 @@ def NRPMw(freqs, params, recalib=False):
         # h_rotating,
         # quasi-Lorentzian peak centered around f2
         phi_tail = phi_pulse + 2*np.pi*params['f_2']*(params['t_3']-params['t_1'])
-
         h22 = h22 + _fm_wavelet_func(freqs,
                                      eta     = params['a_3']*np.exp(-1j*phi_tail),
                                      alpha   = -1j*np.pi*params['NRPMw_df_2'],
