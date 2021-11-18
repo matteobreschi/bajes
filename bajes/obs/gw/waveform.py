@@ -138,6 +138,11 @@ class Waveform(object):
             self.wave_func  = teobresums_spa_wrapper
             self.domain     = 'freq'
 
+        elif self.approx == 'TEOBResumSPA_NRPMw':
+            from .approx.teobresums import teobresums_spa_nrpmw_wrapper
+            self.wave_func  = teobresums_spa_nrpmw_wrapper
+            self.domain     = 'freq'
+
         elif self.approx == 'HypTEOBResumS':
             from .approx.teobresums import teobresums_hyperb_wrapper
             self.wave_func  = teobresums_hyperb_wrapper

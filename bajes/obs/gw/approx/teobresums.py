@@ -22,6 +22,11 @@ except Exception:
     logger.warning("Unable to import TEOBResumS module")
     pass
 
+from .... import MTSUN_SI
+from ..utils import lambda_2_kappa
+from .nrpm import NRPM
+from .nrpmw import NRPMw
+
 def l_to_k(lmax):
     all_l = np.arange(2, lmax+1)
     modes = np.concatenate([[[li,mi] for mi in range(1,li+1)] for li in all_l])
@@ -221,6 +226,51 @@ def teobresums_spa_wrapper(freqs, params):
     f , rhplus, ihplus, rhcross, ihcross = teobresums(params_teob)
     return rhplus-1j*ihplus, rhcross-1j*ihcross
 
+def teobresums_spa_nrpmw_wrapper(freqs, params):
+
+    #unwrap lm modes
+    modes = [1]
+    if params['lmax'] != 0:
+        logger.warning("TEOBResumSPA_NRPMw model provides only (2,2) mode")
+
+    # set TEOB dict
+    params_teob = { 'M':                    params['mtot'],
+                    'q':                    params['q'],
+                    'chi1':                 params['s1z'],
+                    'chi2':                 params['s2z'],
+                    'Lambda1':              params['lambda1'],
+                    'Lambda2':              params['lambda2'],
+                    'distance':             params['distance'],
+                    'inclination':          params['iota'],
+                    'coalescence_angle':    0.,
+                    'srate':                params['srate'],
+                    'srate_interp':         params['srate'],
+                    'use_geometric_units':  0,
+                    'output_hpc':           0,
+                    'output_multipoles':    0,
+                    'use_mode_lm':          modes,
+                    'domain':               1,
+                    'interp_freqs':         1,
+                    'freqs':                freqs.tolist(),
+                    'initial_frequency':    params['f_min'],
+                    'arg_out':              1
+                    }
+
+    # compute EOB waveform
+    f, re_hp, im_hp, re_hc, im_hc, hlm_FD, hlm_TD, dynamics = teobresums(params_teob)
+    hp_eob, hc_eob   = re_hp-1j*im_hp, re_hc-1j*im_hc
+    # estimate junction properties
+    imrg        = np.argmax(hlm_TD['1'][0])
+    pmrg        = hlm_TD['1'][1][imrg]
+    # compute PM waveform
+    params_pm   = params.copy()
+    params_pm['phi_ref'] = 0
+    hp_pm, hc_pm = NRPMw(freqs, params_pm)
+    i1k = int (1e3-params['f_min'])*params['seglen']
+    shift_pm   = np.exp(1j*pmrg)
+    shift_glob = np.exp(-1j*params['phi_ref'])
+    return (hp_eob+hp_pm*shift_pm)*shift_glob , (hc_eob+hc_pm*shift_pm)*shift_glob
+
 def teobresums_nrpm_wrapper(freqs, params):
 
     # generate TEOB
@@ -232,9 +282,6 @@ def teobresums_nrpm_wrapper(freqs, params):
     f_merg      = np.abs(np.gradient(np.unwrap(np.angle(h_eob[-100:])))*params['srate'])[-1]/(2*np.pi)
 
     # generate NRPM
-    from .nrpm import NRPM
-    from ..utils import lambda_2_kappa
-
     kappa2T = lambda_2_kappa(params['mtot']/(1.+1./params['q']),
                              params['mtot']/(1.+ params['q']),
                              params['lambda1'], params['lambda2'])
