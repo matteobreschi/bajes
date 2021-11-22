@@ -25,7 +25,7 @@ except Exception:
 from .... import MTSUN_SI
 from ..utils import lambda_2_kappa
 from .nrpm import NRPM
-from .nrpmw import NRPMw
+from .nrpmw import NRPMw_attach
 
 def l_to_k(lmax):
     all_l = np.arange(2, lmax+1)
@@ -265,7 +265,7 @@ def teobresums_spa_nrpmw_wrapper(freqs, params):
     # compute PM waveform
     params_pm   = params.copy()
     params_pm['phi_ref'] = 0
-    hp_pm, hc_pm = NRPMw(freqs, params_pm)
+    hp_pm, hc_pm = NRPMw_attach(freqs, params_pm)
     i1k = int (1e3-params['f_min'])*params['seglen']
     shift_pm   = np.exp(1j*pmrg)
     shift_glob = np.exp(-1j*params['phi_ref'])

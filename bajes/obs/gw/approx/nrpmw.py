@@ -93,6 +93,10 @@ __BNDS__ = {    'f_2':      [-0.5,0.5],
 }
 
 __recalib_names__ = list(__CS__.keys())
+__recalib_names_attach__ = np.delete(__recalib_names__,[__recalib_names__.index('f_m'),
+                                                        __recalib_names__.index('a_m'),
+                                                        __recalib_names__.index('df_m')])
+
 
 def __fit_func__(pars, key):
     # get coefficients and params
@@ -108,7 +112,7 @@ def __fit_func__(pars, key):
     _lo = (1.+ _d1 * kkk + _d2 * kkk **2.)
     return a0 * (1. + a1*qqq) * (1. + p1s*sss) *  _up / _lo
 
-def _nrpmw_fits(pars, recalib=False):
+def _nrpmw_fits(pars, recalib=False, attach=False):
     """
         Compute PM empirical relations given pars (dict)
     """
@@ -120,10 +124,16 @@ def _nrpmw_fits(pars, recalib=False):
     pars['Shat']    = (pars['s1z'] * pars['q']**2 + pars['s2z']) / (1. + pars['q'])**2
     pars['k2t']     = lambda_2_kappa(m1, m2, pars['lambda1'], pars['lambda2'])
     # compute fits
-    if recalib:
-        fits = {ki : __fit_func__(pars, ki)*(1.+pars['NRPMw_recal_'+ki]) for ki in __recalib_names__}
+    if attach:
+        _names = __recalib_names_attach__
     else:
-        fits = {ki : __fit_func__(pars, ki) for ki in __recalib_names__}
+        _names = __recalib_names__
+
+    if recalib:
+        fits = {ki : __fit_func__(pars, ki)*(1.+pars['NRPMw_recal_'+ki]) for ki in _names}
+    else:
+        fits = {ki : __fit_func__(pars, ki) for ki in _names}
+
     # join dicts
     pars = {**pars, **fits}
     # check amplitudes
@@ -132,8 +142,9 @@ def _nrpmw_fits(pars, recalib=False):
     pars['a_2']  = max(0.,pars['a_2'])
     pars['a_3']  = max(1e-12,pars['a_3'])
     # check freqs
-    pars['f_m']  = pars['f_m'] * pars['nu']
-    pars['df_m'] = pars['df_m'] * pars['nu']
+    if not attach:
+        pars['f_m']  = pars['f_m'] * pars['nu']
+        pars['df_m'] = pars['df_m'] * pars['nu']
     pars['f_0']  = max(0.,pars['f_0'])
     pars['B_2']  = max(0.,pars['B_2'])
     pars['D_2']  = max(1e-8,TWOPI*pars['D_2'])
@@ -152,6 +163,14 @@ def _nrpmw_fits(pars, recalib=False):
 #           Baseline wavelet functions              #
 #                                                   #
 #####################################################
+
+def _wavelet_integral_extremes_erfi(x,b):
+    """
+        Compute Gaussian integral given the extremal values
+        """
+    # compute erfi integral
+    # erfi(x) = -i erf(ix)
+    return 1j*WI_FACT*np.exp(-x**2 + np.log(erfi(b+x, dtype=complex)-erfi(x, dtype=complex), dtype=complex))
 
 def _wavelet_integral_extremes_erfcx(x,b):
     """
@@ -197,6 +216,18 @@ def _wavelet_func_smallalpha(freq, alpha, beta, eta, tau, nmax=4):
     x1      = np.conj(beta)-1j*TWOPI*freq
     return 0.5*np.conj(eta)*sum([_integral_xn_exp(ni, alpha_c, tau, x1) for ni in range(nmax+1)])
 
+def _wavelet_func_rea(freq, alpha, beta, eta, tau):
+    """
+        Compute Gaussian wavelet
+        Gaussian case, generic
+    """
+    sqrta   = np.sqrt(np.conj(alpha),dtype=complex)
+    hlf_sqa = 0.5/sqrta
+    x2      = hlf_sqa*(np.conj(beta)-1j*TWOPI*freq)
+    b2      = sqrta*tau
+    c2      = hlf_sqa*np.conj(eta)
+    return c2 * _wavelet_integral_extremes_erfi(x2,b2)
+
 def _wavelet_func_generic(freq, alpha, beta, eta, tau):
     """
         Compute Gaussian wavelet
@@ -236,12 +267,12 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
         - tau               : strain duration
         - tshift            : additional time-shift, float
     """
-    # zero wavelet if tau is negative
-    if tau <= 0: return 0.
-
+    # fix numbers
     eta     = complex(eta)
     alpha   = complex(alpha)
     beta    = complex(beta)
+    tsign   = np.sign(tau)
+    tau     = np.abs(tau)
 
     # avoid exponential overflows
     if np.real(alpha)*tau + np.real(beta) > 500./tau:
@@ -254,19 +285,27 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
     ab_at2     = np.abs(alpha*tau**2.)
     if ab_at2<1e-2 or -10.*ab_at2 > np.real(beta)*tau:
         # exponential case, alpha = 0
-        model   = _wavelet_func_exponential(freq, beta, eta, tau)
+        model   = _wavelet_func_exponential(freq, beta, eta, tsign*tau)
     elif ab_at2<1:
         # gaussian case, |alpha| < 1
-        model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tau)
+        model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau)
     elif np.real(alpha)==0 and -np.abs(np.imag(at2)) > np.real(beta)*tau :
-        # gaussian case, Re(alpha) = 0
-        model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tau, nmax=min(10,2*(1+int(np.abs(np.imag(at2))))))
+        # gaussian case, Re(alpha) = 0 and Re(beta) << 0
+        model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=min(10,2*(1+int(np.abs(np.imag(at2))))))
+    elif np.real(alpha)==0 and np.imag(alpha)!=0:
+        # gaussian case, Re(alpha) = 0 and Im(alpha) != 0
+        with np.errstate(all='raise'):
+            try:
+                model   = _wavelet_func_rea(freq, alpha, beta, eta, tsign*tau)
+            except Exception:
+                model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=1)
     else:
         # gaussian case, general
-        try:
-            model   = _wavelet_func_generic(freq, alpha, beta, eta, tau)
-        except Exception:
-            model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tau, nmax=1)
+        with np.errstate(all='raise'):
+            try:
+                model   = _wavelet_func_generic(freq, alpha, beta, eta, tsign*tau)
+            except Exception:
+                model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=1)
     return _sanity_check(model) * np.exp(-1j*TWOPI*freq*tshift)
 
 def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=8):
@@ -302,7 +341,7 @@ def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, P
     # compute baseline
     h0  = _wavelet_func(freq, eta, alpha, beta, tau, tshift)
 
-    if (Delta > 1e-8) and (tau > 0) and (Omega > 0):
+    if (Delta > 1e-8) and (Omega > 0):
 
         # set constants
         nu          = -Gamma - 1j*Omega
@@ -355,25 +394,116 @@ def NRPMw(freqs, params, recalib=False):
 
         # h_recoil,
         # bounce-back of the remnant after the quasi-spherical node
+        sin_fact    = np.sin(TWOPI*params['f_0']*(params['t_1']-params['t_0'])) #- np.sin(params['NRPMw_phi_fm'])
+        dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
         phi_bounce = params['NRPMw_phi_pm'] + TWOPI*params['f_m']*params['t_0'] + np.pi*params['df_m']*params['t_0']**2.
-        h22 = h22 + _fm_wavelet_func(freqs,
-                                     eta     = params['a_0']*np.exp(-1j*phi_bounce),
+        h22 = h22 - _fm_wavelet_func(freqs,
+                                     eta     = params['a_1']*np.exp(-1j*(phi_bounce+dphi_mod)),
                                      alpha   = np.log(params['a_0']/params['a_1'])/(params['t_1']-params['t_0'])**2 ,
-                                     beta    = 2*np.log(params['a_1']/params['a_0'])/(params['t_1']-params['t_0']) - 1j*TWOPI*params['f_2'],
-                                     tau     = params['t_1']-params['t_0'],
-                                     tshift  = params['t_0'],
+                                     beta    = -1j*TWOPI*params['f_2'],
+                                     tau     = params['t_0'] - params['t_1'],
+                                     tshift  = params['t_1'],
                                      Omega   = TWOPI*params['f_0'],
                                      Delta   = params['D_2'],
                                      Gamma   = 0.,
-                                     Phi     = -PIHALF)
+                                     Phi     = PIHALF)
 
     if params['NRPMw_t_coll'] > params['t_1'] :
 
         # h_pulse,
         # coupled portion with (2,0) mode
+        phi_pulse   = phi_bounce + dphi_mod
+        mu          = 1 - params['a_2']/np.sqrt(params['a_1']*params['a_3'])
+        b_pulse     = np.log(params['a_3']/params['a_1'])/(params['t_3']-params['t_1'])
+        h22 = h22 + sum([(1-mu/2.)*_fm_wavelet_func(freqs,
+                                                    eta     = params['a_1']*np.exp(-1j*phi_pulse),
+                                                    alpha   = 0.,
+                                                    beta    = b_pulse-1j*TWOPI*params['f_2'],
+                                                    tau     = params['t_3'] - params['t_1'],
+                                                    tshift  = params['t_1'],
+                                                    Omega   = TWOPI*params['f_0'],
+                                                    Delta   = params['D_2'],
+                                                    Gamma   = params['G_2'],
+                                                    Phi     = PIHALF),
+                         (mu/4.)*_fm_wavelet_func(freqs,
+                                                  eta     = params['a_1']*np.exp(-1j*phi_pulse),
+                                                  alpha   = 0.,
+                                                  beta    = b_pulse-1j*TWOPI*(params['f_2']-params['f_0']),
+                                                  tau     = params['t_3'] - params['t_1'],
+                                                  tshift  = params['t_1'],
+                                                  Omega   = TWOPI*params['f_0'],
+                                                  Delta   = params['D_2'],
+                                                  Gamma   = params['G_2'],
+                                                  Phi     = PIHALF),
+                         (mu/4.)*_fm_wavelet_func(freqs,
+                                                  eta     = params['a_1']*np.exp(-1j*phi_pulse),
+                                                  alpha   = 0.,
+                                                  beta    = b_pulse-1j*TWOPI*(params['f_2']+params['f_0']),
+                                                  tau     = params['t_3'] - params['t_1'],
+                                                  tshift  = params['t_1'],
+                                                  Omega   = TWOPI*params['f_0'],
+                                                  Delta   = params['D_2'],
+                                                  Gamma   = params['G_2'],
+                                                  Phi     = PIHALF)])
+
+    if params['NRPMw_t_coll'] > params['t_3'] :
+
+        # h_rotating,
+        # quasi-Lorentzian peak centered around f2
+        phi_tail = phi_pulse + 2*np.pi*params['f_2']*(params['t_3']-params['t_1'])
+        h22 = h22 + _fm_wavelet_func(freqs,
+                                     eta     = params['a_3']*np.exp(-1j*phi_tail),
+                                     alpha   = -1j*np.pi*params['NRPMw_df_2'],
+                                     beta    = -params['B_2']-1j*TWOPI*params['f_2'],
+                                     tau     = params['NRPMw_t_coll'] - params['t_3'],
+                                     tshift  = params['t_3'],
+                                     Omega   = TWOPI*params['f_0'],
+                                     Delta   = params['D_2']*np.exp(-params['G_2']*(params['t_3'] - params['t_1'])),
+                                     Gamma   = params['G_2'],
+                                     Phi     = PIHALF)
+
+    # compute hp,hc
+    h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
+    return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
+
+def NRPMw_attach(freqs, params, recalib=False):
+    """
+        Compute NRPMw model given frequency axis (np.array) and parameters (dict)
+    """
+
+    # if lambda1 or lambda2 = 0 , avoid PM segment
+    if params['lambda1'] < 1 or params['lambda2'] < 1:
+        return 0.j, 0.j
+
+    # initialize data
+    h22 = np.zeros(len(freqs), dtype=complex)
+    freqs  = freqs*MTSUN_SI*params['mtot']
+    params = _nrpmw_fits(params, recalib=recalib, attach=True)
+
+    if params['NRPMw_t_coll'] > params['t_0'] :
+
+        # h_recoil,
+        # bounce-back of the remnant after the quasi-spherical node
         sin_fact    = np.sin(TWOPI*params['f_0']*(params['t_1']-params['t_0'])) #- np.sin(params['NRPMw_phi_fm'])
-        dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0'])
-        phi_pulse   = phi_bounce + TWOPI*params['f_2']*(params['t_1']-params['t_0']) + dphi_mod
+        dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
+        phi_bounce = params['NRPMw_phi_pm']
+        _dt     = 0.005/MTSUN_SI/params['mtot']
+        h22 = h22 - _fm_wavelet_func(freqs,
+                                     eta     = params['a_1']*np.exp(-1j*(phi_bounce+dphi_mod)),
+                                     alpha   = np.log(params['a_0']/params['a_1'])/(params['t_1']-params['t_0'])**2 ,
+                                     beta    = -1j*TWOPI*params['f_2'],
+                                     tau     = params['t_0'] - params['t_1'] - _dt,
+                                     tshift  = params['t_1'],
+                                     Omega   = TWOPI*params['f_0'],
+                                     Delta   = params['D_2'],
+                                     Gamma   = 0.,
+                                     Phi     = PIHALF)
+
+    if params['NRPMw_t_coll'] > params['t_1'] :
+
+        # h_pulse,
+        # coupled portion with (2,0) mode
+        phi_pulse   = phi_bounce + dphi_mod
         mu          = 1 - params['a_2']/np.sqrt(params['a_1']*params['a_3'])
         b_pulse     = np.log(params['a_3']/params['a_1'])/(params['t_3']-params['t_1'])
         h22 = h22 + sum([(1-mu/2.)*_fm_wavelet_func(freqs,

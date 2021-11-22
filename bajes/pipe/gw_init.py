@@ -671,21 +671,29 @@ def initialize_gwprior(ifos, mchirp_bounds, q_bounds, f_min, f_max, t_gps, segle
 
     # include NRPMw additional parameters
     if 'NRPMw' in approx:
-        dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0.)   # post-merger phase [rads]
-        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    max=2000, min=1)            # time of collapse after merger [mass-rescaled geom. units]
-        dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-4, min=-1e-4)        # f_2 slope [mass-rescaled geom. units]
+        dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0., periodic=1)   # post-merger phase [rads]
+        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    max=2000, min=1)                        # time of collapse after merger [mass-rescaled geom. units]
+        dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-4, min=-1e-4)                    # f_2 slope [mass-rescaled geom. units]
 
     # include NRPMw recalibration parameters
-    if 'NRPMw_recal' in approx:
+    if approx == 'NRPMw_recal':
         from ..obs.gw.approx.nrpmw import __recalib_names__, __ERRS__, __BNDS__
         for ni in __recalib_names__:
             dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,
                                                 max = __BNDS__[ni][1], min = __BNDS__[ni][0],
                                                 prior='normal', mu = 0., sigma = __ERRS__[ni])
 
+    # include NRPMw recalibration parameters
+    if approx == 'TEOBResumSPA_NRPMw_recal':
+        from ..obs.gw.approx.nrpmw import __recalib_names_attach__, __ERRS__, __BNDS__
+        for ni in __recalib_names_attach__:
+            dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,
+                                                max = __BNDS__[ni][1], min = __BNDS__[ni][0],
+                                                prior='normal', mu = 0., sigma = __ERRS__[ni])
+
     # include NRPM recalibration and extended parameters
     if 'NRPM_ext' in approx:
-        dict['NRPM_phi_pm']         = Parameter(name='NRPM_phi_pm',         max = 2.*np.pi, min = 0.)              # post-merger phase
+        dict['NRPM_phi_pm']         = Parameter(name='NRPM_phi_pm',         max = 2.*np.pi, min = 0., periodic=1)  # post-merger phase
         dict['NRPM_alpha_inverse']  = Parameter(name='NRPM_alpha_inverse',  max = 1000,     min = 1.)              # post-merger damping time
         dict['NRPM_beta']           = Parameter(name='NRPM_beta',           max = 1e-4,     min = -1e-4)           # post-merger frequency slope
 
