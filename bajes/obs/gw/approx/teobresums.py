@@ -242,7 +242,7 @@ def teobresums_spa_nrpmw_wrapper(freqs, params):
                     'Lambda2':              params['lambda2'],
                     'distance':             params['distance'],
                     'inclination':          params['iota'],
-                    'coalescence_angle':    0.,
+                    'coalescence_angle':    params['phi_ref'],
                     'srate':                params['srate'],
                     'srate_interp':         params['srate'],
                     'use_geometric_units':  0,
@@ -252,24 +252,15 @@ def teobresums_spa_nrpmw_wrapper(freqs, params):
                     'domain':               1,
                     'interp_freqs':         1,
                     'freqs':                freqs.tolist(),
-                    'initial_frequency':    params['f_min'],
-                    'arg_out':              1
+                    'initial_frequency':    params['f_min']
                     }
 
     # compute EOB waveform
-    f, re_hp, im_hp, re_hc, im_hc, hlm_FD, hlm_TD, dynamics = teobresums(params_teob)
+    f, re_hp, im_hp, re_hc, im_hc = teobresums(params_teob)
     hp_eob, hc_eob   = re_hp-1j*im_hp, re_hc-1j*im_hc
-    # estimate junction properties
-    imrg        = np.argmax(hlm_TD['1'][0])
-    pmrg        = hlm_TD['1'][1][imrg]
     # compute PM waveform
-    params_pm   = params.copy()
-    params_pm['phi_ref'] = 0
-    hp_pm, hc_pm = NRPMw_attach(freqs, params_pm)
-    i1k = int (1e3-params['f_min'])*params['seglen']
-    shift_pm   = np.exp(1j*pmrg)
-    shift_glob = np.exp(-1j*params['phi_ref'])
-    return (hp_eob+hp_pm*shift_pm)*shift_glob , (hc_eob+hc_pm*shift_pm)*shift_glob
+    hp_pm, hc_pm = NRPMw_attach(freqs, params)
+    return hp_eob+hp_pm , hc_eob+hc_pm
 
 def teobresums_nrpm_wrapper(freqs, params):
 

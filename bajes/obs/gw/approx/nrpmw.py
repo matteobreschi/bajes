@@ -396,7 +396,7 @@ def NRPMw(freqs, params, recalib=False):
         # bounce-back of the remnant after the quasi-spherical node
         sin_fact    = np.sin(TWOPI*params['f_0']*(params['t_1']-params['t_0'])) #- np.sin(params['NRPMw_phi_fm'])
         dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
-        phi_bounce = params['NRPMw_phi_pm'] + TWOPI*params['f_m']*params['t_0'] + np.pi*params['df_m']*params['t_0']**2.
+        phi_bounce  = params['NRPMw_phi_pm'] + TWOPI*params['f_m']*params['t_0'] + np.pi*params['df_m']*params['t_0']**2.
         h22 = h22 - _fm_wavelet_func(freqs,
                                      eta     = params['a_1']*np.exp(-1j*(phi_bounce+dphi_mod)),
                                      alpha   = np.log(params['a_0']/params['a_1'])/(params['t_1']-params['t_0'])**2 ,
@@ -486,8 +486,8 @@ def NRPMw_attach(freqs, params, recalib=False):
         # bounce-back of the remnant after the quasi-spherical node
         sin_fact    = np.sin(TWOPI*params['f_0']*(params['t_1']-params['t_0'])) #- np.sin(params['NRPMw_phi_fm'])
         dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
-        phi_bounce = params['NRPMw_phi_pm']
-        _dt     = 0.005/MTSUN_SI/params['mtot']
+        phi_bounce  = params['NRPMw_phi_pm']
+        _dt         = 0.005/MTSUN_SI/params['mtot']
         h22 = h22 - _fm_wavelet_func(freqs,
                                      eta     = params['a_1']*np.exp(-1j*(phi_bounce+dphi_mod)),
                                      alpha   = np.log(params['a_0']/params['a_1'])/(params['t_1']-params['t_0'])**2 ,
