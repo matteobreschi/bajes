@@ -306,7 +306,7 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
                 model   = _wavelet_func_generic(freq, alpha, beta, eta, tsign*tau)
             except Exception:
                 model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=1)
-    return model * np.exp(-1j*TWOPI*freq*tshift)
+    return _sanity_check(model) * np.exp(-1j*TWOPI*freq*tshift)
 
 def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=8):
     """
