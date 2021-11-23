@@ -41,9 +41,9 @@ __CS__ = {  'f_2':      (0.0881,22.814700323004796,0.29246401361707447,24.999999
                          -11.957632886058573,0.0,-3.219650560016596,0.0),
             'a_0':      (0.02356281923775041,0,1.0770066927080064,260.4081790088421,
                          -0.0013182467077588536,0.0,0.0,0.0,-4.31438985,0.0,0.0,0.0),
-            'a_1':      (-0.0029226779553209233,-6.1874352287025935,-1.0605928759169487,101.44196137082086,
-                         -6.706323210333894,0.003979772810911221,0.09585169896475423,0.0,
-                         -5.421270624526479,0.0,2.8144039565646857,0.0),
+            'a_1':      (-0.05641143401636295,-4.999999148902344,-1.1351499926131932,146.80689536245634,
+                         -0.8342942116818339,0.0003881616921873408,0.24639560324382925,0.,
+                        -4.9999991053680155,0.,0.,0.),
             'a_2':      (0.1666825236292765,-5.134506309621276,-3.7958637378393543,-28.468793005957988,
                          0.0,0.0,0.005774488759045594,0.0,0.0,0.0,4.0272943907508034e-08,0.0),
             'a_3':      (0.1661508508278642,0.10715850717230395,-2.045622790310528,-45.056062822266554,
@@ -68,7 +68,7 @@ __ERRS__ = {    'f_2':      0.03925186372160585,
                 'a_m':      0.017658369779394143,
                 '1_t_0':    0.09170663395938666,
                 'a_0':      0.6634245499270375,
-                'a_1':      0.2762013149125831,
+                'a_1':      0.1516389258877251,
                 'a_2':      0.3848413412777949,
                 'a_3':      0.26938411798665807,
                 'df_m':     0.7508899847722584,
@@ -216,10 +216,29 @@ def _wavelet_func_smallalpha(freq, alpha, beta, eta, tau, nmax=4):
     x1      = np.conj(beta)-1j*TWOPI*freq
     return 0.5*np.conj(eta)*sum([_integral_xn_exp(ni, alpha_c, tau, x1) for ni in range(nmax+1)])
 
-def _wavelet_func_rea(freq, alpha, beta, eta, tau):
+def _wavelet_func_safe(freq, alpha, beta, eta, tau):
     """
         Compute Gaussian wavelet
-        Gaussian case, generic
+        Safe exit when error is catched
+    """
+    alpha_c = np.conj(alpha)
+    x1      = np.conj(beta)-1j*TWOPI*freq
+    # auxiliary
+    absx1   = np.abs(x1)
+    abtau   = np.abs(tau)
+    # bound |x1*tau| < 500 in order to avoid overflows
+    iov     = np.where(absx1*abtau>500)
+    x1[iov] = (500./abtau)*np.angle(x1[iov])
+    # remove zeros
+    izr     = np.where(absx1<1e-200)
+    x1[izr] = 1e-200*np.angle(x1[izr])
+    # return _wavelet_func_smallalpha with nmax=1
+    return 0.5*np.conj(eta)*sum([_integral_xn_exp(ni, alpha_c, tau, x1) for ni in range(2)])
+
+def _wavelet_func_rea(freq, alpha, beta, eta, tau):
+    """
+        Compute Gaussian wavelet for Re(a)=0
+        (uses scipy.special.erfi)
     """
     sqrta   = np.sqrt(np.conj(alpha),dtype=complex)
     hlf_sqa = 0.5/sqrta
@@ -230,8 +249,8 @@ def _wavelet_func_rea(freq, alpha, beta, eta, tau):
 
 def _wavelet_func_generic(freq, alpha, beta, eta, tau):
     """
-        Compute Gaussian wavelet
-        Gaussian case, generic
+        Compute Gaussian wavelet generic
+        (uses scipy.special.erfcx)
     """
     sqrta   = np.sqrt(np.conj(alpha),dtype=complex)
     hlf_sqa = 0.5/sqrta
@@ -280,33 +299,31 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
         u   = 0.5*np.real(beta)/ra
         tau = np.sqrt(u*u + 500./ra)-u
 
-    # switch between approximations
+    # set approximation scales
     at2        = alpha*tau**2.
     ab_at2     = np.abs(alpha*tau**2.)
-    if ab_at2<1e-2 or -10.*ab_at2 > np.real(beta)*tau:
-        # exponential case, alpha = 0
-        model   = _wavelet_func_exponential(freq, beta, eta, tsign*tau)
-    elif ab_at2<0.25:
-        # gaussian case, |alpha| < 1
-        model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau)
-    elif np.real(alpha)==0 and -np.abs(np.imag(at2)) > np.real(beta)*tau :
-        # gaussian case, Re(alpha) = 0 and Re(beta) << 0
-        model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=min(10,2*(1+int(np.abs(np.imag(at2))))))
-    elif np.real(alpha)==0 and np.imag(alpha)!=0:
-        # gaussian case, Re(alpha) = 0 and Im(alpha) != 0
-        with np.errstate(all='raise'):
-            try:
+    # activate raising errors
+    with np.errstate(all='raise'):
+        try:
+            # switch between approximations
+            if ab_at2<1e-2 or -10.*ab_at2 > np.real(beta)*tau:
+                # exponential case, alpha = 0
+                model   = _wavelet_func_exponential(freq, beta, eta, tsign*tau)
+            elif ab_at2<0.25:
+                # gaussian case, |alpha| < 1
+                model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau)
+            elif np.real(alpha)==0 and -np.abs(np.imag(at2)) > np.real(beta)*tau :
+                # gaussian case, Re(alpha) = 0 and Re(beta) << 0
+                model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=min(10,2*(1+int(np.abs(np.imag(at2))))))
+            elif np.real(alpha)==0:
+                # gaussian case, Re(alpha) = 0
                 model   = _wavelet_func_rea(freq, alpha, beta, eta, tsign*tau)
-            except Exception:
-                model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=1)
-    else:
-        # gaussian case, general
-        with np.errstate(all='raise'):
-            try:
+            else:
+                # gaussian case, general
                 model   = _wavelet_func_generic(freq, alpha, beta, eta, tsign*tau)
-            except Exception:
-                model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=1)
-    return _sanity_check(model) * np.exp(-1j*TWOPI*freq*tshift)
+        except Exception:
+            model   = _wavelet_func_safe(freq, alpha, beta, eta, tsign*tau)
+    return model * np.exp(-1j*TWOPI*freq*tshift)
 
 def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=8):
     """
