@@ -81,7 +81,7 @@ def init_core(opts):
 
     return opts, post
 
-def finalize(inference, logger):
+def finalize(inference, logger, rank=0):
 
     try:
         import matplotlib
@@ -90,11 +90,12 @@ def finalize(inference, logger):
         logger.warning("Unable to import matplotlib. Output plots will not be generated.")
         pass
 
-    # get posterior samples and produces plots
-    logger.info("Saving posterior samples ...")
-    inference.get_posterior()
-    inference.make_plots()
-    logger.info("Sampling done.")
+    if rank == 0:
+        # get posterior samples and produces plots
+        logger.info("Saving posterior samples ...")
+        inference.get_posterior()
+        inference.make_plots()
+        logger.info("Sampling done.")
 
 if __name__ == "__main__":
 

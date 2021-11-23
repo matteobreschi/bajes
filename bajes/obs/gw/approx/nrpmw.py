@@ -286,7 +286,7 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
     if ab_at2<1e-2 or -10.*ab_at2 > np.real(beta)*tau:
         # exponential case, alpha = 0
         model   = _wavelet_func_exponential(freq, beta, eta, tsign*tau)
-    elif ab_at2<1:
+    elif ab_at2<0.25:
         # gaussian case, |alpha| < 1
         model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau)
     elif np.real(alpha)==0 and -np.abs(np.imag(at2)) > np.real(beta)*tau :
@@ -306,7 +306,7 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
                 model   = _wavelet_func_generic(freq, alpha, beta, eta, tsign*tau)
             except Exception:
                 model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=1)
-    return _sanity_check(model) * np.exp(-1j*TWOPI*freq*tshift)
+    return model * np.exp(-1j*TWOPI*freq*tshift)
 
 def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=8):
     """
@@ -395,7 +395,10 @@ def NRPMw(freqs, params, recalib=False):
         # h_recoil,
         # bounce-back of the remnant after the quasi-spherical node
         sin_fact    = np.sin(TWOPI*params['f_0']*(params['t_1']-params['t_0'])) #- np.sin(params['NRPMw_phi_fm'])
-        dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
+        if params['f_0'] > 0:
+            dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
+        else:
+            dphi_mod    = TWOPI*params['f_2']*(params['t_1']-params['t_0'])
         phi_bounce  = params['NRPMw_phi_pm'] + TWOPI*params['f_m']*params['t_0'] + np.pi*params['df_m']*params['t_0']**2.
         h22 = h22 - _fm_wavelet_func(freqs,
                                      eta     = params['a_1']*np.exp(-1j*(phi_bounce+dphi_mod)),
@@ -485,7 +488,10 @@ def NRPMw_attach(freqs, params, recalib=False):
         # h_recoil,
         # bounce-back of the remnant after the quasi-spherical node
         sin_fact    = np.sin(TWOPI*params['f_0']*(params['t_1']-params['t_0'])) #- np.sin(params['NRPMw_phi_fm'])
-        dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
+        if params['f_0'] > 0:
+            dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
+        else:
+            dphi_mod    = TWOPI*params['f_2']*(params['t_1']-params['t_0'])
         phi_bounce  = params['NRPMw_phi_pm']
         _dt         = 0.005/MTSUN_SI/params['mtot']
         h22 = h22 - _fm_wavelet_func(freqs,

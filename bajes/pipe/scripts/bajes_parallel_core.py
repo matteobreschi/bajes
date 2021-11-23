@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
         # check threading
         if cpu_per_task > 1:
-            logger.debug("Activating multithreads pool on rank {} with {} threads.".format(rank, cpu_per_task))
+            logger.info("Activating multithreads pool on rank {} with {} threads.".format(rank, cpu_per_task))
             from bajes.pipe import initialize_mthr_pool
             pool, close_pool = initialize_mthr_pool(cpu_per_task)
         else:
@@ -126,6 +126,9 @@ if __name__ == "__main__":
         # running sampler
         logger.info("Running sampling ...")
         inference.run()
+
+        # produce posteriors
+        finalize(inference, logger, rank)
 
     # other samplers
     else:
@@ -184,12 +187,13 @@ if __name__ == "__main__":
             logger.info("Running sampling ...")
             inference.run()
 
-    # produce posteriors
-    finalize(inference, logger)
+        # produce posteriors
+        finalize(inference, logger)
 
     # stop memory tracing, if needed
     if tracing:
         tracemalloc.stop()
 
-    # close parallel pool
-    close_pool(Pool)
+    if opts.engine != 'ultranest':
+        # close parallel pool
+        close_pool(Pool)
