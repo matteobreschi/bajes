@@ -12,7 +12,8 @@ import numpy as np
 
 from shutil import copyfile
 
-from ...pipe import data_container, display_memory_usage
+from ...pipe import display_memory_usage
+from ...pipe.utils import data_container
 
 class SamplerBody(object):
 
@@ -125,6 +126,7 @@ class SamplerBody(object):
             logger.warning("Unable to set signal attributes.")
 
         # extract previous variables and methods
+        # TODO: try container.inference, otherwise initialize new inference
         previous_inference  = container.inference
         for kw in list(previous_inference.keys()):
             logger.debug("Setting {} attribute ...".format(kw))

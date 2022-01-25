@@ -186,9 +186,9 @@ class Noise(object):
         # interpolate PSD
         psd = self.interp_psd_pad(fr_out)
 
-        # ensure continuity outside freuency bounds
-        psd[np.where(fr_out<self.f_min)] = psd[np.max(np.where(fr_out<=self.f_min))]
-        psd[np.where(fr_out>self.f_max)] = psd[np.min(np.where(fr_out>=self.f_max))]
+        # # ensure continuity outside freuency bounds
+        # psd[np.where(fr_out<self.f_min)] = psd[np.max(np.where(fr_out<=self.f_min))]
+        # psd[np.where(fr_out>self.f_max)] = psd[np.min(np.where(fr_out>=self.f_max))]
 
         # filter PSD
         if filter:

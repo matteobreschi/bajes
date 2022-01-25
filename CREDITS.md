@@ -1,19 +1,23 @@
 # Credits
 
 *bajes* has been developed at Friedrich-Schiller-Universität Jena 
-with the contribution of Matteo Breschi, Rossella Gamba, Ssohrab Borhanian, Emil Donkersloot and Sebastiano Bernuzzi.
+with the contribution of Matteo Breschi, Rossella Gamba, Ssohrab Borhanian, Gregorio Carullo, Emil Donkersloot and Sebastiano Bernuzzi.
 
 If you use this software, please include the following [citation](https://arxiv.org/abs/2102.00017):
 
     @article{Bajes:2021,
-             author         = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
-             title          = "${\tt bajes}$: Bayesian inference of multimessenger astrophysical data,
-                              methods and application to gravitational-waves",
-             eprint         = "2102.00017",
-             archivePrefix  = "arXiv",
-             primaryClass   = "gr-qc",
-             month          = "1",
-             year           = "2021"}
+             author = "Breschi, Matteo and Gamba, Rossella and Bernuzzi, Sebastiano",
+             title = "{Bayesian inference of multimessenger astrophysical data: Methods and applications to gravitational waves}",
+             eprint = "2102.00017",
+             archivePrefix = "arXiv",
+             primaryClass = "gr-qc",
+             doi = "10.1103/PhysRevD.104.042001",
+             journal = "Phys. Rev. D",
+             volume = "104",
+             number = "4",
+             pages = "042001",
+             year = "2021"
+            }
 
 The posterior samples computed with the *bajes* pipeline of the gravitational-wave events presented in GWTC-1 are available on [`Zenodo`](https://zenodo.org/record/4476594#.YBQcl3dKhQJ). If you use these data, please include the following citation:
 
@@ -37,6 +41,7 @@ If you use one of the following gravitational-wave approximants, please provide 
 * `TEOBResumS`: A. Nagar et al., [arxiv](https://arxiv.org/abs/1806.01772)
     * Precessing contributions are discussed in S. Akcay et al., [arxiv](https://arxiv.org/abs/2005.05338)
     * Eccentric model is described in D. Chiaramello and A. Nagar, [arxiv](https://arxiv.org/abs/2001.11736)
+    * Template for hyperbolic captures is introduced in A. Nagar et al., [arxiv](https://arxiv.org/abs/2009.12857)
 * `TEOBResumSPA`: R. Gamba et al., [arxiv](https://arxiv.org/abs/2012.00027)
 * `HypTEOBResumS`: A. Nagar et al., [arxiv](https://arxiv.org/abs/2009.12857)
 * `NRPM`: M. Breschi et al., [arxiv](https://arxiv.org/abs/1908.11418)

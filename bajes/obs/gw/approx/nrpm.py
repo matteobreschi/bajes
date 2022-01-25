@@ -1,12 +1,24 @@
 from __future__ import division, absolute_import
 import numpy as np
 
-from .nrpmw import NRPMw
+from .... import MSUN_SI, MTSUN_SI, MRSUN_SI
+from .... import PARSEC_SI as PC_SI
 
-MSUN_SI     = 1.9885469549614615e+30
-MTSUN_SI    = 4.925491025543576e-06
-MRSUN_SI    = 1476.6250614046494
-PC_SI       = 3.085677581491367e+16
+__recalib_names__ = ['a0', 'a1', 'a2', 'a3', 'am', 't0', 't1', 't2', 't3', 'f1', 'f2', 'f3', 'fm']
+__ERRS__ = {'a0':      0.5527843810575392,
+            'a1':      0.08971658178398943,
+            'a2':      0.23153047531626625,
+            'a3':      0.18661598126308693,
+            'am':      0.02461135167475065,
+            't0':      0.0626817005527513,
+            't1':      0.13951354610920094,
+            't2':      0.33359134596173096,
+            't3':      0.28587568610893244,
+            'f1':      0.06513278643287955,
+            'f2':      0.05115187749122023,
+            'f3':      0.10417580565652033,
+            'fm':      0.02868438522534468
+}
 
 from ..utils import lambda_2_kappa
 from ..utils.nrfits import bns_postmerger_amplitude, bns_postmerger_time, bns_postmerger_frequency
@@ -23,8 +35,12 @@ def NRPM_PhaseModel2( ti , f0 , f3 , t1 , t2):
 def NRPM_PhaseModel3( ti , f2 , f3, t2 , t3):
     return np.pi*(-f3*t2 + f3*ti - f2*t2 + f2*ti + (f3 - f2)*(-t2 + t3)* np.sin( np.pi*(t2 - ti)/(t2 - t3))/ np.pi )
 
-def NRPM_PhaseModel4( ti , f2 , t3):
-    return 2* np.pi*f2*(-t3 + ti)
+def NRPM_PhaseModel4( ti , f2 , t3, beta = None):
+    if beta == None:
+        return 2*np.pi*f2*(-t3 + ti)
+    else:
+        tx = -t3 + ti
+        return 2*np.pi*f2*tx*(1.+beta*tx)
 
 def NRPM_AmpModel_plus( ti , b1 , b2 , t1, t2):
 
@@ -64,7 +80,6 @@ def NRPM_AmpModel_exp2( ti , bmerg, b3 , t3 , tc, alpha = None):
 
 def NRPM_TaperBeforeMerger( ti , Mtot , eta , f_merg , A_merg ):
 
-
     # Use taper assuming chirp-like evolution
     Mchirp = Mtot * np.power(eta , 3./5.)
 
@@ -83,10 +98,11 @@ def NRPM_TaperBeforeMerger( ti , Mtot , eta , f_merg , A_merg ):
 
 
 def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
-         f_merg = None, alpha  = None, phi_kick = None):
+         f_merg = None, alpha  = None, beta = None, phi_kick = None, recal = None):
 
     deltaT      = 1./srate
-    time        = np.arange(int(seglen*srate))*deltaT - int(seglen*srate)*deltaT/2.
+    Npt         = int(seglen*srate)
+    time        = np.arange(Npt)*deltaT - Npt*deltaT/2.
 
     eta         = q/((1+q)*(1+q))
     cosi        = np.cos(inclination)
@@ -94,13 +110,6 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
     inc_cross   = cosi
     spherharm_norm = np.sqrt(5/(4*np.pi))
     distance    *= 1e6*PC_SI
-
-    if kappa2T < 60 :
-        return np.zeros(int(seglen*srate)), np.zeros(int(seglen*srate))
-
-    # initialize hplus and hcross
-    hplus = []
-    hcross = []
 
     # Initialize amplitudes, times, freqs (label, kappa , mass, nu)
     a0 = bns_postmerger_amplitude(0, kappa2T, Mtot, eta)
@@ -124,9 +133,23 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
     else:
         fm = f_merg
 
-    # sanity check
-    if f1 < fm:
-        f1 = fm
+    # apply theretical recalibration
+    if recal is not None:
+            a0 *= (1. + recal['NRPM_recal_a0'])
+            a1 *= (1. + recal['NRPM_recal_a1'])
+            a2 *= (1. + recal['NRPM_recal_a2'])
+            a3 *= (1. + recal['NRPM_recal_a3'])
+            am *= (1. + recal['NRPM_recal_am'])
+
+            t0 = max(0., t0*(1. + recal['NRPM_recal_t0']))
+            t1 = max(t0, t1*(1. + recal['NRPM_recal_t1']))
+            t2 = max(t1, t2*(1. + recal['NRPM_recal_t2']))
+            t3 = max(t2, t3*(1. + recal['NRPM_recal_t3']))
+
+            fm *= (1. + recal['NRPM_recal_fm'])
+            f1 *= (1. + recal['NRPM_recal_f1'])
+            f2 *= (1. + recal['NRPM_recal_f2'])
+            f3 = max(f2, f3*(1. + recal['NRPM_recal_f3']))
 
     # listing indices
     indspre = np.where(time<=0)
@@ -134,58 +157,63 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
     inds1   = np.where((time>=t0)&(time<t1))
     inds2   = np.where((time>=t1)&(time<t2))
     inds3   = np.where((time>=t2)&(time<t3))
-    inds3a  = np.where((time>=t3)&(time<t3+3*MTSUN_SI*Mtot))
-    inds4   = np.where(time>=t3+3*MTSUN_SI*Mtot)
+    inds4   = np.where(time>=t3)
+
+    # initialize hs
+    hplus   = np.zeros(Npt)
+    hcross  = np.zeros(Npt)
 
     # compute taper pre-merger
     amppre, phipre, dfreq = NRPM_TaperBeforeMerger(time[indspre], Mtot , q, fm, am)
     phipre -= phipre[-1] + phi_merg
+    hplus[indspre]  = spherharm_norm*inc_plus*amppre*np.cos(phipre)/distance
+    hcross[indspre] = spherharm_norm*inc_cross*amppre*np.sin(phipre)/distance
 
-    hplus.append(spherharm_norm*inc_plus*amppre*np.cos(phipre)/distance)
-    hcross.append(spherharm_norm*inc_cross*amppre*np.sin(phipre)/distance)
+    phi_0 = phi_merg
+    if t0 > 0:
+        amp0 = NRPM_AmpModel_plus(time[inds0], am , a0 , 0.0 , t0 )
+        phi0 = NRPM_PhaseModel0(time[inds0],fm,dfreq[-1],f1,t0) + phi_merg
+        hplus[inds0]  = spherharm_norm*inc_plus*amp0*np.cos(phi0)/distance
+        hcross[inds0] = spherharm_norm*inc_cross*amp0*np.sin(phi0)/distance
+        phi_0 += NRPM_PhaseModel0( t0, fm , dfreq[-1] , f1 , t0)
 
-    amp0 = NRPM_AmpModel_plus(time[inds0], am , a0 , 0.0 , t0 )
-    phi0 = NRPM_PhaseModel0(time[inds0],fm,dfreq[-1],f1,t0) + phi_merg
-    hplus = np.append(hplus, spherharm_norm*inc_plus*amp0*np.cos(phi0)/distance)
-    hcross = np.append(hcross, spherharm_norm*inc_cross*amp0*np.sin(phi0)/distance)
+    # if kappa2T < 60, it is assumed that
+    # no post-merger radiation occurs due to prompt collapse
+    if kappa2T < 60 :
+        return hplus, hcross
 
+    # additional phase-shift after merger
     if phi_kick == None:
         phi_kick = 0
+    phi_0 += phi_kick
 
-    phi_0 = NRPM_PhaseModel0( t0, fm , dfreq[-1] , f1 , t0) + phi_merg + phi_kick
+    if t1 > t0:
+        amp1 = NRPM_AmpModel_minus(time[inds1], a0 , a1 , t0 , t1 )
+        phi1 = NRPM_PhaseModel1(time[inds1], t0, f1) + phi_0
+        hplus[inds1]  = spherharm_norm*inc_plus*amp1*np.cos(phi1)/distance
+        hcross[inds1] = spherharm_norm*inc_cross*amp1*np.sin(phi1)/distance
+        phi_0 += NRPM_PhaseModel1(t1, t0, f1)
 
-    amp1 = NRPM_AmpModel_minus(time[inds1], a0 , a1 , t0 , t1 )
-    phi1 = NRPM_PhaseModel1(time[inds1], t0, f1) + phi_0
-    hplus = np.append(hplus,spherharm_norm*inc_plus*amp1*np.cos(phi1)/distance)
-    hcross = np.append(hcross,spherharm_norm*inc_cross*amp1*np.sin(phi1)/distance)
+    if t2 > t1:
+        amp2 = NRPM_AmpModel_plus(time[inds2], a1 , a2 , t1 , t2 )
+        phi2 = NRPM_PhaseModel2(time[inds2], f1 , f3 , t1, t2) + phi_0
+        hplus[inds2]  = spherharm_norm*inc_plus*amp2*np.cos(phi2)/distance
+        hcross[inds2] = spherharm_norm*inc_cross*amp2*np.sin(phi2)/distance
+        phi_0 += NRPM_PhaseModel2(t2, f1 , f3 , t1, t2)
 
-    phi_0 = NRPM_PhaseModel1(t1, t0, f1) + phi_0
-
-    amp2 = NRPM_AmpModel_plus(time[inds2], a1 , a2 , t1 , t2 )
-    phi2 = NRPM_PhaseModel2(time[inds2], f1 , f3 , t1, t2) + phi_0
-    hplus = np.append(hplus,spherharm_norm*inc_plus*amp2*np.cos(phi2)/distance)
-    hcross = np.append(hcross,spherharm_norm*inc_cross*amp2*np.sin(phi2)/distance)
-
-    phi_0 = NRPM_PhaseModel2(t2, f1 , f3 , t1, t2) + phi_0
-
-    amp3 = NRPM_AmpModel_minus(time[inds3], a2 , a3 , t2 , t3 )
-    phi3 = NRPM_PhaseModel3(time[inds3], f2 , f3 , t2 , t3)  + phi_0
-    hplus = np.append(hplus,spherharm_norm*inc_plus*amp3*np.cos(phi3)/distance)
-    hcross = np.append(hcross,spherharm_norm*inc_cross*amp3*np.sin(phi3)/distance)
-
-    phi_0 = NRPM_PhaseModel3(t3, f2 , f3 , t2 , t3) + phi_0
-
-    amp3a = NRPM_AmpModel_minus(time[inds3a], a2 , a3 , t2 , t3 )
-    phi3a = NRPM_PhaseModel4(time[inds3a], f2 , t3)  + phi_0
-    hplus = np.append(hplus,spherharm_norm*inc_plus*amp3a*np.cos(phi3a)/distance)
-    hcross = np.append(hcross,spherharm_norm*inc_cross*amp3a*np.sin(phi3a)/distance)
+    if t3 > t2:
+        amp3 = NRPM_AmpModel_minus(time[inds3], a2 , a3 , t2 , t3 )
+        phi3 = NRPM_PhaseModel3(time[inds3], f2 , f3 , t2 , t3)  + phi_0
+        hplus[inds3]  = spherharm_norm*inc_plus*amp3*np.cos(phi3)/distance
+        hcross[inds3] = spherharm_norm*inc_cross*amp3*np.sin(phi3)/distance
+        phi_0 += NRPM_PhaseModel3(t3, f2 , f3 , t2 , t3)
 
     amp4 = NRPM_AmpModel_exp(time[inds4], am , a3 , t3 , tc , alpha)
-    phi4 = NRPM_PhaseModel4(time[inds4], f2 , t3) + phi_0
-    hplus = np.append(hplus,spherharm_norm*inc_plus*amp4*np.cos(phi4)/distance)
-    hcross = np.append(hcross,spherharm_norm*inc_cross*amp4*np.sin(phi4)/distance)
+    phi4 = NRPM_PhaseModel4(time[inds4], f2 , t3, beta) + phi_0
+    hplus[inds4]  = spherharm_norm*inc_plus*amp4*np.cos(phi4)/distance
+    hcross[inds4] = spherharm_norm*inc_cross*amp4*np.sin(phi4)/distance
 
-    return np.array(hplus), np.array(hcross)
+    return hplus, hcross
 
 def nrpm_wrapper(freqs, params):
 
@@ -194,13 +222,37 @@ def nrpm_wrapper(freqs, params):
                              params['lambda1'], params['lambda2'])
 
     hp, hc = NRPM(params['srate'], params['seglen'], params['mtot'], params['q'], kappa2T,
-                  params['distance'], params['iota'], params['phi_ref'],
-                  f_merg = None, alpha = None, phi_kick = None)
+                  params['distance'], params['iota'], params['phi_ref'])
 
     return hp, hc
 
-def nrpmw_wrapper(freqs, params):
-    return NRPMw(freqs, params)
+def nrpm_extended_wrapper(freqs, params):
 
-def nrpmw_recal_wrapper(freqs, params):
-    return NRPMw(freqs, params, recalib=True)
+    kappa2T = lambda_2_kappa(params['mtot']/(1.+1./params['q']),
+                             params['mtot']/(1.+ params['q']),
+                             params['lambda1'], params['lambda2'])
+
+    mtt = params['mtot']*MTSUN_SI
+    hp, hc = NRPM(params['srate'], params['seglen'], params['mtot'], params['q'], kappa2T,
+                  params['distance'], params['iota'], params['phi_ref'], f_merg = None,
+                  alpha     = 1./params['NRPM_alpha_inverse']/mtt,
+                  beta      = params['NRPM_beta']/mtt,
+                  phi_kick  = params['NRPM_phi_pm'])
+
+    return hp, hc
+
+def nrpm_extended_recal_wrapper(freqs, params):
+
+    kappa2T = lambda_2_kappa(params['mtot']/(1.+1./params['q']),
+                             params['mtot']/(1.+ params['q']),
+                             params['lambda1'], params['lambda2'])
+
+    mtt = params['mtot']*MTSUN_SI
+    hp, hc = NRPM(params['srate'], params['seglen'], params['mtot'], params['q'], kappa2T,
+                  params['distance'], params['iota'], params['phi_ref'], f_merg = None,
+                  alpha     = 1./params['NRPM_alpha_inverse']/mtt,
+                  beta      = params['NRPM_beta']/mtt,
+                  phi_kick  = params['NRPM_phi_pm'],
+                  recal     = {ki : params[ki] for ki in params.keys() if 'recal' in ki})
+
+    return hp, hc

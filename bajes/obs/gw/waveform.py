@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ...pipe import cart2sph , sph2cart
-from .strain import windowing
+from .strain import windowing, lagging
 
 from .utils import compute_lambda_tilde, compute_delta_lambda
 from ..utils.tov import TOVSolver
@@ -40,40 +40,40 @@ def centering_tdwave(hp, hc, seglen, srate, alpha_tukey = 0.1):
     imax        = np.argmax(np.abs(h))
     lenFin      = int(srate*seglen)
 
-    # if waveform is already centered
-    # return input+window
     if len(h) == lenFin and imax == lenFin//2:
+        # if waveform is already centered with the correct length, return input + window
         hp, wfact = windowing(hp, alpha_tukey)
         hc, wfact = windowing(hc, alpha_tukey)
-        return hp, hc
-
-    # if waveform is not smoot,
-    # append a tail (constant freq) at the beginning
-    if hp[0] != 0 or hc[0] != 0:
-        hp, hc  = tailing(hp, hc, srate, int(len(hp)*alpha_tukey))
-        h       = hp - 1j*hc
-        imax    = np.argmax(np.abs(h))
-
-    # waveform centering
-    lenIni      = len(h)
-    lenFin_top  = lenFin//2
-    lenFin_bot  = lenFin - lenFin_top
-
-    Nbelow      = int(np.ceil(lenFin_bot - imax))
-    Nabove      = int(np.ceil(lenFin_top - lenIni + imax))
-
-    if Nabove < 0:
-        h = h[0:Nabove]
-    elif Nabove > 0:
-        h = np.append(h, np.zeros(Nabove, dtype=complex))
-
-    if Nbelow < 0:
-        h = h[np.abs(Nbelow, dtype=int)-1:-1]
-    elif Nbelow > 0:
-        h = np.append(np.zeros(Nbelow, dtype=complex), h)
-
-    h, wfact = windowing(h, alpha_tukey)
-    return np.real(h) , -np.imag(h)
+    elif len(h) == lenFin:
+        # if waveform has the correct length, return centering + window
+        nlag = lenFin//2 - imax
+        hp, wfact = windowing(lagging(hp,nlag), alpha_tukey)
+        hc, wfact = windowing(lagging(hc,nlag), alpha_tukey)
+    else:
+        if len(h) < lenFin:
+            # shorter waveform: add tail, fill with zeros, windowing, centering
+            # tailing, if needed
+            if hp[0] != 0 or hc[0] != 0:
+                hp, hc  = tailing(hp, hc, srate, min(int(lenFin*alpha_tukey), lenFin-len(h)))
+            # filling with zeros
+            ldiff   = lenFin-len(hp)
+            hp, hc  = np.append(np.zeros(ldiff), hp), np.append(np.zeros(ldiff), hc)
+            # windowing + centering
+            imax    = np.argmax(np.abs(hp - 1j*hc))
+            nlag    = lenFin//2 - imax
+            hp, wfact = windowing(lagging(hp,nlag), alpha_tukey)
+            hc, wfact = windowing(lagging(hc,nlag), alpha_tukey)
+        else:
+            # longer waveform: cut tail,  windowing, centering
+            # cutting
+            ldiff   = len(hp)-lenFin
+            hp, hc  = hp[ldiff:], hc[ldiff:]
+            # windowing + centering
+            imax    -= ldiff
+            nlag    = lenFin//2 - imax
+            hp, wfact = windowing(lagging(hp,nlag), alpha_tukey)
+            hc, wfact = windowing(lagging(hc,nlag), alpha_tukey)
+    return hp, hc
 
 class Waveform(object):
     """
@@ -138,6 +138,11 @@ class Waveform(object):
             self.wave_func  = teobresums_spa_wrapper
             self.domain     = 'freq'
 
+        elif self.approx == 'TEOBResumSPA_NRPMw':
+            from .approx.teobresums import teobresums_spa_nrpmw_wrapper
+            self.wave_func  = teobresums_spa_nrpmw_wrapper
+            self.domain     = 'freq'
+
         elif self.approx == 'HypTEOBResumS':
             from .approx.teobresums import teobresums_hyperb_wrapper
             self.wave_func  = teobresums_hyperb_wrapper
@@ -148,13 +153,23 @@ class Waveform(object):
             self.wave_func  = nrpm_wrapper
             self.domain     = 'time'
 
+        elif self.approx == 'NRPM_ext':
+            from .approx.nrpm import nrpm_extended_wrapper
+            self.wave_func  = nrpm_extended_wrapper
+            self.domain     = 'time'
+
+        elif self.approx == 'NRPM_ext_recal':
+            from .approx.nrpm import nrpm_extended_recal_wrapper
+            self.wave_func  = nrpm_extended_recal_wrapper
+            self.domain     = 'time'
+
         elif self.approx == 'NRPMw':
-            from .approx.nrpm import nrpmw_wrapper
+            from .approx.nrpmw import nrpmw_wrapper
             self.wave_func  = nrpmw_wrapper
             self.domain     = 'freq'
 
         elif self.approx == 'NRPMw_recal':
-            from .approx.nrpm import nrpmw_recal_wrapper
+            from .approx.nrpmw import nrpmw_recal_wrapper
             self.wave_func  = nrpmw_recal_wrapper
             self.domain     = 'freq'
 
@@ -302,12 +317,12 @@ class Waveform(object):
             params['s2x'], params['s2y'], params['s2z'] = sph2cart(params['s2'], params['tilt2'], params['phi_2l'])
 
         # parse for TOV solver
-        if 'eos_gamma0' in params.keys():
+        if 'eos_logp1' in params.keys():
 
-            logger.debug("Solving EOS for [{}, {}, {}, {}]".format(params['eos_gamma0'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3']))
+            logger.debug("Solving EOS for [{}, {}, {}, {}]".format(params['eos_logp1'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3']))
 
             # initialize EOS solver
-            tov = TOVSolver(params['eos_gamma0'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3'])
+            tov = TOVSolver([params['eos_logp1'], params['eos_gamma1'], params['eos_gamma2'], params['eos_gamma3']])
 
             if not tov.is_physical:
                 return PolarizationTuple()

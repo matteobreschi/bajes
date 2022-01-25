@@ -23,7 +23,7 @@ inis    = open(os.path.join(dir_path, 'bajes', '__init__.py')).read()
 VERS    = r"^__version__ = ['\"]([^'\"]*)['\"]"
 mo      = re.search(VERS, inis, re.M)
 VERSION = mo.group(1)
-                     
+
 # Tidy up the project root
 CLEAN_FILES = './build ./dist ./*.pyc ./*.tgz ./*.egg-info'.split(' ')
 
@@ -43,14 +43,20 @@ setup(# metadata
       description='Bayesian Jenaer Software',
       long_description=open(os.path.join(dir_path, 'README.md')).read(),
       long_description_content_type="text/x-rst",
-      author='Matteo Breschi, Rossella Gamba, Sebastiano Bernuzzi',
+      author='Matteo Breschi, Rossella Gamba, Sebastiano Bernuzzi et al.',
       author_email='matteo.breschi@uni-jena.de',
       url='https://github.com/matteobreschi/bajes',
       license='MIT',
-      
-      # list of packages and dirs
-      packages  = find_packages(),
-      
+
+      # list of packages and data
+      packages=find_packages(),
+      package_dir={"bajes": "bajes"},
+      package_data={"bajes": ["pipe/data/gw/asd/events/*/*.txt",
+                              "pipe/data/gw/asd/design/*.txt",
+                              "pipe/data/gw/spcal/events/*/*.txt",
+                              "pipe/data/kn/filter/AT2017gfo/*.txt",
+                              "obs/kn/fluxfactors/*.dat"]},
+
       # make scripts executable
       scripts   = ['bajes/pipe/scripts/bajes_core.py',
                    'bajes/pipe/scripts/bajes_parallel_core.py',
@@ -58,14 +64,7 @@ setup(# metadata
                    'bajes/pipe/scripts/bajes_inject.py',
                    'bajes/pipe/scripts/bajes_read_gwosc.py',
                    'bajes/pipe/scripts/bajes_postproc.py'],
-      
-      # include data
-      package_data={"bajes": ["pipe/data/gw/asd/events/*/*.txt",
-                              "pipe/data/gw/asd/design/*.txt",
-                              "pipe/data/gw/spcal/events/*/*.txt",
-                              "pipe/data/kn/filter/AT2017gfo/*.txt",
-                              "obs/kn/fluxfactors/*.dat"]},
-      
+
       # set mandatory requirements
       python_requires='>=3.7',
       install_requires=['numpy>=1.18.0',

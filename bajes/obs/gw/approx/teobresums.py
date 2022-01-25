@@ -19,7 +19,13 @@ import numpy as np
 try:
     import EOBRun_module as EOB
 except Exception:
+    logger.warning("Unable to import TEOBResumS module")
     pass
+
+from .... import MTSUN_SI
+from ..utils import lambda_2_kappa
+from .nrpm import NRPM
+from .nrpmw import NRPMw_attach
 
 def l_to_k(lmax, remove_ks = []):
     all_l = np.arange(2, lmax+1)
@@ -146,7 +152,7 @@ def teobresums_hyperb_wrapper(freqs, params):
         # if params['energy'] >= Emn:
 
             # set TEOB dict
-            params_teob = { 
+            params_teob = {
                             # Standard source parameters
                             'M':                   params['mtot']    ,
                             'q':                   params['q']       ,
@@ -163,7 +169,7 @@ def teobresums_hyperb_wrapper(freqs, params):
                             'r0':                  r                 ,
                             'r_hyp':               r                 ,
                             'j_hyp':               params['angmom']  ,
-                            'H_hyp':               params['energy']  ,  
+                            'H_hyp':               params['energy']  ,
 
                             # Waveform generation parameters
                             'use_geometric_units': 0                 ,
@@ -227,6 +233,42 @@ def teobresums_spa_wrapper(freqs, params):
     f , rhplus, ihplus, rhcross, ihcross = teobresums(params_teob)
     return rhplus-1j*ihplus, rhcross-1j*ihcross
 
+def teobresums_spa_nrpmw_wrapper(freqs, params):
+
+    #unwrap lm modes
+    modes = [1]
+    if params['lmax'] != 0:
+        logger.warning("TEOBResumSPA_NRPMw model provides only (2,2) mode")
+
+    # set TEOB dict
+    params_teob = { 'M':                    params['mtot'],
+                    'q':                    params['q'],
+                    'chi1':                 params['s1z'],
+                    'chi2':                 params['s2z'],
+                    'Lambda1':              params['lambda1'],
+                    'Lambda2':              params['lambda2'],
+                    'distance':             params['distance'],
+                    'inclination':          params['iota'],
+                    'coalescence_angle':    params['phi_ref'],
+                    'srate':                params['srate'],
+                    'srate_interp':         params['srate'],
+                    'use_geometric_units':  0,
+                    'output_hpc':           0,
+                    'output_multipoles':    0,
+                    'use_mode_lm':          modes,
+                    'domain':               1,
+                    'interp_freqs':         1,
+                    'freqs':                freqs.tolist(),
+                    'initial_frequency':    params['f_min']
+                    }
+
+    # compute EOB waveform
+    f, re_hp, im_hp, re_hc, im_hc = teobresums(params_teob)
+    hp_eob, hc_eob   = re_hp-1j*im_hp, re_hc-1j*im_hc
+    # compute PM waveform
+    hp_pm, hc_pm = NRPMw_attach(freqs, params)
+    return hp_eob+hp_pm , hc_eob+hc_pm
+
 def teobresums_nrpm_wrapper(freqs, params):
 
     # generate TEOB
@@ -238,9 +280,6 @@ def teobresums_nrpm_wrapper(freqs, params):
     f_merg      = np.abs(np.gradient(np.unwrap(np.angle(h_eob[-100:])))*params['srate'])[-1]/(2*np.pi)
 
     # generate NRPM
-    from .nrpm import NRPM
-    from ..utils import lambda_2_kappa
-
     kappa2T = lambda_2_kappa(params['mtot']/(1.+1./params['q']),
                              params['mtot']/(1.+ params['q']),
                              params['lambda1'], params['lambda2'])
@@ -271,7 +310,7 @@ def Espin(r, pph, q, chi1, chi2):
 def EnergyLimits(rmx, q, pph_hyp, chi1, chi2, N=100000):
 
     # r_min is the smallest radius at which the potenatial can peak.
-    # For |chi|<0.5 and pphi < 1.55 * pphi_LSO, r_min > 1.5 (equal mass case, where r_min is smaller), 
+    # For |chi|<0.5 and pphi < 1.55 * pphi_LSO, r_min > 1.5 (equal mass case, where r_min is smaller),
     # so we set 1.3 to be conservative and ignore nans.
     # Without spin, same considerations with 1.5
     if chi1!=0 or chi2!=0: rmin = 1.3
@@ -281,6 +320,6 @@ def EnergyLimits(rmx, q, pph_hyp, chi1, chi2, N=100000):
     E0   = list(map(lambda i : Espin(i, pph_hyp, q, chi1, chi2), x))
     Emin = Espin(rmx, pph_hyp, q, chi1, chi2)
     # Determine the max energy allowed. For large q, A will go below zero, so ignore those values by removing nans.
-    Emx  = np.nanmax(E0)     
+    Emx  = np.nanmax(E0)
 
     return Emin, Emx

@@ -21,7 +21,7 @@ def _check_mpi(is_mpi):
         pass
 
     if is_mpi != multi_task:
-        
+
         if is_mpi == False and multi_task == True:
             logger.error("Revealed active MPI routine, please include the additional flag --mpi to the command string to use MPI parallelization.")
             raise BajesMPIError("Revealed active MPI routine, please include the additional flag --mpi to the command string to use MPI parallelization.")
@@ -34,38 +34,20 @@ def _check_mpi(is_mpi):
 
 def _head(logger, engine, nprocs):
 
-    import os
-    import pathlib
-    from . import __version__, __path__
-    
-    # look for git hash
-    git_hash = 'UNKNOWN'
-    for pi in __path__:
-
-        dir_path = os.path.abspath(os.path.join(pi,'..'))
-        _ld = os.listdir(dir_path)
-        
-        if '.git' in _ld:
-            git_dir = pathlib.Path(dir_path) / '.git'
-            with (git_dir / 'HEAD').open('r') as head:
-                ref = head.readline().split(' ')[-1].strip()
-            with (git_dir / ref).open('r') as git_hash:
-                git_hash = git_hash.readline().strip()
-            break
-
+    from . import __version__, __path__, __githash__
     logger.info("> bajes, Bayesian Jenaer Software")
     logger.info("* VERSION : {}".format(__version__))
     logger.info("* PATH    : {}".format(__path__[0]))
-    logger.info("* GITHASH : {}".format(git_hash))
+    logger.info("* GITHASH : {}".format(__githash__))
     logger.info("* ENGINE  : {}".format(engine.upper()))
     logger.info("* PROCS   : {}".format(nprocs))
 
 def main():
-    
+
     import os
     import sys
     import importlib
-    
+
     try:
         import configparser
     except ImportError:
@@ -73,7 +55,7 @@ def main():
 
     from .inf import Prior, Parameter, Likelihood, Sampler
     from .pipe import parse_main_options, ensure_dir, set_logger
-    
+
     # parse input
     opts, args = parse_main_options()
 
@@ -97,8 +79,7 @@ def main():
     # get likelihood module
     logger.info("Importing likelihood module ...")
     sys.path.append(os.path.dirname(opts.like))
-    like_module = os.path.basename(opts.like).split('.')[0]
-    like_module = importlib.import_module(like_module)
+    like_module = importlib.import_module(os.path.basename(opts.like).split('.')[0])
 
     # initialize likelihood
     lk = Likelihood(func = like_module.log_like)
@@ -116,10 +97,10 @@ def main():
     params      = []
 
     for ni in names:
-        
+
         args = dict(config[ni])
         list_args_keys = list(args.keys())
-        
+
         # check lower bound
         if 'min' in list_args_keys:
              args['min'] = float(args['min'])
@@ -160,7 +141,7 @@ def main():
     # initialize prior
     logger.info("Initializing prior distribution ...")
     pr = Prior(params)
-  
+
     # ensure nwalk is even
     if opts.nwalk%2 != 0 :
         opts.nwalk += 1
@@ -205,7 +186,7 @@ def main():
 
     # set parallel pool if needed
     if opts.mpi:
-        
+
         if opts.engine == 'ultranest':
             # ultranest has a customized MPI interface
             Pool, close_pool = None, None
@@ -214,7 +195,7 @@ def main():
             Pool, close_pool = initialize_mpi_pool(opts.nprocs)
 
     else:
-        
+
         if opts.nprocs == None: opts.nprocs = 1
         if opts.nprocs >= 2:
             from .pipe import initialize_mthr_pool
@@ -231,12 +212,12 @@ def main():
 
     # running
     if Pool == None:
-        
+
         # set multithreading pools for each MPI process
         if opts.engine == 'ultranest' and opts.mpi:
-            
+
             threads_per_node = int(opts.nprocs)//size
-            
+
             if threads_per_node < 2 :
                 logger.debug("Estimated number of threads per MPI process is lower than 2, disabling vectorization for ultranest.")
             else:
@@ -244,7 +225,7 @@ def main():
                 from .pipe import initialize_mthr_pool
                 Pool, close_pool = initialize_mthr_pool(threads_per_node)
                 kwargs['pool'] = Pool
-        
+
         sampler = Sampler(opts.engine, [lk, pr], **kwargs)
         sampler.run()
         sampler.get_posterior()
@@ -270,5 +251,4 @@ def main():
     logger.info("Sampling done.")
 
 if __name__ == "__main__":
-    
     main()

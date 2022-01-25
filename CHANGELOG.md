@@ -1,9 +1,15 @@
 ## Changelog
 
+# [v0.2.1] October 2021
+* Introduce `NRPMw` model
+* Improve posterior extraction for `dynesty`
+* Reorganize `pipe/__init__.py`
+* Introduce `gw/network.py`.
+
 # [v0.2.0] March 2021
 * Introduce unified `SamplerBody`
 * Introduce `ultranest` sampler
-* Introduce ROQ approximation for `pipe`
+* Introduce ROQ approximation for `pipe` (work in progress)
 
 # [v0.1.0] January 2021
 * Reorganize pipeline in `pipe` module

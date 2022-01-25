@@ -23,7 +23,7 @@ def initialize_proposals(like, priors, use_slice=False, use_gw=False):
 
     props = {'eig': 25., 'dif': 25., 'str': 20., 'wlk': 15., 'kde': 10., 'pri': 5.}
     prop_kwargs  = {}
-    
+
     if use_slice:
         props['slc'] = 30.
 
@@ -197,7 +197,7 @@ class _PTMCMC(object):
         self.dim             = len(posterior.prior.names)
         self.adaptation_time = adaptation_time
         self.adaptation_lag  = adaptation_lag
-        
+
         # set boundaries
         self._period_reflect_list   = posterior.prior.periodics
         self._bounds                = posterior.prior.bounds
@@ -289,11 +289,11 @@ class _PTMCMC(object):
 
         # wrap useful methods
         model = ModelTuple(map_fn=self.mapf, compute_log_prob_fn=self._like_func, random=self._random)
-        
+
         logger.debug("Starting proposal loop...")
 
         for j in [0, 1]:
-            
+
             # Get positions of walkers to be updated and walkers to be sampled.
             jupdate = j
             jsample = (j + 1) % 2
@@ -648,7 +648,7 @@ class _PTMCMC(object):
         """
             Returns a matrix of autocorrelation lengths for each
             parameter in each temperature of shape ``(Ntemps, Ndim)``.
-            
+
             """
         return int(np.where(self._betas==1.)[0])
 
@@ -669,7 +669,7 @@ class _PTMCMC(object):
             acors[i, :] = autocorr_integrated_time(x, window=window)
         return acors
 
-    def get_autocorr_time_untemp(self, window=50):
+    def get_autocorr_time_untemp(self, nburn, window=50):
         """
         Returns a matrix of autocorrelation lengths for each
         parameter in each temperature of shape ``(Ntemps, Ndim)``.
@@ -679,7 +679,7 @@ class _PTMCMC(object):
             maximum number of lags to use. (default: 50)
 
         """
-        x = np.mean(self._chain_history[self.untemp_index, :, self.nburn:, :], axis=0)
+        x = np.mean(self._chain_history[self.untemp_index, :, nburn:, :], axis=0)
         return autocorr_integrated_time(x, window=window)
 
 class SamplerPTMCMC(SamplerBody):
@@ -696,10 +696,10 @@ class SamplerPTMCMC(SamplerBody):
 
         if nwalk < 2*len(posterior.prior.names):
             logger.warning("Requested number of walkers < 2 * Ndim. This may generate problems in the exploration of the parameters spaces.")
-        
+
         if ntemps < 2*np.sqrt(len(posterior.prior.names)):
             logger.warning("Requested number of temperature < 2 * sqrt(Ndim). This may generate problems in the exploration of the parameters spaces.")
-        
+
         # initialize proposals
         if proposals == None:
             logger.info("Initializing proposal methods ...")
@@ -716,7 +716,7 @@ class SamplerPTMCMC(SamplerBody):
                                posterior   = posterior,
                                proposal    = proposals,
                                pool        = pool)
-        
+
         # extract prior samples for initial state
         logger.info("Extracting prior samples ...")
         self.sampler._p0 = np.array([posterior.prior.get_prior_samples(nwalk) for _ in range(self.sampler.ntemps)])
@@ -727,7 +727,7 @@ class SamplerPTMCMC(SamplerBody):
         self.stop       = False
 
     def __restore__(self, pool, **kwargs):
-        
+
         # re-initialize pool
         self.sampler.pool = pool
 
@@ -736,7 +736,7 @@ class SamplerPTMCMC(SamplerBody):
             self.sampler.mapf = map
         else:
             self.sampler.mapf = self.sampler.pool.map
-        
+
         # re-initialize seed
         np.random.seed(self.seed)
         self.sampler._random = np.random.mtrand.RandomState()
@@ -745,7 +745,7 @@ class SamplerPTMCMC(SamplerBody):
 
         # run the chains
         while not self.stop:
-            
+
             # expand history chains
             self.sampler._expand_history(iterations=self.ncheckpoint)
 
@@ -762,7 +762,7 @@ class SamplerPTMCMC(SamplerBody):
         self.store()
 
     def __update__(self):
-        
+
         logger.debug("Setting updated printings...")
 
         # compute acceptance
@@ -774,7 +774,7 @@ class SamplerPTMCMC(SamplerBody):
         this_logL       = np.array(self.sampler._loglikelihood0[self.sampler.untemp_index])
         logL_mean       = logsumexp(this_logL) - np.log(self.sampler.nwalkers)
         logL_max        = np.max(this_logL)
-        
+
         args    = { 'it' : self.sampler._time,
                     'acc' : '{:.2f}%'.format(acc_T0*100.),
                     'swp' : '{:.2f}%'.format(swp_acc*100.),
@@ -800,8 +800,8 @@ class SamplerPTMCMC(SamplerBody):
         if (self.sampler._time > self.nburn+self.ncheckpoint):
 
             # compute ACL of untempered chain
-            acls = self.sampler.get_autocorr_time_untemp()
-            
+            acls = self.sampler.get_autocorr_time_untemp(nburn=self.nburn)
+
             try:
                 self.acl    = int(np.max([ ai for ai in acls if not np.isnan(ai)]))
                 self.neff   = (self.sampler._time-self.nburn)*self.sampler.nwalkers//self.acl
@@ -822,10 +822,10 @@ class SamplerPTMCMC(SamplerBody):
 
         s = self.sampler._chain.shape
         self.outchain = self.sampler._chain.reshape((s[0], -1, s[3])) # (ntemps, nwalk*nsteps , ndim)
-        
+
         # extract posterior only from chain at T=1
         self.posterior_samples  = self.outchain[self.sampler.untemp_index][::self.acl]
-        
+
         # extract logL for posterior samples,
         # log-prior is computed when the posterior file is saved
         logL  = self.sampler._loglikelihood.reshape((s[0],-1))[self.sampler.untemp_index][::self.acl]
@@ -889,4 +889,3 @@ class SamplerPTMCMC(SamplerBody):
 
         except Exception:
             pass
-

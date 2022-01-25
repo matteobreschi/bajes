@@ -36,7 +36,7 @@ def calc_project_array_td(det, hp, hc, dt, ra, dec, psi, t_gps):
         ----------
         h = F+ h+ + Fx hx , projected strain
         """
-    
+
     fplus , fcross  = det.antenna_pattern(ra, dec, psi, t_gps)
     time_delay      = det.time_delay_from_earth_center(ra , dec , t_gps)
 
@@ -101,27 +101,27 @@ def get_detector_information(ifo):
         xarm_tilt       = 0.
         yarm_tilt       = 0.
     elif ifo=='ET1':
-        latitude        = 0.7058579069
-        longitude       = 0.1648295229
-        elevation       = 0
-        xarm_azimuth    = 1.2316334746
-        yarm_azimuth    = xarm_azimuth + np.pi/3.
+        latitude        = 0.76151183984
+        longitude       = 0.18333805213
+        elevation       = 51.884
+        xarm_azimuth    = 0.33916285222
+        yarm_azimuth    = 5.57515060820
         xarm_tilt       = 0.
         yarm_tilt       = 0.
     elif ifo=='ET2':
-        latitude        = 0.7066427131
-        longitude       = 0.1640447167
-        elevation       = 0
-        xarm_azimuth    = 1.2316334746 + np.pi/3.
-        yarm_azimuth    = xarm_azimuth + np.pi/3.
+        latitude        = 0.76299307990
+        longitude       = 0.18405858870
+        elevation       = 59.735
+        xarm_azimuth    = 4.52795305701
+        yarm_azimuth    = 3.48075550581
         xarm_tilt       = 0.
         yarm_tilt       = 0.
     elif ifo=='ET3':
-        latitude        = 0.7058579069
-        longitude       = 0.1632599106
-        elevation       = 0
-        xarm_azimuth    = 1.2316334746 + 2.*np.pi/3.
-        yarm_azimuth    = xarm_azimuth + np.pi/3.
+        latitude        = 0.76270463257
+        longitude       = 0.18192996730
+        elevation       = 59.727
+        xarm_azimuth    = 2.43355795462
+        yarm_azimuth    = 1.38636040342
         xarm_tilt       = 0.
         yarm_tilt       = 0.
     elif ifo=='CE':
@@ -144,7 +144,7 @@ class Detector(object):
     def __init__(self, detector_init, t_gps=None):
         """
             Initialize object representing a gravitational-wave detector
-            
+
             Arguments:
                 - detector_init: str or list or dict
                     if string , the two-character detector string, i.e. H1, L1, V1, K1, G1, I1, CE, ET
@@ -173,7 +173,7 @@ class Detector(object):
         self.y_arm      = self.compute_arm(self.yarm_tilt, self.yarm_azimuth)
         self.location   = self.compute_location()
         self.response   = self.compute_response()
-        
+
         # initialize times
         self.reference_time = t_gps
         self.sday = None
@@ -219,10 +219,10 @@ class Detector(object):
     def light_travel_time_to_detector(self, det):
         """
             Return the light travel time from this detector
-            
+
             Arguments:
                 - det: bajes.obs.gw.Detector
-            
+
             Return:
                 - time: float, the light travel time in seconds
         """
@@ -233,24 +233,24 @@ class Detector(object):
         """
             Detector response.
             Inspired from XLALComputeDetAMResponse and PyCBC.detector
-            
+
             Arguments:
                 - right_ascension   : float
                 - declination       : float
                 - polarization      : float
-            
+
             Return:
                 - fplus: float, the plus polarization factor for this sky location
                 - fcross: float, the cross polarization factor for this sky location
         """
-        
+
         # t_gps is measured from the center of the Earth,
         # then we have to take into account the time delay
-        
+
         geometric_delay = self.time_delay_from_earth_center(right_ascension, declination, t_gps)
         t_gps   += geometric_delay
         gha     = self.gmst_estimate(t_gps) - right_ascension
-                    
+
         cosgha = cos(gha)
         singha = sin(gha)
         cosdec = cos(declination)
@@ -269,24 +269,24 @@ class Detector(object):
         y2 =  cospsi * cosdec
         y = np.array([y0, y1, y2])
         dy = self.response.dot(y)
-            
+
         if hasattr(dx, 'shape'):
             fplus = (x * dx - y * dy).sum(axis=0)
             fcross = (x * dy + y * dx).sum(axis=0)
         else:
             fplus = (x * dx - y * dy).sum()
             fcross = (x * dy + y * dx).sum()
-                                                            
+
         return fplus, fcross
 
     def time_delay_from_earth_center(self, right_ascension, declination, t_gps):
         """
             Return the time delay from the earth center
-            
+
             Arguments:
                 - right_ascension   : float
                 - declination       : float
-            
+
             Return:
                 - time_delay : float
         """
@@ -302,7 +302,7 @@ class Detector(object):
             In other words return `t1 - t2` where `t1` is the
             arrival time in this detector and `t2` is the arrival time in the
             other location.
-            
+
             Arguments:
                 - other_location    : np.array (3-dim), coordinates of other location
                 - right_ascension   : float
@@ -327,7 +327,7 @@ class Detector(object):
             arrival time in this detector and `t2` is the arrival time in the
             other detector. Note that this would return the same value as
             `time_delay_from_earth_center` if `other_detector` was geocentric.
-            
+
             Arguments:
                 - other_detector    : bajes.obs.gw.Detector
                 - right_ascension   : float
@@ -343,10 +343,10 @@ class Detector(object):
         """
             Return the optimal orientation in right ascension and declination
             for a given GPS time.
-            
+
             Arguments:
                 - t_gps             : float, the GPS time (in s) of the signal.
-                
+
             Return:
                 - right ascension   : float
                 - declination       : float
@@ -358,12 +358,12 @@ class Detector(object):
     def project_fdwave(self, wave, params, tag):
         """
             Project waveform on Detector, with frequency-domain output
-            
+
             Arguments:
                 - wave      : bajes.obs.gw.waveform.PolarizationTuple
                 - params    : dict, parameters of the waveform, reuired: ra, dec, psi, t_gsp, time_shift
                 - tag       : Domain of the waveform, time or freq
-                
+
             Return:
                 - projected wave : np.array, waveform projected on this detector in the frequency-domain
         """
@@ -384,12 +384,12 @@ class Detector(object):
     def project_tdwave(self, wave, params, tag):
         """
             Project waveform on Detector, with time-domain output
-            
+
             Arguments:
                 - wave      : bajes.obs.gw.waveform.PolarizationTuple
                 - params    : dict, parameters of the waveform, reuired: ra, dec, psi, t_gsp, time_shift
                 - tag       : Domain of the waveform, time or freq
-            
+
             Return:
                 - projected wave : np.array, waveform projected on this detector in the time-domain
         """
@@ -412,7 +412,7 @@ class Detector(object):
                           nweights=0, len_weights=None):
         """
             Store observation in Detector
-            
+
             Arguments:
                 - series        : bajes.obs.gw.Series
                 - noise         : bajes.obs.gw.Noise
@@ -421,16 +421,16 @@ class Detector(object):
                 - nweights      : int, number of PSD weights
                 - len_weights   : np.array, len of each weight
         """
-        
+
         # set & check data properties
         assert self.reference_time == series.t_gps
         self.srate  = series.srate
         self.seglen = series.seglen
-        
+
         # get data mask
         self._mask = series.mask
         self._nfr  = len(series.freqs)
-        
+
         # get data
         self.freqs  = np.copy(series.freqs[series.mask])
         self.data   = np.copy(series.freq_series[series.mask])
@@ -439,23 +439,23 @@ class Detector(object):
         # set calibration envelopes
         self.nspcal      = nspcal
         self.spcal_freqs = spcal_freqs
-        
+
         # set PSD weights
         self.nweights   = nweights
         self.len_weights = len_weights
-    
+
         self._dd = (4./self.seglen) * np.sum(np.abs(self.data)**2./self.psd)
 
     def compute_inner_products(self, hphc, params, tag, psd_weight_factor=False):
         """
             Compute inner products
-            
+
             Arguments:
                 - hphc              : bajes.obs.gw.waveform.PolarizationTuple
                 - params            : dict, parameters
                 - tag               : str, waveform domain
                 - psd_weight_factor : bool, return PSD weight likelihood factor
-            
+
             Return:
                 - d_h           : numpy.array, corresponding to the integrand of the inner product
                 - h_h           : float, self inner product of the waveform
