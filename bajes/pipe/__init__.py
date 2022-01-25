@@ -429,7 +429,7 @@ def parse_core_options():
     parser.add_option('--extra-option-val',dest='extra_opt_val',  default=[],     type='int',   action="append", help='Values of the additional parameters for the chosen approximant')
 
     # Prior flags
-    parser.add_option('--data-flag',    dest='data_flag',           default=None,           type='string',  help='spin prior flag')
+    parser.add_option('--data-flag',    dest='data_flag',           default=None,           type='string',  help='data flag')
     parser.add_option('--spin-flag',    dest='spin_flag',           default='no-spins',     type='string',  help='spin prior flag')
     parser.add_option('--tidal-flag',   dest='lambda_flag',         default='no-tides',     type='string',  help='tidal prior flag')
 

@@ -21,10 +21,14 @@ try:
 except Exception:
     pass
 
-def l_to_k(lmax):
+def l_to_k(lmax, remove_ks = []):
     all_l = np.arange(2, lmax+1)
     modes = np.concatenate([[[li,mi] for mi in range(1,li+1)] for li in all_l])
-    return [int(x[0]*(x[0]-1)/2 + x[1]-2) for x in modes]
+    k_modes = [int(x[0]*(x[0]-1)/2 + x[1]-2) for x in modes]
+    if not(remove_ks==[]):
+        for k_exlc in remove_ks:
+            k_modes.remove(k_exlc)
+    return k_modes
 
 def additional_opts(params_teob, params):
 
@@ -114,11 +118,12 @@ def teobresums_wrapper(freqs, params):
     t , hp , hc     = teobresums(params_teob)
     return hp , hc
 
+# Requires the teob eccentric branch
 def teobresums_hyperb_wrapper(freqs, params):
 
     # unwrap lm modes
     if params['lmax'] == 0: modes = [1] # 22-only
-    else:                   modes = l_to_k(params['lmax'])
+    else:                   modes = l_to_k(params['lmax'], remove_ks = [3]) #remove (l,m)=(3,2) from waveform, since not sane
 
     a0 = (params['s1z'] * params['q'] + params['s2z'])/(1+params['q'])
     nu = params['q']/np.power(1+params['q'], 2.)
@@ -128,7 +133,7 @@ def teobresums_hyperb_wrapper(freqs, params):
 
     # Restrict to regions far from direct capture
     # For the non-spinning case this is done through the prior,
-    # while the spinning case has too much variability to impose the constraint through fixed J bounds.
+    # while the spinning case has too much variability to impose the constraint through fixed pphi0 bounds.
     if(params['s1z']==0.0 and params['s2z']==0.0): pphi_lso_low_limit = 1.0
     else:                                          pphi_lso_low_limit = 1.15
 
@@ -161,19 +166,21 @@ def teobresums_hyperb_wrapper(freqs, params):
                             'H_hyp':               params['energy']  ,  
 
                             # Waveform generation parameters
-                            'initial_frequency':   params['f_min']   ,
                             'use_geometric_units': 0                 ,
                             'output_hpc':          0                 ,
-                            'interp_uniform_grid': 2                 ,
                             'output_multipoles':   0                 ,
                             'use_mode_lm':         modes             ,
+                            'domain':              0                 ,
+                            'arg_out':             0                 ,
+   
+                            'initial_frequency':   params['f_min']   ,
                             'srate':               params['srate']   ,
                             'srate_interp':        params['srate']   ,
-                            'domain':              0                 ,
                             'dt':                  0.5               ,
                             'dt_interp':           0.5               ,
-                            'arg_out':             0                 ,
                             'ode_tmax':            20e4              ,
+                            'interp_uniform_grid': 2                 ,
+
                         # Uncomment if you want to disable NQC
                         #   'nqc':                  2,  # set NQCs manually
                         #   'nqc_coefs_hlm':        0,  # turn NQC off for hlm

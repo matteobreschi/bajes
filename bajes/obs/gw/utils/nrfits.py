@@ -29,7 +29,7 @@ def calc_isco_radius(m , a):
 def calc_isco_frequency(m , a):
     """
         Calculate the ISCO frequency of a Kerr BH
-        using Kepler's law frm ISCO radius
+        using Kepler's law from ISCO radius
 
         Parameters
         ----------
@@ -48,7 +48,7 @@ def calc_isco_frequency(m , a):
 def calc_isco_frequency_for_binary(m1 , m2 , a1 , a2):
     """
         Calculate the ISCO frequency of a compact binary
-        using parameters of the final black hole
+        using parameters of the progenitors black holes.
 
         Parameters
         ----------
