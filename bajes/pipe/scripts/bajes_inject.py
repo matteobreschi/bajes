@@ -234,14 +234,22 @@ class Injection(object):
                 # check skylocation,
                 # overwrite command-line input if skyloc is in params.ini
                 if 'ra' in list(params.keys()):
-                    logger.info("... right ascension found in parameter file ...")
+                    logger.info("Overriding the right ascension value found in the parameter file.")
                     params['ra']    = self.ra
                 if 'dec' in list(params.keys()):
-                    logger.info("... declination found in parameter file ...")
+                    logger.info("Overriding the declination value found in the parameter file.")
                     params['dec']   = self.dec
                 if 'psi' in list(params.keys()):
-                    logger.info("... polarization found in parameter file ...")
+                    logger.info("Overriding the polarisation value found in the parameter file.")
                     params['psi']   = self.psi
+
+                list_params, list_values = [], []
+                for key in params.keys():
+                    list_params.append(key)
+                    list_values.append(params[key])
+                logger.info("Generating injection with the paramters:")
+                for i in range(len(list_params)):
+                    logger.info("{}: {}".format(list_params[i], list_values[i]))
 
                 # fix missing information
                 params['f_min']     = self.f_min
