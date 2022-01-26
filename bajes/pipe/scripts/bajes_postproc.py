@@ -73,7 +73,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
 
         make_corner_plot(m1m2_matrix,m1m2_labels,ppdir+'/m1m2_posterior.png')
         make_corner_plot(mcq_matrix,mcq_labels,ppdir+'/mcq_posterior.png')
-    except KeyError:
+    except(KeyError, ValueError):
         pass
 
     # spins
@@ -270,17 +270,21 @@ if __name__ == "__main__":
     posterior = np.genfromtxt(opts.posterior , names=True)
     
     # extract prior object from pickle
-    dc          = data_container(opts.outdir + '/run/inf.pkl')
-    container   = dc.load()
-    priors      = container.prior
+    if not(os.path.exists(opts.outdir + '/run')):
+        dc    = data_container(opts.outdir + '/inf.pkl')
+    else:
+        dc    = data_container(opts.outdir + 'run/inf.pkl')
+    container = dc.load()
+    priors    = container.prior
     
     # produce histogram plots
+    logger.info("Producing histograms...")
     ensure_dir(ppdir+'/histgr')
     make_histograms(posterior, priors.names, ppdir+'/histgr')
 
     # produce corner plots
+    logger.info("Producing corners...")
     ensure_dir(ppdir+'/corner')
     make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, ppdir+'/corner')
 
     logger.info("... done.")
-
