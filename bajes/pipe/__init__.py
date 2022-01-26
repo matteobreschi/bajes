@@ -203,10 +203,7 @@ def parse_main_options():
     usage   = "python -m bajes [options]\n"+"Version: bajes {}".format(__version__)
     parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
 
-    # Choose the engine
     parser.add_option('-p', '--prior',  dest='prior',       type='string',  help='path to prior file (configuration file)')
-
-    # Choose the engine
     parser.add_option('-l', '--like',   dest='like',        type='string',  help='path to likelihood function (python file)')
 
     # Choose the engine
@@ -423,6 +420,7 @@ def parse_core_options():
     parser.add_option('--t-scale',      dest='t_scale',     type='string',  default='linear',   help='Scale of time axis: linear, log or mixed')
 
     (opts,args) = parser.parse_args()
+
     return opts,args
 
 
