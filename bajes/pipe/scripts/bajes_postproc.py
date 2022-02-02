@@ -16,8 +16,10 @@ try:
 except Exception:
     pass
 
-from bajes.pipe import ensure_dir, data_container, cart2sph, sph2cart, set_logger
-from bajes.obs.gw.utils import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda
+from bajes.pipe            import ensure_dir, data_container, cart2sph, sph2cart, set_logger
+from bajes.obs.gw          import Detector, Noise, Series, Waveform
+from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda
+from bajes.obs.gw.waveform import PolarizationTuple
 
 def make_corner_plot(matrix , labels, outputname):
     
@@ -77,7 +79,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         pass
 
     # spins
-    if 'align' in spin_flag:
+    if('align' in spin_flag):
         logger.info("... plotting spins ...")
 
         spin_matrix = np.column_stack((posterior['s1z'],posterior['s2z']))
@@ -92,7 +94,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         except Exception:
             pass
 
-    elif 'precess' in spin_flag:
+    elif('precess' in spin_flag):
 
         logger.info("... plotting spins ...")
         spin_matrix = np.column_stack((posterior['s1'],posterior['tilt1']))
@@ -122,8 +124,14 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         except Exception:
             pass
 
+    elif('no-spins' in spin_flag):
+        logger.info("No spins option selected. Skipping spin plots.")
+
+    else:
+        logger.warning("Unknown spins option selected. Skipping spin plots.")
+
     # tides
-    if lambda_flag == 'bns-tides':
+    if(lambda_flag == 'bns-tides'):
         logger.info("... plotting tides ...")
 
         tide1_matrix = np.column_stack((posterior['lambda1'],posterior['lambda2']))
@@ -140,7 +148,10 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         except Exception:
             pass
 
-    elif lambda_flag == 'bhns-tides' or lambda_flag == 'nsbh-tides' :
+    elif(lambda_flag == 'bhns-tides' or lambda_flag == 'nsbh-tides'):
+
+        if(lambda_flag == 'nsbh-tides'): 
+            logger.warning("The 'nsbh-tides' string for the 'tidal-flag' option is deprecated and will be removed in a future release. Please use the 'nsbh-tides' string.")
 
         logger.info("... plotting tides ...")
         try:
@@ -165,6 +176,12 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
             tide_labels = [r'$\Lambda_{NS}$', r'$\Lambda_{BH}$']
 
         make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.png')
+
+    elif('no-tides' in spin_flag):
+        logger.info("No spins option selected. Skipping tides plots.")
+
+    else:
+        logger.warning("Unknown tides option selected. Skipping tides plots.")
 
     # sky location
     try:
@@ -244,39 +261,131 @@ def make_histograms(posterior_samples, names, outdir):
             logger.warning("Unable to produce histogram plot for {}, an exception occurred.".format(ni))
             pass
 
+
+def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False):
+
+    nsub_panels  = len(container_gw.datas.keys())
+    strains_dets = {det: {} for det in container_gw.datas.keys()}
+    wfs          = {det: [] for det in container_gw.datas.keys()}
+
+    # Plot the data
+    fig = plt.figure(figsize=(8,6))
+    plt.subplots_adjust(hspace = .001)
+
+    first_det                                 = list(container_gw.datas.keys())[0]
+    data_first_det                            = container_gw.datas[first_det]
+    freqs, f_min, f_max, t_gps, seglen, srate = data_first_det.freqs, data_first_det.f_min, data_first_det.f_max, data_first_det.t_gps, data_first_det.seglen, data_first_det.srate
+
+    posterior = posterior
+    names     = container_inf.prior.names
+    constants = container_inf.prior.const
+    approx    = container_inf.like.wave.approx
+    w         = Waveform(freqs=freqs, srate=srate, seglen=seglen, approx=approx)
+
+    for det in strains_dets.keys():
+
+        strains_dets[det]['s'] = container_gw.datas[det]
+        strains_dets[det]['d'] = container_gw.dets[det]
+        strains_dets[det]['n'] = container_gw.noises[det]
+
+        strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'])
+
+        if(whiten):
+            # Avoid being close to Nyquist frequency when bandpassing.
+            strains_dets[det]['s'].bandpassing(flow=f_min, fhigh=f_max-10)
+            strains_dets[det]['s'].whitening(strains_dets[det]['n'])
+
+    logger.info("Plotting the reconstructed waveform.")
+
+    for k in range(len(posterior)):
+
+        # Every 100 steps, update the user on the status of the plot.
+        if(k%100==0): logger.info("Progress: {}/{}".format(k+1, len(posterior)))
+
+        params = {name: posterior[name][k] for name in names}
+        p      = {**params,**constants}
+        hphc   = w.compute_hphc(p)
+        h      = (hphc.plus +1j*hphc.cross)
+        hphc   = PolarizationTuple(plus=np.real(h), cross=np.imag(h))
+
+        for det in strains_dets.keys():
+
+            h_tmp = strains_dets[det]['d'].project_tdwave(hphc, p, w.domain)
+            h_strain = Series('time', h_tmp, seglen=seglen, srate=srate, t_gps=t_gps, f_min=f_min, f_max=f_max)
+            if(whiten):
+                h_strain.whitening(strains_dets[det]['n'])
+                wfs[det].append(h_strain.time_series/np.sqrt(srate))
+            else:
+                wfs[det].append(h_strain.time_series)
+
+    # plot median, upper, lower and save
+    for i,det in enumerate(strains_dets.keys()):
+
+        lo, me, hi = np.percentile(wfs[det],[5,50,95], axis=0)
+
+        ax = fig.add_subplot(nsub_panels,1,i+1)
+
+        if(whiten):
+            ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series/np.sqrt(srate), c='black', linestyle='--', lw=1.0, label='Data')
+        else:
+            ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='black', linestyle='--', lw=1.0, label='Data')
+        ax.plot(strains_dets[det]['s'].times-t_gps, me, c='gold', lw=0.8, label='Waveform')
+        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='gold', alpha=0.4, lw=0.5)
+
+        ax.set_xlabel('t - t$_{\mathrm{gps}}$')
+        ax.set_ylabel('Strain {}'.format(det))
+        ax.legend(loc='upper right', prop={'size': 6})
+        if not(i==len(strains_dets.keys())-1):
+            ax.get_xaxis().set_visible(False)
+
+        wf_ci_fl = open(outdir +'/wf_ci_{}.dat'.format(det),'w')
+        wf_ci_fl.write('#\t t \t median \t lower \t higher\n')
+        for i in range(len(strains_dets[det]['s'].times)):
+            wf_ci_fl.write("%.10f \t %.10f \t %.10f \t %.10f \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
+        wf_ci_fl.close()
+        
+    if(whiten): plt.savefig(outdir +'/Reconstructed_waveform_whitened.pdf', bbox_inches='tight')
+    else:       plt.savefig(outdir +'/Reconstructed_waveform.pdf', bbox_inches='tight')
+
+
+
 if __name__ == "__main__":
 
     parser=op.OptionParser()
-    parser.add_option('-p','--post',    default=None,           type='string',          dest='posterior',   help='posterior file')
-    parser.add_option('-o','--outdir',  default=None,           type='string',          dest='outdir',      help='directory for output')
+    parser.add_option('-p','--post',    dest='posterior',       default=None,           type='string',                        help="Posterior file to postprocess.")
+    parser.add_option('-o','--outdir',  dest='outdir',          default=None,           type='string',                        help="Name of the output directory.")
     
-    parser.add_option('--engine',       dest='engine',          default='Unknown',      type='string',      help='engine sampler label')
-    parser.add_option('--spin-flag',    dest='spin_flag',       default='no-spins',     type='string',      help='spin prior flag')
-    parser.add_option('--tidal-flag',   dest='lambda_flag',     default='no-tides',     type='string',      help='tidal prior flag')
-    parser.add_option('--extra-flag',   dest='extra_flag',      default='',             type='string',      action="append",  help='extra prior flag')
+    parser.add_option('--engine',       dest='engine',          default='Unknown',      type='string',                        help="Optional: Engine sampler label. Default: 'Unknown'. Currently UNUSED.")
+    parser.add_option('--spin-flag',    dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
+    parser.add_option('--tidal-flag',   dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
+    parser.add_option('--extra-flag',   dest='extra_flag',      default='',             type='string',      action="append",  help="Optional: Extra prior flag. Default: ''. Currently UNUSED.")
     (opts,args) = parser.parse_args()
 
-    ppdir = os.path.abspath(opts.outdir+'/postproc')
+    if not(opts.outdir==None): outdir = opts.outdir
+    else: raise ValueError("The 'outdir' option is a mandatory parameter. Aborting.")
+    
+    ppdir = os.path.abspath(outdir+'/postproc')
     ensure_dir(ppdir)
     
     global logger
-    
+
     logger = set_logger(outdir=ppdir, label='bajes_postproc')
     logger.info("Running bajes postprocessing:")
     logger.info("The reported uncertainties correpond to 90% credible regions.")
     logger.info("The contours of the corner plots represent 50%, 90% credible regions.")
 
-    # extract posterior samples coming from sampler
-    posterior = np.genfromtxt(opts.posterior , names=True)
+    if not(opts.posterior==None): posterior = np.genfromtxt(opts.posterior, names=True)
+    else: raise ValueError("The 'post' option is a mandatory parameter. Aborting.")
     
     # extract prior object from pickle
-    if not(os.path.exists(opts.outdir + '/run')):
-        dc    = data_container(opts.outdir + '/inf.pkl')
-    else:
-        dc    = data_container(opts.outdir + 'run/inf.pkl')
-    container = dc.load()
-    priors    = container.prior
-    
+    if not(os.path.exists(outdir + '/run')): dc    = data_container(outdir + '/inf.pkl')
+    else:                                    dc    = data_container(outdir + 'run/inf.pkl')
+    if not(os.path.exists(outdir + '/run')): dc_gw = data_container(outdir + '/gw_obs.pkl')
+    else:                                    dc_gw = data_container(outdir + 'run/gw_obs.pkl')
+    container_inf = dc.load()
+    container_gw  = dc_gw.load()
+    priors        = container_inf.prior
+
     # produce histogram plots
     logger.info("Producing histograms...")
     ensure_dir(ppdir+'/histgr')
@@ -286,5 +395,11 @@ if __name__ == "__main__":
     logger.info("Producing corners...")
     ensure_dir(ppdir+'/corner')
     make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, ppdir+'/corner')
+
+    # produce waveform plots
+    logger.info("Reconstructing waveforms...")
+    reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False)
+    logger.info("Reconstructing whitened waveforms...")
+    reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=True)
 
     logger.info("... done.")

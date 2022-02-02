@@ -1,5 +1,6 @@
 from __future__ import division, unicode_literals, absolute_import
 import numpy as np
+import warnings
 
 # Note: Running with TEOBResumS requires the EOBRun_module to be installed.
 #
@@ -19,7 +20,7 @@ import numpy as np
 try:
     import EOBRun_module as EOB
 except Exception:
-    logger.warning("Unable to import TEOBResumS module")
+    warnings.warn("Unable to import TEOBResumS module")
     pass
 
 from .... import MTSUN_SI
@@ -147,7 +148,7 @@ def teobresums_hyperb_wrapper(freqs, params):
 
         # compute E_min and E_max
         Emn, Emx = EnergyLimits(r, params['q'], params['angmom'], params['s1z'], params['s2z'])
-        if params['energy'] >= Emn and params['energy'] <= Emx:
+        if(params['energy'] >= Emn and params['energy'] <= Emx):
         # Uncomment this line to use the UE0 prior (see arxiv:2106.05575)
         # if params['energy'] >= Emn:
 
@@ -193,8 +194,10 @@ def teobresums_hyperb_wrapper(freqs, params):
                         #   'nqc_coefs_flx':        0   # turn NQC off for flx
                     }
 
-            t , hp , hc = teobresums(params_teob)
-            return hp , hc
+            t, hp, hc = teobresums(params_teob)
+            if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))): print('Nans in the waveform, with the configuration: ', params_teob)
+            # if not (np.isfinite(np.isnan(hp)) and np.any(np.isnan(hc))): print('INFSSSSS')
+            return hp, hc
         else:
             return [None], [None]
     else:
@@ -238,7 +241,7 @@ def teobresums_spa_nrpmw_wrapper(freqs, params):
     #unwrap lm modes
     modes = [1]
     if params['lmax'] != 0:
-        logger.warning("TEOBResumSPA_NRPMw model provides only (2,2) mode")
+        warnings.warn("TEOBResumSPA_NRPMw model provides only (2,2) mode")
 
     # set TEOB dict
     params_teob = { 'M':                    params['mtot'],
