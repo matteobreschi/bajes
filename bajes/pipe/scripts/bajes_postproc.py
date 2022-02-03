@@ -20,6 +20,7 @@ from bajes.pipe            import ensure_dir, data_container, cart2sph, sph2cart
 from bajes.obs.gw          import Detector, Noise, Series, Waveform
 from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda
 from bajes.obs.gw.waveform import PolarizationTuple
+from .... import MSUN_SI, C_SI, G_SI
 
 def make_corner_plot(matrix , labels, outputname):
     
@@ -262,7 +263,7 @@ def make_histograms(posterior_samples, names, outdir):
             pass
 
 
-def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False, N_samples = 0):
+def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False, N_samples=0, M_tot=None):
 
     nsub_panels  = len(container_gw.datas.keys())
     strains_dets = {det: {} for det in container_gw.datas.keys()}
@@ -291,8 +292,14 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
         strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'])
 
         if(whiten):
-            # Avoid being close to Nyquist frequency when bandpassing.
-            strains_dets[det]['s'].bandpassing(flow=f_min, fhigh=f_max-10)
+            if not(M_tot==None):
+                #Estimate of the ringdown frequency, approximating M_final with M_tot and using Schwarzschild value
+                f_ringdown = ((C_SI**3)/(2.*np.pi*G_SI*M_tot*.MSUN_SI)) * (1.5251-1.1568*(1-0.7)**0.1292)
+                f_max_bp = 2*f_ringdown
+            else:
+                # Avoid being close to Nyquist frequency when bandpassing.
+                f_max_bp = f_max-10
+            strains_dets[det]['s'].bandpassing(flow=f_min, fhigh=)
             strains_dets[det]['s'].whitening(strains_dets[det]['n'])
 
     logger.info("Plotting the reconstructed waveform.")
@@ -355,14 +362,15 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
 if __name__ == "__main__":
 
     parser=op.OptionParser()
-    parser.add_option('-p','--post',    dest='posterior',       default=None,           type='string',                        help="Posterior file to postprocess.")
-    parser.add_option('-o','--outdir',  dest='outdir',          default=None,           type='string',                        help="Name of the output directory.")
+    parser.add_option('-p','--post',      dest='posterior',       default=None,           type='string',                        help="Posterior file to postprocess.")
+    parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the output directory.")
     
-    parser.add_option('--N-samples-wf', dest='N_samples_wf',    default=1000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 1000.")
-    parser.add_option('--spin-flag',    dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
-    parser.add_option('--tidal-flag',   dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
-    parser.add_option('--engine',       dest='engine',          default='Unknown',      type='string',                        help="Optional: Engine sampler label. Default: 'Unknown'. Currently UNUSED.")
-    parser.add_option('--extra-flag',   dest='extra_flag',      default='',             type='string',      action="append",  help="Optional: Extra prior flag. Default: ''. Currently UNUSED.")
+    parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: 'posterior'.")
+    parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=1000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 1000.")
+    parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
+    parser.add_option('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
+    parser.add_option('--engine',         dest='engine',          default='Unknown',      type='string',                        help="Optional: Engine sampler label. Default: 'Unknown'. Currently UNUSED.")
+    parser.add_option('--extra-flag',     dest='extra_flag',      default='',             type='string',      action="append",  help="Optional: Extra prior flag. Default: ''. Currently UNUSED.")
     (opts,args) = parser.parse_args()
 
     if not(opts.outdir==None): outdir = opts.outdir
@@ -402,8 +410,8 @@ if __name__ == "__main__":
 
     # produce waveform plots
     logger.info("Reconstructing waveforms...")
-    reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf)
+    reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
     logger.info("Reconstructing whitened waveforms...")
-    reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf)
+    reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
 
     logger.info("... done.")
