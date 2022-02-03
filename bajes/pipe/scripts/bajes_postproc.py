@@ -20,9 +20,9 @@ from bajes.pipe            import ensure_dir, data_container, cart2sph, sph2cart
 from bajes.obs.gw          import Detector, Noise, Series, Waveform
 from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda
 from bajes.obs.gw.waveform import PolarizationTuple
-from .... import MSUN_SI, C_SI, G_SI
+from bajes import MSUN_SI, MTSUN_SI, CLIGHT_SI, GNEWTON_SI
 
-def make_corner_plot(matrix , labels, outputname):
+def make_corner_plot(matrix, labels, outputname):
     
     N = len(labels)
     
@@ -269,10 +269,6 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
     strains_dets = {det: {} for det in container_gw.datas.keys()}
     wfs          = {det: [] for det in container_gw.datas.keys()}
 
-    # Plot the data
-    fig = plt.figure(figsize=(8,6))
-    plt.subplots_adjust(hspace = .001)
-
     first_det                                 = list(container_gw.datas.keys())[0]
     data_first_det                            = container_gw.datas[first_det]
     freqs, f_min, f_max, t_gps, seglen, srate = data_first_det.freqs, data_first_det.f_min, data_first_det.f_max, data_first_det.t_gps, data_first_det.seglen, data_first_det.srate
@@ -294,12 +290,13 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
         if(whiten):
             if not(M_tot==None):
                 #Estimate of the ringdown frequency, approximating M_final with M_tot and using Schwarzschild value
-                f_ringdown = ((C_SI**3)/(2.*np.pi*G_SI*M_tot*.MSUN_SI)) * (1.5251-1.1568*(1-0.7)**0.1292)
+                f_ringdown = ((CLIGHT_SI**3)/(2.*np.pi*GNEWTON_SI*M_tot*MSUN_SI)) * (1.5251-1.1568*(1-0.7)**0.1292)
                 f_max_bp = 2*f_ringdown
             else:
                 # Avoid being close to Nyquist frequency when bandpassing.
                 f_max_bp = f_max-10
-            strains_dets[det]['s'].bandpassing(flow=f_min, fhigh=)
+
+            strains_dets[det]['s'].bandpassing(flow=f_min, fhigh=f_max_bp)
             strains_dets[det]['s'].whitening(strains_dets[det]['n'])
 
     logger.info("Plotting the reconstructed waveform.")
@@ -327,6 +324,11 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
                 wfs[det].append(h_strain.time_series/np.sqrt(srate))
             else:
                 wfs[det].append(h_strain.time_series)
+
+
+    # Plot the data
+    fig = plt.figure(figsize=(8,6))
+    plt.subplots_adjust(hspace = .001)
 
     # plot median, upper, lower and save
     for i,det in enumerate(strains_dets.keys()):
@@ -357,6 +359,44 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
     if(whiten): plt.savefig(outdir +'/Reconstructed_waveform_whitened.pdf', bbox_inches='tight')
     else:       plt.savefig(outdir +'/Reconstructed_waveform.pdf', bbox_inches='tight')
 
+    if not(M_tot==None):    
+        # Repeating the above plot while zooming on the merger.
+        # FIXME: this could be done in a single shot, storing the axes.
+        fig = plt.figure(figsize=(8,6))
+        plt.subplots_adjust(hspace = .001)
+
+        for i,det in enumerate(strains_dets.keys()):
+
+            lo, me, hi = np.percentile(wfs[det],[5,50,95], axis=0)
+
+            ax = fig.add_subplot(nsub_panels,1,i+1)
+
+            # Compute the t_peak of the median waveform, relative to the gps time
+            t_peak = strains_dets[det]['s'].times[np.argmax(me)]-t_gps
+
+            if(whiten):
+                ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series/np.sqrt(srate), c='black', linestyle='--', lw=1.0, label='Data')
+            else:
+                ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='black', linestyle='--', lw=1.0, label='Data')
+            ax.plot(strains_dets[det]['s'].times-t_gps, me, c='gold', lw=0.8, label='Waveform')
+            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='gold', alpha=0.4, lw=0.5)
+
+            ax.set_xlim([t_peak-200*M_tot*MTSUN_SI, t_peak+200*M_tot*MTSUN_SI])
+            ax.set_xlabel('t - t$_{\mathrm{gps}}$')
+            ax.set_ylabel('Strain {}'.format(det))
+            ax.legend(loc='upper right', prop={'size': 6})
+            if not(i==len(strains_dets.keys())-1):
+                ax.get_xaxis().set_visible(False)
+
+            wf_ci_fl = open(outdir +'/wf_ci_{}.dat'.format(det),'w')
+            wf_ci_fl.write('#\t t \t median \t lower \t higher\n')
+            for i in range(len(strains_dets[det]['s'].times)):
+                wf_ci_fl.write("%.10f \t %.10f \t %.10f \t %.10f \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
+            wf_ci_fl.close()
+            
+        if(whiten): plt.savefig(outdir +'/Reconstructed_waveform_whitened_zoom.pdf', bbox_inches='tight')
+        else:       plt.savefig(outdir +'/Reconstructed_waveform_zoom.pdf', bbox_inches='tight')
+
 
 
 if __name__ == "__main__":
@@ -365,7 +405,7 @@ if __name__ == "__main__":
     parser.add_option('-p','--post',      dest='posterior',       default=None,           type='string',                        help="Posterior file to postprocess.")
     parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the output directory.")
     
-    parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: 'posterior'.")
+    parser.add_option('--M-tot-estimate', dest='M_tot',           default=None,                                                 help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
     parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=1000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 1000.")
     parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
     parser.add_option('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
@@ -407,6 +447,12 @@ if __name__ == "__main__":
     logger.info("Producing corners...")
     ensure_dir(ppdir+'/corner')
     make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, ppdir+'/corner')
+
+    if not(opts.M_tot==None):
+        if(opts.M_tot=='posterior'):
+            raise Exception("Option not yet supported.")
+        else:
+            opts.M_tot = float(opts.M_tot)
 
     # produce waveform plots
     logger.info("Reconstructing waveforms...")
