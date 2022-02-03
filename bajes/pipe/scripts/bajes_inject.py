@@ -122,7 +122,9 @@ class Injection(object):
         self.tukey  = tukey
         self.snrs   = {}
 
+        # Generate noise-only
         if not data_path:
+            logger.info("No data file was passed, generating pure noise.")
 
             self.wave_strains   = {}
             self.noise_strains  = {}
@@ -137,8 +139,7 @@ class Injection(object):
                     self.noise_strains[ifo] = noises[ifo].generate_fake_noise(self.seglen, self.srate, self.t_gps, filter=True)
                     self.inj_strains[ifo]   = self.noise_strains[ifo] + self.wave_strains[ifo]
                 else:
-                    logger.info("A zero noise injection was selected. Skipping noise addition.")
-                    self.inj_strains[ifo]   = self.wave_strains[ifo]
+                    raise Exception("A zero noise injection was selected and no data file was provided, thus the strain is made of zeros only.")
                 self.times[ifo]             = np.arange(Npt,dtype=float)/srate - self.seglen/2 + self.t_gps
 
                 # compute SNR
@@ -279,7 +280,7 @@ class Injection(object):
                 if wave.domain == 'freq':
                     raise AttributeError("Selected waveform model ({}) exists only in frequency-domain. Please use time-domain approximant to perform the injection.".format(params['approx']))
 
-                signal_template  = wave.compute_hphc(params)
+                signal_template = wave.compute_hphc(params)
                 hp      = signal_template.plus
                 hc      = signal_template.cross
                 series  = Series(wave.domain, hp, srate=self.srate,
@@ -375,8 +376,6 @@ if __name__ == "__main__":
     global logger
     logger = set_logger(outdir=opts.outdir, label='bajes_inject')
     logger.info("Running bajes inject:")
-
-
 
     for i in range(len(opts.ifos)):
         ifo = opts.ifos[i]
