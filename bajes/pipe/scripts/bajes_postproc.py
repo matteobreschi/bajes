@@ -18,7 +18,7 @@ except Exception:
 
 from bajes.pipe            import ensure_dir, data_container, cart2sph, sph2cart, set_logger
 from bajes.obs.gw          import Detector, Noise, Series, Waveform
-from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda
+from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda, mcq_to_m1, mcq_to_m2
 from bajes.obs.gw.waveform import PolarizationTuple
 from bajes import MSUN_SI, MTSUN_SI, CLIGHT_SI, GNEWTON_SI
 
@@ -178,7 +178,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
 
         make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.png')
 
-    elif('no-tides' in spin_flag):
+    elif('no-tides' in lambda_flag):
         logger.info("No spins option selected. Skipping tides plots.")
 
     else:
@@ -304,10 +304,10 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
     if ((N_samples==0) or (N_samples > len(posterior))): samples_list = np.arange(0,len(posterior))
     else:                                                samples_list = np.random.choice(len(posterior), N_samples, replace=False)
 
-    for k in samples_list:
+    for j,k in enumerate(samples_list):
 
         # Every 100 steps, update the user on the status of the plot.
-        if(k%100==0): logger.info("Progress: {}/{}".format(k+1, len(posterior)))
+        if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(posterior)))
 
         params = {name: posterior[name][k] for name in names}
         p      = {**params,**constants}
@@ -324,7 +324,6 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
                 wfs[det].append(h_strain.time_series/np.sqrt(srate))
             else:
                 wfs[det].append(h_strain.time_series)
-
 
     # Plot the data
     fig = plt.figure(figsize=(8,6))
@@ -416,9 +415,11 @@ if __name__ == "__main__":
     if not(opts.outdir==None): outdir = opts.outdir
     else: raise ValueError("The 'outdir' option is a mandatory parameter. Aborting.")
     
-    ppdir = os.path.abspath(outdir+'/postproc')
+    ppdir  = os.path.abspath(outdir+'/postproc')
+    wf_dir = os.path.abspath(outdir+'/postproc/Waveform_reconstruction') 
     ensure_dir(ppdir)
-    
+    ensure_dir(wf_dir)
+
     global logger
 
     logger = set_logger(outdir=ppdir, label='bajes_postproc')
@@ -450,14 +451,28 @@ if __name__ == "__main__":
 
     if not(opts.M_tot==None):
         if(opts.M_tot=='posterior'):
-            raise Exception("Option not yet supported.")
+            if('mtot' in prior.names):
+                opts.M_tot = np.median(posterior['mtot'])
+            elif('mtot' in prior.const):
+                opts.M_tot = prior.const['mtot']
+            elif(('mc' in prior.names) and ('q' in prior.names)):
+                opts.M_tot = mcq_to_m1(np.median(posterior['mc']), np.median(posterior['q'])) + mcq_to_m2(np.median(posterior['mc']), np.median(posterior['q']))
+            elif(('mc' in prior.names) and ('q' in prior.const)):
+                opts.M_tot = mcq_to_m1(np.median(posterior['mc']), prior.const['q']) + mcq_to_m2(np.median(posterior['mc']), prior.const['q'])
+            elif(('mc' in prior.const) and ('q' in prior.names)):
+                opts.M_tot = mcq_to_m1(prior.const['mc'], np.median(posterior['q'])) + mcq_to_m2(prior.const['mc'], np.median(posterior['q']))
+            elif(('mc' in prior.const) and ('q' in prior.const)):
+                opts.M_tot = mcq_to_m1(prior.const['mc'], prior.const['q']) + mcq_to_m2(prior.const['mc'], prior.const['q'])
+            else:
+                logger.warning("Could not extract M_tot (either directly or through related mass parameters) from posterior or fixed parameters. Setting it to None and skipping zoomed plots.")
+                opts.M_tot = None
         else:
             opts.M_tot = float(opts.M_tot)
 
     # produce waveform plots
     logger.info("Reconstructing waveforms...")
-    reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
     logger.info("Reconstructing whitened waveforms...")
-    reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
 
     logger.info("... done.")
