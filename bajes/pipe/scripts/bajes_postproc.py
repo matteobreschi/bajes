@@ -451,18 +451,18 @@ if __name__ == "__main__":
 
     if not(opts.M_tot==None):
         if(opts.M_tot=='posterior'):
-            if('mtot' in prior.names):
+            if('mtot' in priors.names):
                 opts.M_tot = np.median(posterior['mtot'])
-            elif('mtot' in prior.const):
-                opts.M_tot = prior.const['mtot']
-            elif(('mc' in prior.names) and ('q' in prior.names)):
+            elif('mtot' in priors.const):
+                opts.M_tot = priors.const['mtot']
+            elif(('mc' in priors.names) and ('q' in priors.names)):
                 opts.M_tot = mcq_to_m1(np.median(posterior['mc']), np.median(posterior['q'])) + mcq_to_m2(np.median(posterior['mc']), np.median(posterior['q']))
-            elif(('mc' in prior.names) and ('q' in prior.const)):
-                opts.M_tot = mcq_to_m1(np.median(posterior['mc']), prior.const['q']) + mcq_to_m2(np.median(posterior['mc']), prior.const['q'])
-            elif(('mc' in prior.const) and ('q' in prior.names)):
-                opts.M_tot = mcq_to_m1(prior.const['mc'], np.median(posterior['q'])) + mcq_to_m2(prior.const['mc'], np.median(posterior['q']))
-            elif(('mc' in prior.const) and ('q' in prior.const)):
-                opts.M_tot = mcq_to_m1(prior.const['mc'], prior.const['q']) + mcq_to_m2(prior.const['mc'], prior.const['q'])
+            elif(('mc' in priors.names) and ('q' in priors.const)):
+                opts.M_tot = mcq_to_m1(np.median(posterior['mc']), priors.const['q']) + mcq_to_m2(np.median(posterior['mc']), priors.const['q'])
+            elif(('mc' in priors.const) and ('q' in priors.names)):
+                opts.M_tot = mcq_to_m1(priors.const['mc'], np.median(posterior['q'])) + mcq_to_m2(priors.const['mc'], np.median(posterior['q']))
+            elif(('mc' in priors.const) and ('q' in priors.const)):
+                opts.M_tot = mcq_to_m1(priors.const['mc'], priors.const['q']) + mcq_to_m2(priors.const['mc'], priors.const['q'])
             else:
                 logger.warning("Could not extract M_tot (either directly or through related mass parameters) from posterior or fixed parameters. Setting it to None and skipping zoomed plots.")
                 opts.M_tot = None
@@ -470,9 +470,9 @@ if __name__ == "__main__":
             opts.M_tot = float(opts.M_tot)
 
     # produce waveform plots
-    logger.info("Reconstructing waveforms...")
-    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
     logger.info("Reconstructing whitened waveforms...")
     reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+    logger.info("Reconstructing waveforms...")
+    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
 
     logger.info("... done.")
