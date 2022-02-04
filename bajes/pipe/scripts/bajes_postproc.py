@@ -287,8 +287,6 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
 
         strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'])
 
-        print('\n\n', det, '\n\n')
-
         if(whiten):
             if not(M_tot==None):
                 #Estimate of the ringdown frequency, approximating M_final with M_tot and using Schwarzschild value
