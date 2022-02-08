@@ -192,13 +192,19 @@ class Noise(object):
 
         # filter PSD
         if filter:
-            psd = filtering(fr_out, psd, [self.f_min,self.f_max], type='bandpass', order=4)
+            # ensure continuity outside freuency bounds
+            psd[np.where(fr_out<self.f_min)] = 0.0
+            psd[np.where(fr_out>self.f_max)] = 0.0
+            # psd = filtering(fr_out, psd, [self.f_min,self.f_max], type='bandpass', order=4)
 
         sigma   = 0.5*np.sqrt(psd/df)
 
         # generate (two) noise series
         noise1  = 1j * np.random.normal(np.zeros(len(sigma)), sigma)
         noise1  += np.random.normal(np.zeros(len(sigma))    , sigma)
+
+        import matplotlib.pyplot as plt
+
         series1 = Series('freq' , noise1 , srate=srate, seglen=seglen , importfreqs= fr_out,
                          f_min=self.f_min, f_max=f_max, t_gps=t_gps, alpha_taper=0., filter=True)
 

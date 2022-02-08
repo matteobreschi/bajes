@@ -206,6 +206,13 @@ class Waveform(object):
             self.wave_func = mlgw_wrapper(self.seglen, self.srate)
             self.domain = 'time'
 
+        elif self.approx == 'MLGW-BNS':
+            # OBS: MLGW-BNS functions are class with a __call__ method,
+            # instead of standard methods, because it has to initilize the generator
+            from .approx.mlgw import mlgw_bns_wrapper
+            self.wave_func = mlgw_bns_wrapper(self.freqs, self.seglen, self.srate)
+            self.domain = 'freq'
+
         elif self.approx == 'MLTEOBNQC':
             # OBS: MLGW functions are class with a __call__ method,
             # instead of standard methods, because it has to initilize the generator
