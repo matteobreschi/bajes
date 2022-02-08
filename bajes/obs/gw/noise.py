@@ -7,7 +7,7 @@ def evaluate_psd(strain, dt, subseglen, overlap_fraction = 0.99):
     """
         Compute the power spectral density by
         Welch's average periodogram method.
-        The vector strain is divided into sebsegments
+        The vector strain is divided into subsegments
         with subseglen duration.
 
         Arguments:
@@ -60,7 +60,7 @@ def get_design_sensitivity(ifo):
     elif ifo=='CE':
         filename = 'LIGO-P1600143-v18-CE.txt'
     else:
-        raise AttributeError("Design ASD not available for requested detector. Design ASD is available for the following IFOs: H1, L1, V1, K1, ET1, ET2, ET3, CE.")
+        raise AttributeError("Design ASD not available for requested detector. Design ASD is available for the following IFOs: H1, L1, V1, K1, I1, ET, CE.")
     asd_path = os.path.join(main_path , filename)
     return np.genfromtxt(asd_path , usecols=[0,1], unpack=True)
 
@@ -189,6 +189,7 @@ class Noise(object):
         # # ensure continuity outside freuency bounds
         # psd[np.where(fr_out<self.f_min)] = psd[np.max(np.where(fr_out<=self.f_min))]
         # psd[np.where(fr_out>self.f_max)] = psd[np.min(np.where(fr_out>=self.f_max))]
+
 
         # filter PSD
         if filter:
