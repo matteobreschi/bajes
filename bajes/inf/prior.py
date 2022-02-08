@@ -48,8 +48,12 @@ class Parameter(object):
         Parameter object
     """
 
-    def __init__(self, name=None, min=None, max=None, prior='uniform',
-                 periodic=0, func=None, func_kwarg={},
+    def __init__(self, 
+                 name=None, 
+                 min=None, max=None, 
+                 prior='uniform',
+                 periodic=0, 
+                 func=None, func_kwarg={},
                  interp_kwarg={'ngrid':2000, 'kind':'linear'},
                  **kwarg):
         """
@@ -105,12 +109,12 @@ class Parameter(object):
             if not isinstance(prior, str):
                 _all = ''
                 for kpi in __known_probs__ : _all = _all + kpi +', '
-                raise AttributeError("Unable to initialize parameter {}, prior argument is not a string. Please use one of the followings: {}or a customized function using the func argument".format(name,_all))
+                raise AttributeError("Unable to initialize parameter {}, prior argument is not a string. Please use one of the followings: {} or a customized function using the func argument".format(name,_all))
             
             if prior not in __known_probs__:
                 _all = ''
                 for kpi in __known_probs__ : _all = _all + kpi +', '
-                raise AttributeError("Unable to initialize parameter {}, unknown prior argument. Please use one of the followings: {}or a customized function using the func argument".format(name,_all))
+                raise AttributeError("Unable to initialize parameter {}, unknown prior argument. Please use one of the followings: {} or a customized function using the func argument".format(name,_all))
             
             # if func == None, read prior from prior string
             from .utils import get_parameter_distribution_from_string
@@ -390,4 +394,3 @@ class JointPrior(Prior):
         self.v_names    = v_names
         self.v_funcs    = v_funcs
         self.v_kwargs   = v_kwargs
-

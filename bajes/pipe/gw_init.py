@@ -130,21 +130,42 @@ def initialize_gwlikelihood_kwargs(opts):
         opts.spin_max = [opts.spin1_max,opts.spin2_max]
 
     # define priors
-    priors, l_kwargs['spcal_freqs'], l_kwargs['len_weights'] = initialize_gwprior(opts.ifos, [opts.mchirp_min,opts.mchirp_max],[opts.q_min, opts.q_max],
-                                                                                  opts.f_min, opts.f_max, opts.t_gps, opts.seglen, opts.srate, opts.approx,
-                                                                                  freqs, spin_flag=opts.spin_flag, lambda_flag=opts.lambda_flag,
-                                                                                  spin_max=opts.spin_max, lambda_max=opts.lambda_max, lambda_min=opts.lambda_min,
-                                                                                  dist_max=opts.dist_max, dist_min=opts.dist_min,
+    priors, l_kwargs['spcal_freqs'], l_kwargs['len_weights'] = initialize_gwprior(opts.ifos, 
+                                                                                  [opts.mchirp_min,opts.mchirp_max],
+                                                                                  [opts.q_min, opts.q_max],
+                                                                                  opts.f_min, opts.f_max, 
+                                                                                  opts.t_gps, 
+                                                                                  opts.seglen, 
+                                                                                  opts.srate, 
+                                                                                  opts.approx,
+                                                                                  freqs, 
+                                                                                  spin_flag=opts.spin_flag, 
+                                                                                  spin_max=opts.spin_max, 
+                                                                                  lambda_flag=opts.lambda_flag,
+                                                                                  lambda_max=opts.lambda_max, 
+                                                                                  lambda_min=opts.lambda_min,
                                                                                   dist_flag=opts.dist_flag,
+                                                                                  dist_max=opts.dist_max, 
+                                                                                  dist_min=opts.dist_min,
                                                                                   time_shift_bounds=[opts.time_shift_min, opts.time_shift_max],
-                                                                                  fixed_names=opts.fixed_names, fixed_values=opts.fixed_values,
-                                                                                  extra_opt=opts.extra_opt, extra_opt_val=opts.extra_opt_val,
-                                                                                  spcals = spcals, nspcal = opts.nspcal , nweights = opts.nweights,
-                                                                                  ej_flag = opts.ej_flag, ecc_flag = opts.ecc_flag,
-                                                                                  energ_bounds=e_bounds, angmom_bounds=j_bounds, ecc_bounds=ecc_bounds,
-                                                                                  marg_phi_ref = opts.marg_phi_ref, marg_time_shift = opts.marg_time_shift,
-                                                                                  tukey_alpha = opts.alpha, lmax = opts.lmax,
-                                                                                  prior_grid=opts.priorgrid, kind='linear',
+                                                                                  fixed_names=opts.fixed_names, 
+                                                                                  fixed_values=opts.fixed_values,
+                                                                                  extra_opt=opts.extra_opt, 
+                                                                                  extra_opt_val=opts.extra_opt_val,
+                                                                                  spcals = spcals, 
+                                                                                  nspcal = opts.nspcal, 
+                                                                                  nweights = opts.nweights,
+                                                                                  ej_flag = opts.ej_flag, 
+                                                                                  ecc_flag = opts.ecc_flag,
+                                                                                  energ_bounds=e_bounds, 
+                                                                                  angmom_bounds=j_bounds, 
+                                                                                  ecc_bounds=ecc_bounds,
+                                                                                  marg_phi_ref = opts.marg_phi_ref, 
+                                                                                  marg_time_shift = opts.marg_time_shift,
+                                                                                  tukey_alpha = opts.alpha, 
+                                                                                  lmax = opts.lmax,
+                                                                                  prior_grid=opts.priorgrid, 
+                                                                                  kind='linear',
                                                                                   use_mtot=opts.use_mtot)
 
     # set fiducial waveform params for binning
@@ -178,10 +199,18 @@ def initialize_gwlikelihood_kwargs(opts):
     save_container(opts.outdir+'/gw_obs.pkl', cont_kwargs)
     return l_kwargs, priors
 
-def initialize_gwprior(ifos, mchirp_bounds, q_bounds, f_min, f_max, t_gps, seglen, srate, approx, freqs,
-                       spin_flag='no-spins', lambda_flag='no-tides',
-                       spin_max=None, lambda_max=None, lambda_min=None,
-                       dist_max=None, dist_min=None, dist_flag='vol',
+def initialize_gwprior(ifos, 
+                       mchirp_bounds, 
+                       q_bounds, 
+                       f_min, f_max, 
+                       t_gps, 
+                       seglen, 
+                       srate, 
+                       approx, 
+                       freqs,
+                       spin_flag='no-spins', spin_max=None, 
+                       lambda_flag='no-tides', lambda_max=None, lambda_min=None,
+                       dist_flag='vol', dist_max=None, dist_min=None, 
                        time_shift_bounds=None,
                        fixed_names=[], fixed_values=[],
                        extra_opt =[], extra_opt_val=[],
@@ -189,8 +218,11 @@ def initialize_gwprior(ifos, mchirp_bounds, q_bounds, f_min, f_max, t_gps, segle
                        ej_flag = False, ecc_flag = False,
                        energ_bounds=None, angmom_bounds=None, ecc_bounds=None,
                        marg_phi_ref=False, marg_time_shift=False,
-                       tukey_alpha=None, lmax=2,
-                       prior_grid=2000, kind='linear', use_mtot=False):
+                       tukey_alpha=None, 
+                       lmax=2,
+                       prior_grid=2000, 
+                       kind='linear', 
+                       use_mtot=False):
 
     from ..inf.prior import Prior, Parameter, Variable, Constant
 
@@ -200,11 +232,6 @@ def initialize_gwprior(ifos, mchirp_bounds, q_bounds, f_min, f_max, t_gps, segle
     kwargs  = {}
 
     interp_kwarg = {'ngrid': prior_grid, 'kind': kind}
-
-    # avoid mchirp,q in fixed names
-    if 'mchirp' in fixed_names or 'q' in fixed_names or 'mtot' in fixed_names:
-        logger.error("Unable to set masses as constant properties. The prior does not support this function yet.")
-        raise RuntimeError("Unable to set masses as constant properties. The prior does not support this function yet.")
 
     # wrap everything into a dictionary
     dict = {}
@@ -649,13 +676,13 @@ def initialize_gwprior(ifos, mchirp_bounds, q_bounds, f_min, f_max, t_gps, segle
     if ej_flag:
 
         if energ_bounds == None:
-            logger.warning("Requested bounds for energy parameter is empty. Setting standard bound [0.95,1.5]")
+            logger.warning("Requested bounds for energy parameter is empty. Setting standard bound [1.0001,1.1]")
             energ_bounds = [1.0001,1.1]
 
         dict['energy'] = Parameter(name='energy', min=energ_bounds[0], max=energ_bounds[1])
 
         if angmom_bounds == None:
-            logger.warning("Requested bounds for angular momentum parameter is empty. Setting standard bound [3,5]")
+            logger.warning("Requested bounds for angular momentum parameter is empty. Setting standard bound [3.5,4.5]")
             angmom_bounds = [3.5,4.5]
 
         dict['angmom'] = Parameter(name='angmom', min=angmom_bounds[0], max=angmom_bounds[1])

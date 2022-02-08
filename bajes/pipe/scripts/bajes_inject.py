@@ -122,7 +122,9 @@ class Injection(object):
         self.tukey  = tukey
         self.snrs   = {}
 
+        # Generate noise-only
         if not data_path:
+            logger.info("No data file was passed, generating pure noise.")
 
             self.wave_strains   = {}
             self.noise_strains  = {}
@@ -137,7 +139,7 @@ class Injection(object):
                     self.noise_strains[ifo] = noises[ifo].generate_fake_noise(self.seglen, self.srate, self.t_gps, filter=True)
                     self.inj_strains[ifo]   = self.noise_strains[ifo] + self.wave_strains[ifo]
                 else:
-                    self.inj_strains[ifo]   = self.wave_strains[ifo]
+                    raise Exception("A zero noise injection was selected and no data file was provided, thus the strain is made of zeros only.")
                 self.times[ifo]             = np.arange(Npt,dtype=float)/srate - self.seglen/2 + self.t_gps
 
                 # compute SNR
@@ -233,14 +235,22 @@ class Injection(object):
                 # check skylocation,
                 # overwrite command-line input if skyloc is in params.ini
                 if 'ra' in list(params.keys()):
-                    logger.info("... right ascension found in parameter file ...")
+                    logger.info("Overriding the right ascension value found in the parameter file.")
                     params['ra']    = self.ra
                 if 'dec' in list(params.keys()):
-                    logger.info("... declination found in parameter file ...")
+                    logger.info("Overriding the declination value found in the parameter file.")
                     params['dec']   = self.dec
                 if 'psi' in list(params.keys()):
-                    logger.info("... polarization found in parameter file ...")
+                    logger.info("Overriding the polarisation value found in the parameter file.")
                     params['psi']   = self.psi
+
+                list_params, list_values = [], []
+                for key in params.keys():
+                    list_params.append(key)
+                    list_values.append(params[key])
+                logger.info("Generating injection with the paramters:")
+                for i in range(len(list_params)):
+                    logger.info("{}: {}".format(list_params[i], list_values[i]))
 
                 # fix missing information
                 params['f_min']     = self.f_min
@@ -270,7 +280,7 @@ class Injection(object):
                 if wave.domain == 'freq':
                     raise AttributeError("Selected waveform model ({}) exists only in frequency-domain. Please use time-domain approximant to perform the injection.".format(params['approx']))
 
-                signal_template  = wave.compute_hphc(params)
+                signal_template = wave.compute_hphc(params)
                 hp      = signal_template.plus
                 hc      = signal_template.cross
                 series  = Series(wave.domain, hp, srate=self.srate,
@@ -333,34 +343,32 @@ class Injection(object):
 if __name__ == "__main__":
 
     parser=op.OptionParser()
-    parser.add_option('--ifo',      dest='ifos',        type='string',  action="append", help='IFO tag, i.e. H1, L1, V1, K1, G1')
-    parser.add_option('--asd',      dest='asds',        type='string',  action="append", help='path to ASD files')
+    parser.add_option('--ifo',         dest='ifos',                       type='string',  action="append",    help="Single IFO tag. This option needs to be passed separately for every ifo in which the injection is requested. The order must correspond to the one in which the '--asd' commands are passed. Available options: ['H1', 'L1', 'V1', 'K1', 'G1'].")
+    parser.add_option('--asd',         dest='asds',                       type='string',  action="append",    help="Single path to ASD file. This option needs to be passed separately for every ifo in which the injection is requested.  The order must correspond to the one in which the '--ifo' commands are passed.")
+    
+    parser.add_option('--zero-noise',  dest='zero',   default=False,                     action="store_true", help='Flag to avoid the addition of noise to the signal. Default: False.')
+    parser.add_option('--seed',        dest='seed',   default=None,       type='int',                         help='Seed for random number generator. Default: None.')
+    parser.add_option('--window',      dest='window', default='low',      type='string',                      help="Location of the window. Available options: ['low' or 'both']. Default: 'low'.")
+    parser.add_option('--tukey',       dest='tukey',  default=0.1,        type='float',                       help='tukey window parameter')
 
-    parser.add_option('--wave',     dest='wave',        type='string',  default='',     help='path to strain data to inject, the file should contains 3 cols [t, reh, imh]. If empty, pure noise is generated.')
-    parser.add_option('--srate',    dest='srate',       type='float',   help='sampling rate of the injected waveform [Hz] and it will be the srate of the sampling, please check that everything is consistent')
-    parser.add_option('--seglen',   dest='seglen',      type='float',   help='length of the segment of the injected waveform [sec], if it is not a power of 2, the final segment will be padded')
+    parser.add_option('--srate',       dest='srate',                      type='float',                       help='sampling rate of the injected waveform [Hz]. It will be the srate of the sampling, please check that everything is consistent')
+    parser.add_option('--seglen',      dest='seglen',                     type='float',                       help='length of the segment of the injected waveform [sec], if it is not a power of 2, the final segment will be padded')
+    parser.add_option('--f-min',       dest='f_min',  default=20.,        type='float',                       help='minimum frequency [Hz], default 20Hz')
+    parser.add_option('--t-gps',       dest='t_gps',  default=1187008882, type='float',                       help='GPS time of the series, default 1187008882 (GW170817)')
 
-    parser.add_option('--f-min',    dest='f_min',       type='float',   default=20.,            help='minimum frequency [Hz], default 20Hz')
-    parser.add_option('--t-gps',    dest='t_gps',       type='float',   default=1187008882,     help='GPS time of the series, default 1187008882 (GW170817)')
-
-    parser.add_option('--zero-noise',    dest='zero',   action="store_true",    default=False,  help='use zero noise')
-    parser.add_option('--seed',          dest='seed',   type='int',             default=None,   help='seed for random number generator')
-
-    parser.add_option('--ra',   dest='ra',      default=None,   type='float',   help='right ascencion location of the injected source, default best location for first IFO.')
-    parser.add_option('--dec',  dest='dec',     default=None,   type='float',   help='declination location of the injected source, default best location for first IFO.')
-    parser.add_option('--pol',  dest='psi',     default=0.,     type='float',   help='polarization angle of the injected source, default 0.')
-    parser.add_option('--window',  dest='window',     default='low',     type='string',   help='location of the window, low or both')
-
-    parser.add_option('--tukey',  dest='tukey',     default=0.1,     type='float',   help='tukey window parameter')
-
-    parser.add_option('-o','--outdir',default=None,type='string',dest='outdir',help='output directory')
+    parser.add_option('--wave',        dest='wave',                       type='string',                      help='path to strain data to inject (the file should contains 3 cols [t, reh, imh]) or path to .ini file containing the approximant and parameters required to generate the gravitational waves polarisations.')
+    parser.add_option('--ra',          dest='ra',     default=None,       type='float',                       help='right ascencion location of the injected source. Default optimal location for the first IFO.')
+    parser.add_option('--dec',         dest='dec',    default=None,       type='float',                       help='declination location of the injected source. Default optimal location for the first IFO.')
+    parser.add_option('--pol',         dest='psi',    default=0.,         type='float',                       help='polarization angle of the injected source. Default: 0.')
+    
+    parser.add_option('-o','--outdir', dest='outdir', default=None,       type='string',                      help='Output directory. Default: None.')
     (opts,args) = parser.parse_args()
 
     dets    = {}
     noises  = {}
 
     if opts.outdir == None:
-        raise ValueError("Unable to ensure output directory.")
+        raise ValueError("Passing an output directory is mandatory. Please pass a value through the '--outdir' option.")
 
     opts.outdir = os.path.abspath(opts.outdir)
     ensure_dir(opts.outdir)
@@ -372,6 +380,8 @@ if __name__ == "__main__":
     for i in range(len(opts.ifos)):
         ifo = opts.ifos[i]
         logger.info("... setting detector {} for injection ...".format(ifo))
+        if not(ifo in opts.asds[i]): 
+            logger.info("WARNING: the name of ASD file does not correspond to selected IFO. Please check that IFO and ASD were passed in the right order.")
         dets[ifo]   = Detector(ifo,opts.t_gps)
         fr,asd      = read_asd(opts.asds[i], ifo)
         noises[ifo] = Noise(fr, asd, f_min = opts.f_min, f_max = opts.srate/2.)

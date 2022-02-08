@@ -102,8 +102,13 @@ if __name__ == "__main__":
     # parse input arguments
     opts,args = parse_core_options()
 
+    # define global variables
+    engine  = opts.engine
+    nprocs  = opts.nprocs
+    tracing = opts.trace_memory
+
     # start memory tracing, if requested
-    if opts.trace_memory:
+    if tracing:
         import tracemalloc
         tracemalloc.start(25)
 
@@ -117,19 +122,15 @@ if __name__ == "__main__":
         logger = set_logger(outdir=opts.outdir, silence=opts.silence)
 
     # print header
-    print_header(logger, opts.tags, opts.engine, opts.nprocs)
+    print_header(logger, opts.tags, engine, nprocs)
 
     # initialize multi-threading pool (if needed)
-    if opts.engine != 'cpnest':
+    if (engine != 'cpnest' and nprocs>1):
         from bajes.pipe import initialize_mthr_pool
-        pool, close_pool   = initialize_mthr_pool(opts.nprocs)
+        pool, close_pool   = initialize_mthr_pool(nprocs)
     else:
         pool = None
         close_pool = None
-
-    # define global variables
-    engine  = opts.engine
-    tracing = opts.trace_memory
 
     # initialize posterior
     opts, post = init_core(opts)
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     inference.run()
 
     # close parallel pool, if needed
-    if engine != 'cpnest':
+    if (engine != 'cpnest' and nprocs>1):
         close_pool(pool)
 
     # stop memory tracing, if needed

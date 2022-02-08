@@ -133,7 +133,7 @@ def get_detector_information(ifo):
         xarm_tilt       = -6.195e-4
         yarm_tilt       = 1.25e-5
     else:
-        raise ValueError("Can't get information from input detector. Please check you use a correct name, i.e. H1, L1, V1, K1, G1")
+        raise ValueError("Can't get information from input detector. Please check you use a correct name. Available options: ['H1', 'L1', 'V1', 'K1', 'G1', 'I1', 'ET1', 'ET2', 'ET3', 'CE'].")
 
     return latitude, longitude, elevation, xarm_azimuth, yarm_azimuth, xarm_tilt, yarm_tilt
 
