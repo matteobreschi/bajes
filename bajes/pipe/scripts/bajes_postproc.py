@@ -307,7 +307,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
     for j,k in enumerate(samples_list):
 
         # Every 100 steps, update the user on the status of the plot.
-        if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(posterior)))
+        if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(samples_list)))
 
         params = {name: posterior[name][k] for name in names}
         p      = {**params,**constants}
@@ -392,18 +392,20 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
             for i in range(len(strains_dets[det]['s'].times)):
                 wf_ci_fl.write("%.10f \t %.10f \t %.10f \t %.10f \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
             wf_ci_fl.close()
-            
-        if(whiten): plt.savefig(outdir +'/Reconstructed_waveform_whitened_zoom.pdf', bbox_inches='tight')
-        else:       plt.savefig(outdir +'/Reconstructed_waveform_zoom.pdf', bbox_inches='tight')
+        
+        if(whiten): plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_whitened_zoom.pdf'), bbox_inches='tight')
+        else:       plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_zoom.pdf'), bbox_inches='tight')
 
+        del(wfs, me, lo, hi, strains_dets)
 
 
 if __name__ == "__main__":
 
     parser=op.OptionParser()
-    parser.add_option('-p','--post',      dest='posterior',       default=None,           type='string',                        help="Posterior file to postprocess.")
-    parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the output directory.")
+    # Required options
+    parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the directory containing the output of the run.")
     
+    # Optional options
     parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
     parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=1000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 1000.")
     parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
@@ -413,7 +415,7 @@ if __name__ == "__main__":
     (opts,args) = parser.parse_args()
 
     if not(opts.outdir==None): outdir = opts.outdir
-    else: raise ValueError("The 'outdir' option is a mandatory parameter. Aborting.")
+    else: raise ValueError("The 'outdir' option is required. Aborting.")
     
     ppdir  = os.path.abspath(outdir+'/postproc')
     wf_dir = os.path.abspath(outdir+'/postproc/Waveform_reconstruction') 
@@ -426,28 +428,31 @@ if __name__ == "__main__":
     logger.info("Running bajes postprocessing:")
     logger.info("The reported uncertainties correpond to 90% credible regions.")
     logger.info("The contours of the corner plots represent 50%, 90% credible regions.")
-
-    if not(opts.posterior==None): posterior = np.genfromtxt(opts.posterior, names=True)
-    else: raise ValueError("The 'post' option is a mandatory parameter. Aborting.")
     
-    # extract prior object from pickle
-    if not(os.path.exists(outdir + '/run')): dc    = data_container(outdir + '/inf.pkl')
-    else:                                    dc    = data_container(outdir + 'run/inf.pkl')
-    if not(os.path.exists(outdir + '/run')): dc_gw = data_container(outdir + '/gw_obs.pkl')
-    else:                                    dc_gw = data_container(outdir + 'run/gw_obs.pkl')
+    run_dir_output = os.path.join(outdir, 'run')
+    # extract posterior and prior object from pickle
+    if not(os.path.exists(run_dir_output)): posterior = np.genfromtxt( os.path.join(outdir, 'posterior.dat'),     names=True)
+    else:                                   posterior = np.genfromtxt( os.path.join(outdir, 'run/posterior.dat'), names=True)
+    if not(os.path.exists(run_dir_output)): dc        = data_container(os.path.join(outdir, 'inf.pkl')                      )
+    else:                                   dc        = data_container(os.path.join(outdir, 'run/inf.pkl')                  )
+    if not(os.path.exists(run_dir_output)): dc_gw     = data_container(os.path.join(outdir, 'gw_obs.pkl')                   )
+    else:                                   dc_gw     = data_container(os.path.join(outdir, 'run/gw_obs.pkl')               )
     container_inf = dc.load()
     container_gw  = dc_gw.load()
     priors        = container_inf.prior
 
+    
     # produce histogram plots
     logger.info("Producing histograms...")
-    ensure_dir(ppdir+'/histgr')
-    make_histograms(posterior, priors.names, ppdir+'/histgr')
+    hist_dir = os.path.join(ppdir, 'histgr')
+    ensure_dir(hist_dir)
+    make_histograms(posterior, priors.names, hist_dir)
 
     # produce corner plots
     logger.info("Producing corners...")
-    ensure_dir(ppdir+'/corner')
-    make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, ppdir+'/corner')
+    corner_dir = os.path.join(ppdir, 'corner')
+    ensure_dir(corner_dir)
+    make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, corner_dir)
 
     if not(opts.M_tot==None):
         if(opts.M_tot=='posterior'):
@@ -470,9 +475,9 @@ if __name__ == "__main__":
             opts.M_tot = float(opts.M_tot)
 
     # produce waveform plots
-    logger.info("Reconstructing whitened waveforms...")
-    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
     logger.info("Reconstructing waveforms...")
     reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+    logger.info("Reconstructing whitened waveforms...")
+    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
 
     logger.info("... done.")
