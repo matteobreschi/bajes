@@ -280,7 +280,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
     w         = Waveform(freqs=freqs, srate=srate, seglen=seglen, approx=approx)
 
     for det in strains_dets.keys():
-
+        
         strains_dets[det]['s'] = container_gw.datas[det]
         strains_dets[det]['d'] = container_gw.dets[det]
         strains_dets[det]['n'] = container_gw.noises[det]
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     parser.add_option('-p','--post',      dest='posterior',       default=None,           type='string',                        help="Posterior file to postprocess.")
     parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the output directory.")
     
-    parser.add_option('--M-tot-estimate', dest='M_tot',           default=None,                                                 help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
+    parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
     parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=1000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 1000.")
     parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
     parser.add_option('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
