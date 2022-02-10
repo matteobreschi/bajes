@@ -161,7 +161,7 @@ def teobresums_ecc_wrapper(freqs, params):
 
     if params['eccentricity'] != 0:
         params_teob['ecc'] = params['eccentricity']
-    
+
     # check for additional options
     additional_opts(params_teob, params)
 
@@ -236,7 +236,7 @@ def teobresums_hyperb_wrapper(freqs, params):
                     }
 
             t, hp, hc = teobresums(params_teob)
-            if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))): 
+            if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))):
                 logger.warning('Nans in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
                 return [None], [None]
             if(np.any(np.isinf(hp)) or np.any(np.isinf(hc))):
