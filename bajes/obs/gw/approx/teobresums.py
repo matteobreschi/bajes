@@ -129,6 +129,45 @@ def teobresums_wrapper(freqs, params):
     return hp , hc
 
 # Requires the teob eccentric branch
+def teobresums_ecc_wrapper(freqs, params):
+    # unwrap lm modes
+    if params['lmax'] == 0:
+        modes = [1]
+    else:
+        modes = l_to_k(params['lmax'])
+
+    # set TEOB dict
+    params_teob = { 'M':                    params['mtot'],
+                    'q':                    params['q'],
+                    'chi1':                 params['s1z'],
+                    'chi2':                 params['s2z'],
+                    'chi1z':                params['s1z'],
+                    'chi2z':                params['s2z'],
+                    'Lambda1':              params['lambda1'],
+                    'Lambda2':              params['lambda2'],
+                    'distance':             params['distance'],
+                    'inclination':          params['iota'],
+                    'initial_frequency':    params['f_min'],
+                    'coalescence_angle':    params['phi_ref'],
+                    'use_geometric_units':  0,
+                    'output_hpc':           0,
+                    'interp_uniform_grid':  1,
+                    'output_multipoles':    0,
+                    'use_mode_lm':          modes,
+                    'srate':                params['srate'],
+                    'srate_interp':         params['srate'],
+                    'domain':               0
+                    }
+
+    if params['eccentricity'] != 0:
+        params_teob['ecc'] = params['eccentricity']
+    
+    # check for additional options
+    additional_opts(params_teob, params)
+
+    t , hp , hc     = teobresums(params_teob)
+    return hp , hc
+
 def teobresums_hyperb_wrapper(freqs, params):
 
     # unwrap lm modes
