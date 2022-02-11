@@ -216,15 +216,15 @@ def parse_main_options():
     parser.add_option('-o', '--outdir', default='./',       type='string',  dest='outdir',  help='output directory')
 
     # Nested sampling options
-    parser.add_option('--nlive',        dest='nlive',       default=1024,   type='int',     help='[nest] number of live points')
-    parser.add_option('--tol',          dest='tolerance',   default=0.1,    type='float',   help='[nest] evidence tolerance')
-    parser.add_option('--maxmcmc',      dest='maxmcmc',     default=4096,   type='int',     help='[nest] maximum number of mcmc iterations')
-    parser.add_option('--minmcmc',      dest='minmcmc',     default=32,     type='int',     help='[nest] minimum number of mcmc iterations')
-    parser.add_option('--poolsize',     dest='poolsize',    default=2048,   type='int',     help='[nest] number of sample in the pool (cpnest)')
-    parser.add_option('--nact',         dest='nact',        default=5,      type='int',     help='[nest] sub-chain safe factor (dynesty)')
-    parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='[nest] number of live points for batch (dynesty-dyn)')
-    parser.add_option('--dkl',          dest='dkl',         default=0.5,    type='float',   help='[nest] target KL divergence (ultranest)')
-    parser.add_option('--z-frac',       dest='z_frac',      default=None,   type='float',   help='[nest] remaining Z fraction (ultranest)')
+    parser.add_option('--nlive',        dest='nlive',       default=1024,   type='int',     help='[nest] number of live points. Default: 1024')
+    parser.add_option('--tol',          dest='tolerance',   default=0.1,    type='float',   help='[nest] evidence tolerance. Default: 0.1')
+    parser.add_option('--maxmcmc',      dest='maxmcmc',     default=4096,   type='int',     help='[nest] maximum number of mcmc iterations. Default: 4096')
+    parser.add_option('--minmcmc',      dest='minmcmc',     default=32,     type='int',     help='[nest] minimum number of mcmc iterations. Default: 32')
+    parser.add_option('--poolsize',     dest='poolsize',    default=2048,   type='int',     help='[nest] number of sample in the pool (cpnest). Default: 2048')
+    parser.add_option('--nact',         dest='nact',        default=5,      type='int',     help='[nest] sub-chain safe factor (dynesty). Default: 5')
+    parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='[nest] number of live points for batch (dynesty-dyn). Default: 512')
+    parser.add_option('--dkl',          dest='dkl',         default=0.5,    type='float',   help='[nest] target KL divergence (ultranest). Default: 0.5')
+    parser.add_option('--z-frac',       dest='z_frac',      default=None,   type='float',   help='[nest] remaining Z fraction (ultranest). Default: None')
 
     # MCMC options
     parser.add_option('--nout',         dest='nout',        default=10000,  type='int',     help='[mcmc] number of posterior samples')
