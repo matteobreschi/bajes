@@ -22,7 +22,7 @@ run_settings = { 'ifos'            : ['H1', 'L1'],
                  'tukey'           : 0.1
                }
 
-noise_dict = { 'event'    : 'GW150914'
+noise_dict = { 'event'    : 'GW150914',
                'settings' : { 'f_min'  : 20,
                               'f_max'  : 1024
                             }
