@@ -28,19 +28,19 @@ noise_dict = { 'event'    : 'GW150914',
                             }
              }
 
-series_dict = { 'domain'   : 'time'
+series_dict = { 'domain'   : 'time',
                 'settings' : { 'seglen' : 8,
                                'srate'  : 4096,
                                't_gps'  : 1126259462,
                                'f_min'  : 20,
                                'f_max'  : 1024
-                             }
+                             },
                 'H1'       : { 'data_path'   : 'data/H1_STRAIN_8_4096_1126259462.txt',
                                'usecols'     : [0,1],
                                'unpack'      : True,
                                'bandpassing' : {'flow'  : 20,
                                                 'fhigh' : 300}
-                             }
+                             },
                 'L1'       : { 'data_path'   : 'data/L1_STRAIN_8_4096_1126259462.txt',
                                 'usecols'     : [0,1],
                                 'unpack'      : True,
@@ -51,7 +51,7 @@ series_dict = { 'domain'   : 'time'
 
 logger.debug("Preparing network")
 net = Network(run_settings['ifos'], series_dict['settings']['t_gps'])
-logZ_noise = prep_net_for_log_like(noise_dict, series_dict, prep_wave(run_settings['approx'])
+logZ_noise = prep_net_for_log_like(noise_dict, series_dict, prep_wave(run_settings['approx']))
 
 def prep_gw_params(bayes_params, run_settings, noise_dict, series_dict):
     return {'mchirp'     : bayes_params['mchirp'],
