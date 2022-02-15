@@ -2,8 +2,7 @@
 from __future__ import division, unicode_literals, absolute_import
 __import__("pkg_resources").declare_namespace(__name__)
 
-import os
-import numpy as np
+import numpy as np, os, sys
 
 from ..noise import get_design_sensitivity, get_event_sensitivity, get_event_calibration
 from ..strain import fft
@@ -185,12 +184,24 @@ def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
     t   = np.arange(len(s))*(1./srate) + GPSstart
     return t , s
 
-def read_data(data_flag , data_path):
+def read_data(data_flag, data_path, srate):
 
     if data_flag == 'inject' or data_flag == 'local' or  data_flag == 'gwosc':
-        data = np.genfromtxt(data_path, usecols = [1] , unpack=True)
+        
+        time, data = np.genfromtxt(data_path, unpack=True)
+        print(time, data, len(time), len(data))
+        srate_dt = float(time[1] - time[0])
+        if (srate > srate_dt):
+            raise ValueError("You requested a sampling rate higher than the data sampling.")
+        elif (srate < srate_dt):
+            sys.stdout.write('Requested sampling rate is lower than data sampling rate. Downsampling detector data from {} to {} Hz, decimate factor {}\n'.format(srate_dt, srate, int(srate_dt/srate)))
+            data = decimate(data, int(srate_dt/srate), zero_phase=True)
+        else:
+            pass
+        print(data, len(data))
+        exit()
     else:
-        raise KeyError("Please specify data_flag")
+        raise KeyError("Please specify a data_flag.")
     return data
 
 def read_asd(asd_path, ifo):

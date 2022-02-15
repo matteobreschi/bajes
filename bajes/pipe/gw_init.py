@@ -10,26 +10,27 @@ from .utils import *
 
 def initialize_gwlikelihood_kwargs(opts):
 
-    from ..obs.gw.noise import Noise
-    from ..obs.gw.strain import Series
+    from ..obs.gw.noise    import Noise
+    from ..obs.gw.strain   import Series
     from ..obs.gw.detector import Detector
-    from ..obs.gw.utils import read_data, read_asd, read_spcal
+    from ..obs.gw.utils    import read_data, read_asd, read_spcal
 
-    # initial check
+    # initial checks
     if len(opts.ifos) != len(opts.strains):
         logger.error("Number of IFOs {} does not match the number of data {}. Please give in input the same number of arguments in the respective order.".format(len(opts.ifos), len(opts.strains)))
         raise ValueError("Number of IFOs {} does not match the number of data {}. Please give in input the same number of arguments in the respective order.".format(len(opts.ifos), len(opts.strains)))
     elif len(opts.ifos) != len(opts.asds):
         logger.error("Number of IFOs does not match the number of ASDs. Please give in input the same number of arguments in the respective order.")
         raise ValueError("Number of IFOs does not match the number of ASDs. Please give in input the same number of arguments in the respective order.")
+
     if opts.f_max > opts.srate/2.:
-        logger.error("Requested f_max greater than f_Nyquist, outside of the Fourier domain. Please use f_max <= f_Nyq.")
-        raise ValueError("Requested f_max greater than f_Nyquist, outside of the Fourier domain. Please use f_max <= f_Nyq.")
+        logger.error("Requested f_max greater than f_Nyquist=sampling_rate/2, which will induce information loss, see https://en.wikipedia.org/wiki/Nyquist–Shannon_sampling_theorem. Please use f_max <= f_Nyquist.")
+        raise ValueError("Requested f_max greater than f_Nyquist=sampling_rate/2, which will induce information loss, see https://en.wikipedia.org/wiki/Nyquist–Shannon_sampling_theorem. Please use f_max <= f_Nyquist.")
     if opts.time_shift_min == None:
         opts.time_shift_min = -opts.time_shift_max
 
     # initialise dictionaries for detectors, noises, data, etc
-    strains   = {}
+    strains = {}
     dets    = {}
     noises  = {}
     spcals  = {}
@@ -56,14 +57,26 @@ def initialize_gwlikelihood_kwargs(opts):
 
         if opts.binning:
             # if frequency binning is on, the frequency series does not need to be cut
-            strains[ifo]      = Series('time' , data ,
-                                       srate=opts.srate, seglen=opts.seglen, f_min=opts.f_min, f_max=opts.f_max, t_gps=opts.t_gps,
-                                       only=False, alpha_taper=opts.alpha)
+            strains[ifo]      = Series('time' ,
+                                       data ,
+                                       srate=opts.srate,
+                                       seglen=opts.seglen,
+                                       f_min=opts.f_min,
+                                       f_max=opts.f_max,
+                                       t_gps=opts.t_gps,
+                                       only=False,
+                                       alpha_taper=opts.alpha)
 
         else:
-            strains[ifo]      = Series('time' , data ,
-                                       srate=opts.srate, seglen=opts.seglen, f_min=opts.f_min, f_max=opts.f_max, t_gps=opts.t_gps,
-                                       only=False, alpha_taper=opts.alpha)
+            strains[ifo]      = Series('time' ,
+                                       data ,
+                                       srate=opts.srate,
+                                       seglen=opts.seglen,
+                                       f_min=opts.f_min,
+                                       f_max=opts.f_max,
+                                       t_gps=opts.t_gps,
+                                       only=False,
+                                       alpha_taper=opts.alpha)
 
         dets[ifo]       = Detector(ifo, t_gps=opts.t_gps)
         noises[ifo]     = Noise(f_asd, asd, f_max=opts.f_max)

@@ -1,6 +1,6 @@
 from __future__ import division, unicode_literals, absolute_import
 import numpy as np
-from scipy.signal import tukey
+from scipy.signal import tukey, decimate
 
 import logging
 logger = logging.getLogger(__name__)
@@ -42,9 +42,9 @@ def fft(h, dt):
         hfft = array, complex
         FFT of h
     """
-    N = len(h)
-    hfft  = np.fft.rfft(h) * dt
-    f = get_freq_ax(N,dt)
+    N    = len(h)
+    hfft = np.fft.rfft(h) * dt
+    f    = get_freq_ax(N,dt)
     return f , hfft
 
 def ifft(u , srate, seglen, t0=0.):
@@ -206,9 +206,19 @@ class Series(object):
     """ A strain series in time/frequency domain
     """
 
-    def __init__(self, type , series , srate , seglen=None,
-                 f_min=None, f_max=None, t_gps = 0.,
-                 only=False, filter=False, alpha_taper=None, importfreqs = []):
+    def __init__(self               ,
+                 type               ,
+                 series             ,
+                 srate              ,
+                 seglen      = None ,
+                 f_min       = None ,
+                 f_max       = None ,
+                 t_gps       = 0.   ,
+                 only        = False,
+                 filter      = False,
+                 alpha_taper = None ,
+                 importfreqs = []
+                ):
 
         """ Initialize series
             ___________
@@ -239,6 +249,8 @@ class Series(object):
             self.f_max      = f_max
             self.t_gps      = t_gps
             self.f_Nyq      = self.srate/2.
+            
+
 
             # temporary values
             raw_N           = len(series)
@@ -248,54 +260,53 @@ class Series(object):
             if self.f_max == None:
                 self.f_max = self.f_Nyq
 
-            # read time series + windowing + padding
-            # and fix input seglen if not None
+            # When no seglen is provided, read the time series, window it and pad it to the next power of two. Set seglen using the full lenght of the padded data.
             if seglen == None:
 
-                seglen = len(series) * self.dt
+                seglen_tmp = len(series) * self.dt
 
-                # check alpha from input
-                # if alpha not provided, window == 0.4s
                 if alpha_taper == None:
-                    alpha_taper = 0.4/seglen
+                    self.alpha_taper = 0.4/seglen_tmp
+                else:
+                    self.alpha_taper = alpha_taper
 
-                wind_series, wfact  = windowing(series,alpha_taper)
-                self.time_series    = padding(wind_series,self.dt,'center')
-                self.seglen         = len(series) * self.dt
+                wind_series, wfact = windowing(series,self.alpha_taper)
+                #Using padding, increase the series seglen up to the next power of two.
+                self.time_series   = padding(wind_series,self.dt,'center')
+                self.seglen        = len(self.time_series) * self.dt
 
             else:
 
                 self.seglen = seglen
                 finalN      = int(np.ceil(self.seglen*self.srate))
 
+                if alpha_taper == None:
+                    self.alpha_taper = 0.4/self.seglen
+                else:
+                    self.alpha_taper = alpha_taper
+
                 if finalN%2 == 1 :
                     finalN += 1
 
-                # check alpha from input
-                # if alpha not provided, window == 0.4s
-                if alpha_taper == None:
-                    alpha_taper = 0.4/self.seglen
-
                 if raw_N == finalN:
-                    wind_series, wfact  = windowing(series,alpha_taper)
+                    wind_series, wfact  = windowing(series,self.alpha_taper)
                     self.time_series    = wind_series
 
                 elif finalN > raw_N:
-                    logger.warning("Input seglen for time series is greater than the effective seglen. The series will be padded to get the requested input.")
+                    logger.warning("Input seglen for time series is greater than the total data length. The time series will be padded to get the requested input.")
                     padlen              = finalN - raw_N
-                    wind_series, w_tmp  = windowing(series,alpha_taper)
-                    wfact               = np.mean(np.append(tukey(len(series), alpha_taper)**2.,
+                    wind_series, w_tmp  = windowing(series,self.alpha_taper)
+                    wfact               = np.mean(np.append(tukey(len(series), self.alpha_taper)**2.,
                                                             np.zeros(padlen))) # compute corrected window factor
                     self.time_series    = padding(wind_series,self.dt,'center',padlen)
 
                 elif finalN < raw_N:
                     logger.warning("Input seglen for time series is smaller than effective seglen. The series will be truncated to get the requested input.")
                     Nhalf = int(len(series)//2)
-                    wind_series, wfact  = windowing(series[Nhalf-finalN//2:Nhalf+finalN//2],alpha_taper)
+                    wind_series, wfact  = windowing(series[Nhalf-finalN//2:Nhalf+finalN//2],self.alpha_taper)
                     self.time_series    = wind_series
 
             self.window_factor  = wfact
-            self.alpha_taper    = alpha_taper
 
             if filter:
                 self.time_series    = bandpassing(self.time_series , self.srate, self.f_min , self.f_max)
@@ -307,7 +318,7 @@ class Series(object):
                 self.freqs = None
                 self.freq_series = None
             else:
-                self.freqs, self.freq_series    = fft(self.time_series, self.dt)
+                self.freqs, self.freq_series = fft(self.time_series, self.dt)
 
         elif type == 'freq':
 
