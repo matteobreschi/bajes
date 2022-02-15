@@ -324,9 +324,9 @@ def parse_core_options():
 
     # Time series information
     parser.add_option('--f-min',             dest='f_min',          default=None,      type='float',                         help='Minimum frequency at which likelihood is evaluated [Hz]. Default: ???')
-    parser.add_option('--f-max',             dest='f_max',          default=None,      type='float',                         help='Maximum frequency at which likelihood is evaluated [Hz]. Default: ???'')
-    parser.add_option('--srate',             dest='srate',          default=None,      type='float',                         help='Requested sampling rate [Hz]. If smaller than data samppling rate, downsampling is applied. Default: ???'')
-    parser.add_option('--seglen',            dest='seglen',         default=None,      type='float',                         help='Requested length of the segment to be analysed [sec]. If smaller than data total lenght, data are cropped. If longer, data are padded. Default: data total lenght. Default: ???'')
+    parser.add_option('--f-max',             dest='f_max',          default=None,      type='float',                         help='Maximum frequency at which likelihood is evaluated [Hz]. Default: ???')
+    parser.add_option('--srate',             dest='srate',          default=None,      type='float',                         help='Requested sampling rate [Hz]. If smaller than data samppling rate, downsampling is applied. Default: ???')
+    parser.add_option('--seglen',            dest='seglen',         default=None,      type='float',                         help='Requested length of the segment to be analysed [sec]. If smaller than data total lenght, data are cropped. If longer, data are padded. Default: data total lenght. Default: ???')
     parser.add_option('--lmax',              dest='lmax',           default=0,         type='int',                           help='Higher angular mode index to be considered for GW template. Default: 0')
     parser.add_option('--alpha',             dest='alpha',          default=None,      type='float',                         help='Alpha parameter of the Tukey window. Default: 0.4/seglen.')
 
