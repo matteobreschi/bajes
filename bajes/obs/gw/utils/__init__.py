@@ -2,6 +2,7 @@
 from __future__ import division, unicode_literals, absolute_import
 __import__("pkg_resources").declare_namespace(__name__)
 
+from scipy.signal import decimate
 import numpy as np, os, sys
 
 from ..noise import get_design_sensitivity, get_event_sensitivity, get_event_calibration
@@ -189,8 +190,7 @@ def read_data(data_flag, data_path, srate):
     if data_flag == 'inject' or data_flag == 'local' or  data_flag == 'gwosc':
         
         time, data = np.genfromtxt(data_path, unpack=True)
-        print(time, data, len(time), len(data))
-        srate_dt = float(time[1] - time[0])
+        srate_dt = 1./float(time[1] - time[0])
         if (srate > srate_dt):
             raise ValueError("You requested a sampling rate higher than the data sampling.")
         elif (srate < srate_dt):
@@ -198,8 +198,6 @@ def read_data(data_flag, data_path, srate):
             data = decimate(data, int(srate_dt/srate), zero_phase=True)
         else:
             pass
-        print(data, len(data))
-        exit()
     else:
         raise KeyError("Please specify a data_flag.")
     return data
