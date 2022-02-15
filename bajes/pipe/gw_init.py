@@ -52,7 +52,7 @@ def initialize_gwlikelihood_kwargs(opts):
     for i,ifo in enumerate(opts.ifos):
         # read data
         ifo         = opts.ifos[i]
-        data        = read_data(opts.data_flag , opts.strains[i])
+        data        = read_data(opts.data_flag, opts.strains[i], opts.srate)
         f_asd , asd = read_asd(opts.asds[i], ifo)
 
         if opts.binning:
