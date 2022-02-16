@@ -460,14 +460,14 @@ if __name__ == "__main__":
                 opts.M_tot = np.median(posterior['mtot'])
             elif('mtot' in priors.const):
                 opts.M_tot = priors.const['mtot']
-            elif(('mc' in priors.names) and ('q' in priors.names)):
-                opts.M_tot = mcq_to_m1(np.median(posterior['mc']), np.median(posterior['q'])) + mcq_to_m2(np.median(posterior['mc']), np.median(posterior['q']))
-            elif(('mc' in priors.names) and ('q' in priors.const)):
-                opts.M_tot = mcq_to_m1(np.median(posterior['mc']), priors.const['q']) + mcq_to_m2(np.median(posterior['mc']), priors.const['q'])
-            elif(('mc' in priors.const) and ('q' in priors.names)):
-                opts.M_tot = mcq_to_m1(priors.const['mc'], np.median(posterior['q'])) + mcq_to_m2(priors.const['mc'], np.median(posterior['q']))
-            elif(('mc' in priors.const) and ('q' in priors.const)):
-                opts.M_tot = mcq_to_m1(priors.const['mc'], priors.const['q']) + mcq_to_m2(priors.const['mc'], priors.const['q'])
+            elif(('mchirp' in priors.names) and ('q' in priors.names)):
+                opts.M_tot = mcq_to_m1(np.median(posterior['mchirp']), np.median(posterior['q'])) + mcq_to_m2(np.median(posterior['mchirp']), np.median(posterior['q']))
+            elif(('mchirp' in priors.names) and ('q' in priors.const)):
+                opts.M_tot = mcq_to_m1(np.median(posterior['mchirp']), priors.const['q']) + mcq_to_m2(np.median(posterior['mchirp']), priors.const['q'])
+            elif(('mchirp' in priors.const) and ('q' in priors.names)):
+                opts.M_tot = mcq_to_m1(priors.const['mchirp'], np.median(posterior['q'])) + mcq_to_m2(priors.const['mchirp'], np.median(posterior['q']))
+            elif(('mchirp' in priors.const) and ('q' in priors.const)):
+                opts.M_tot = mcq_to_m1(priors.const['mchirp'], priors.const['q']) + mcq_to_m2(priors.const['mchirp'], priors.const['q'])
             else:
                 logger.warning("Could not extract M_tot (either directly or through related mass parameters) from posterior or fixed parameters. Setting it to None and skipping zoomed plots.")
                 opts.M_tot = None
