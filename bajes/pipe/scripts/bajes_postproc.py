@@ -107,7 +107,6 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
         else:
             logger.info("Aligned spins parameters were fixed. Skipping aligned spins corner.")
 
-
     elif('precess' in spin_flag):
 
         logger.info("... plotting spins ...")
@@ -145,93 +144,103 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
         logger.warning("Unknown spins option selected. Skipping spin plots.")
 
     # tides
-    if(lambda_flag == 'bns-tides'):
-        logger.info("... plotting tides ...")
+    if not (('lambda1' in priors.const) or ('lambda2' in priors.const)):
 
-        tide1_matrix = np.column_stack((posterior['lambda1'],posterior['lambda2']))
-        tide1_labels = [r'$\Lambda_1$',r'$\Lambda_2$']
-        make_corner_plot(tide1_matrix,tide1_labels,ppdir+'/tides_posterior.png')
+        if(lambda_flag == 'bns-tides'):
+            logger.info("... plotting tides ...")
 
-        try:
-            lambdat_post = compute_lambda_tilde(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
-            dlambda_post = compute_delta_lambda(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
+            tide1_matrix = np.column_stack((posterior['lambda1'],posterior['lambda2']))
+            tide1_labels = [r'$\Lambda_1$',r'$\Lambda_2$']
+            make_corner_plot(tide1_matrix,tide1_labels,ppdir+'/tides_posterior.png')
 
-            tide2_matrix = np.column_stack((lambdat_post, dlambda_post))
-            tide2_labels = [r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
-            make_corner_plot(tide2_matrix,tide2_labels,ppdir+'/lambdat_posterior.png')
-        except Exception:
-            logger.info("BNS-tides plot failed.")
+            try:
+                lambdat_post = compute_lambda_tilde(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
+                dlambda_post = compute_delta_lambda(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
 
+                tide2_matrix = np.column_stack((lambdat_post, dlambda_post))
+                tide2_labels = [r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
+                make_corner_plot(tide2_matrix,tide2_labels,ppdir+'/lambdat_posterior.png')
+            except Exception:
+                logger.info("BNS-tides plot failed.")
 
-    elif(lambda_flag == 'bhns-tides' or lambda_flag == 'nsbh-tides'):
+        elif(lambda_flag == 'bhns-tides' or lambda_flag == 'nsbh-tides'):
 
-        if(lambda_flag == 'nsbh-tides'): 
-            logger.warning("The 'nsbh-tides' string for the 'tidal-flag' option is deprecated and will be removed in a future release. Please use the 'nsbh-tides' string.")
+            if(lambda_flag == 'nsbh-tides'): 
+                logger.warning("The 'nsbh-tides' string for the 'tidal-flag' option is deprecated and will be removed in a future release. Please use the 'nsbh-tides' string.")
 
-        logger.info("... plotting tides ...")
-        try:
-            lambda1 = posterior['lambda1']
-            lambda2 = 0.
-            lambda_post = lambda1
-        except KeyError:
-            lambda1 = 0.
-            lambda2 = posterior['lambda2']
-            lambda_post = lambda2
+            logger.info("... plotting tides ...")
+            try:
+                lambda1 = posterior['lambda1']
+                lambda2 = 0.
+                lambda_post = lambda1
+            except KeyError:
+                lambda1 = 0.
+                lambda2 = posterior['lambda2']
+                lambda_post = lambda2
 
-        try:
-            lambdat_post = compute_lambda_tilde(m1_post,m2_post,lambda1,lambda2)
-            dlambda_post = compute_delta_lambda(m1_post,m2_post,lambda1,lambda2)
+            try:
+                lambdat_post = compute_lambda_tilde(m1_post,m2_post,lambda1,lambda2)
+                dlambda_post = compute_delta_lambda(m1_post,m2_post,lambda1,lambda2)
 
-            tide_matrix = np.column_stack((lambda_post, lambdat_post,dlambda_post))
-            tide_labels = [r'$\Lambda_{NS}$',r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
+                tide_matrix = np.column_stack((lambda_post, lambdat_post,dlambda_post))
+                tide_labels = [r'$\Lambda_{NS}$',r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
 
-        except Exception:
+            except Exception:
 
-            tide_matrix = np.column_stack((lambda_post,np.zeros(len(lambda_post))))
-            tide_labels = [r'$\Lambda_{NS}$', r'$\Lambda_{BH}$']
+                tide_matrix = np.column_stack((lambda_post,np.zeros(len(lambda_post))))
+                tide_labels = [r'$\Lambda_{NS}$', r'$\Lambda_{BH}$']
 
-        make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.png')
+            make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.png')
 
-    elif('no-tides' in lambda_flag):
-        logger.info("No tides option selected. Skipping tides plots.")
+        elif('no-tides' in lambda_flag):
+            logger.info("No tides option selected. Skipping tides plots.")
 
-    else:
-        logger.warning("Unknown tides option selected. Skipping tides plots.")
+        else:
+            logger.warning("Unknown tides option selected. Skipping tides plots.")
+    else:        
+        logger.info("Tides parameters were fixed. Skipping tides corner.")
 
     # sky location
-    try:
-        logger.info("... plotting sky location ...")
-        skyloc_matrix = np.column_stack((posterior['ra'],posterior['dec']))
-        skyloc_labels = [r'$\alpha [{\rm rad}]$', r'$\delta [{\rm rad}]$']
-        make_corner_plot(skyloc_matrix,skyloc_labels,ppdir+'/skyloc_posterior.png')
-    except Exception:
-        logger.info("Sky position plot failed.")
-
+    if not (('ra' in priors.const) or ('dec' in priors.const)):
+        try:
+            logger.info("... plotting sky location ...")
+            skyloc_matrix = np.column_stack((posterior['ra'],posterior['dec']))
+            skyloc_labels = [r'$\alpha [{\rm rad}]$', r'$\delta [{\rm rad}]$']
+            make_corner_plot(skyloc_matrix,skyloc_labels,ppdir+'/skyloc_posterior.png')
+        except Exception:
+            logger.info("Sky position plot failed.")
+    else:        
+        logger.info("Sky position parameters were fixed. Skipping sky position corner.")
 
     # distance - inclination
-    try:
-        logger.info("... plotting distance-iota ...")
-        iota_post = np.arccos(posterior['cosi'])
-        distiot_matrix = np.column_stack((posterior['distance'], iota_post))
-        distiot_labels = [r'$D_L [{\rm Mpc}]$', r'$\iota [{\rm rad}]$']
-        make_corner_plot(distiot_matrix,distiot_labels,ppdir+'/distance_posterior.png')
-    except Exception:
-        logger.info("Distance-inclination plot failed.")
-
+    if not (('distance' in priors.const) or ('cosi' in priors.const)):
+        try:
+            logger.info("... plotting distance-iota ...")
+            iota_post = np.arccos(posterior['cosi'])
+            distiot_matrix = np.column_stack((posterior['distance'], iota_post))
+            distiot_labels = [r'$D_L [{\rm Mpc}]$', r'$\iota [{\rm rad}]$']
+            make_corner_plot(distiot_matrix,distiot_labels,ppdir+'/distance_posterior.png')
+        except Exception:
+            logger.info("Distance-inclination plot failed.")
+    else:        
+        logger.info("Distance-inclination parameters were fixed. Skipping distance-inclination corner.")
 
     # other
-    try:
-        logger.info("... plotting external parameters ...")
+    if not (('psi' in priors.const) or ('phi_ref' in priors.const) or ('time_shift' in priors.const)):
         try:
-            ext_matrix = np.column_stack((posterior['psi'],posterior['phi_ref'],posterior['time_shift']))
-            ext_labels = [r'$\psi  [{\rm rad}]$', r'$\phi_{ref} [{\rm rad}]$', r'$t_0 [{\rm s}]$']
-        except Exception:
-            ext_matrix = np.column_stack((posterior['psi'],posterior['time_shift']))
-            ext_labels = [r'$\psi  [{\rm rad}]$', r'$t_0  [{\rm s}]$']
-        make_corner_plot(ext_matrix,ext_labels,ppdir+'/external_posterior.png')
+            logger.info("... plotting external parameters ...")
+            try:
+                ext_matrix = np.column_stack((posterior['psi'],posterior['phi_ref'],posterior['time_shift']))
+                ext_labels = [r'$\psi  [{\rm rad}]$', r'$\phi_{ref} [{\rm rad}]$', r'$t_0 [{\rm s}]$']
+            except Exception:
+                ext_matrix = np.column_stack((posterior['psi'],posterior['time_shift']))
+                ext_labels = [r'$\psi  [{\rm rad}]$', r'$t_0  [{\rm s}]$']
+            make_corner_plot(ext_matrix,ext_labels,ppdir+'/external_posterior.png')
 
-    except Exception:
-        logger.info("External parameters plot failed.")
+        except Exception:
+            logger.info("External parameters plot failed.")
+    else:        
+        logger.info("External parameters were fixed. Skipping external corner.")
 
 
 def make_histograms(posterior_samples, names, outdir):
