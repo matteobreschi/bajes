@@ -54,46 +54,59 @@ def make_corner_plot(matrix, labels, outputname):
     except Exception:
         logger.warning("Unable to produce corner plots, corner is not available. Please install corner.")
 
-def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
+def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
 
     # masses
-    try:
-        logger.info("... plotting masses ...")
-        mchirp_post   = posterior['mchirp']
-        q_post      = posterior['q']
+    if not (('mtot' in priors.const) or ('mchirp' in priors.const) or ('q' in priors.const)):
+        try:
+            logger.info("... plotting masses ...")
 
-        nu_post     = q_post/((1+q_post)*(1+q_post))
-        mtot_post   = mchirp_post/np.power(np.abs(nu_post),3./5.)
+            q_post  = posterior['q']
+            nu_post = q_post/((1+q_post)*(1+q_post))
+            if('mtot' in priors.names):
+                mtot_post    = posterior['mtot']
+                mtotq_matrix = np.column_stack((mtot_post, q_post))
+                mtotq_labels = [r'$M_{tot} [{\rm M}_\odot]$',r'$q=m_1/m_2$']
+                make_corner_plot(mtotq_matrix,  mtotq_labels, ppdir+'/mtotq_posterior.png')
+            else:
+                mchirp_post = posterior['mchirp']                           
+                mcq_matrix  = np.column_stack((mchirp_post, q_post))
+                mcq_labels  = [r'$M_{chirp} [{\rm M}_\odot]$',r'$q=m_1/m_2$']
+                make_corner_plot(mcq_matrix,  mcq_labels, ppdir+'/mcq_posterior.png')
 
-        m1_post     = mtot_post/(1.+1./q_post)
-        m2_post     = mtot_post/(1.+q_post)
+                mtot_post   = mchirp_post/np.power(np.abs(nu_post),3./5.)
 
-        m1m2_matrix = np.column_stack((m1_post,m2_post))
-        mcq_matrix  = np.column_stack((mchirp_post,q_post))
-
-        m1m2_labels = [r'$m_1 [{\rm M}_\odot]$',r'$m_2 [{\rm M}_\odot]$']
-        mcq_labels  = [r'$M_{chirp} [{\rm M}_\odot]$',r'$q=m_1/m_2$']
-
-        make_corner_plot(m1m2_matrix,m1m2_labels,ppdir+'/m1m2_posterior.png')
-        make_corner_plot(mcq_matrix,mcq_labels,ppdir+'/mcq_posterior.png')
-    except(KeyError, ValueError):
-        pass
+            m1_post     = mtot_post/(1.+1./q_post)
+            m2_post     = mtot_post/(1.+q_post)
+            m1m2_matrix = np.column_stack((m1_post,m2_post))
+            m1m2_labels = [r'$m_1 [{\rm M}_\odot]$',r'$m_2 [{\rm M}_\odot]$']
+            make_corner_plot(m1m2_matrix, m1m2_labels,ppdir+'/m1m2_posterior.png')
+            
+        except(KeyError, ValueError):
+            logger.info("Masses plot failed.")
+    else:
+        logger.info("Mass parameters were fixed. Skipping masses corner.")
 
     # spins
     if('align' in spin_flag):
-        logger.info("... plotting spins ...")
+        if not (('s1z' in priors.const) or ('s2z' in priors.const)):
 
-        spin_matrix = np.column_stack((posterior['s1z'],posterior['s2z']))
-        spin_labels = [r'$s_{1,z}$',r'$s_{2,z}$']
-        make_corner_plot(spin_matrix,spin_labels,ppdir+'/spins_posterior.png')
+            logger.info("... plotting spins ...")
 
-        try:
-            chieff_post = (m1_post * posterior['s1z'] + m2_post * posterior['s2z'])/mtot_post
-            chiq_matrix = np.column_stack((chieff_post,q_post))
-            chiq_labels = [r'$\chi_{eff}$',r'$q=m_1/m_2$']
-            make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.png')
-        except Exception:
-            pass
+            spin_matrix = np.column_stack((posterior['s1z'],posterior['s2z']))
+            spin_labels = [r'$s_{1,z}$',r'$s_{2,z}$']
+            make_corner_plot(spin_matrix,spin_labels,ppdir+'/spins_posterior.png')
+
+            try:
+                chieff_post = (m1_post * posterior['s1z'] + m2_post * posterior['s2z'])/mtot_post
+                chiq_matrix = np.column_stack((chieff_post,q_post))
+                chiq_labels = [r'$\chi_{eff}$',r'$q=m_1/m_2$']
+                make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.png')
+            except Exception:
+                logger.info("Aligned spins plot failed.")
+        else:
+            logger.info("Aligned spins parameters were fixed. Skipping aligned spins corner.")
+
 
     elif('precess' in spin_flag):
 
@@ -112,7 +125,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
             chiq_labels = [r'$\chi_{eff}$',r'$q=m_1/m_2$']
             make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.png')
         except Exception:
-            pass
+            logger.info("Precessing spins chi_eff-q plot failed.")
 
         try:
             from bajes.obs.gw.utils import compute_chi_prec
@@ -123,7 +136,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
             chiq_labels = [r'$\chi_{eff}$',r'$\chi_p$']
             make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chis_posterior.png')
         except Exception:
-            pass
+            logger.info("Precessing spins chi_eff-chip plot failed.")
 
     elif('no-spins' in spin_flag):
         logger.info("No spins option selected. Skipping spin plots.")
@@ -147,7 +160,8 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
             tide2_labels = [r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
             make_corner_plot(tide2_matrix,tide2_labels,ppdir+'/lambdat_posterior.png')
         except Exception:
-            pass
+            logger.info("BNS-tides plot failed.")
+
 
     elif(lambda_flag == 'bhns-tides' or lambda_flag == 'nsbh-tides'):
 
@@ -179,7 +193,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.png')
 
     elif('no-tides' in lambda_flag):
-        logger.info("No spins option selected. Skipping tides plots.")
+        logger.info("No tides option selected. Skipping tides plots.")
 
     else:
         logger.warning("Unknown tides option selected. Skipping tides plots.")
@@ -191,7 +205,8 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         skyloc_labels = [r'$\alpha [{\rm rad}]$', r'$\delta [{\rm rad}]$']
         make_corner_plot(skyloc_matrix,skyloc_labels,ppdir+'/skyloc_posterior.png')
     except Exception:
-        pass
+        logger.info("Sky position plot failed.")
+
 
     # distance - inclination
     try:
@@ -201,7 +216,8 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         distiot_labels = [r'$D_L [{\rm Mpc}]$', r'$\iota [{\rm rad}]$']
         make_corner_plot(distiot_matrix,distiot_labels,ppdir+'/distance_posterior.png')
     except Exception:
-        pass
+        logger.info("Distance-inclination plot failed.")
+
 
     # other
     try:
@@ -215,7 +231,8 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         make_corner_plot(ext_matrix,ext_labels,ppdir+'/external_posterior.png')
 
     except Exception:
-        pass
+        logger.info("External parameters plot failed.")
+
 
 def make_histograms(posterior_samples, names, outdir):
     
@@ -452,7 +469,7 @@ if __name__ == "__main__":
     logger.info("Producing corners...")
     corner_dir = os.path.join(ppdir, 'corner')
     ensure_dir(corner_dir)
-    make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, corner_dir)
+    make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, corner_dir, priors)
 
     if not(opts.M_tot==None):
         if(opts.M_tot=='posterior'):
