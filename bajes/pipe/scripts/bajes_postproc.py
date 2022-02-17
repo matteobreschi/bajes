@@ -229,19 +229,29 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
     if not (('psi' in priors.const) or ('phi_ref' in priors.const) or ('time_shift' in priors.const)):
         try:
             logger.info("... plotting external parameters ...")
-            try:
+            if('phi_ref' in priors.names):
                 ext_matrix = np.column_stack((posterior['psi'],posterior['phi_ref'],posterior['time_shift']))
                 ext_labels = [r'$\psi  [{\rm rad}]$', r'$\phi_{ref} [{\rm rad}]$', r'$t_0 [{\rm s}]$']
-            except Exception:
+            else:
                 ext_matrix = np.column_stack((posterior['psi'],posterior['time_shift']))
                 ext_labels = [r'$\psi  [{\rm rad}]$', r'$t_0  [{\rm s}]$']
             make_corner_plot(ext_matrix,ext_labels,ppdir+'/external_posterior.png')
-
         except Exception:
             logger.info("External parameters plot failed.")
     else:        
         logger.info("External parameters were fixed. Skipping external corner.")
 
+    # other
+    if not (('energy' in priors.const) or ('angmom' in priors.const)):
+        try:
+            logger.info("... plotting hyperbolic parameters ...")
+            ext_matrix = np.column_stack((posterior['energy'], posterior['angmom']))
+            ext_labels = [r'$E_0/M$', r'$p_{\phi}^0$']
+            make_corner_plot(ext_matrix,ext_labels,ppdir+'/hyperbolic_posterior.png')
+        except Exception:
+            logger.info("Hyperbolic parameters plot failed.")
+    else:        
+        logger.info("Hyperbolic parameters were fixed. Skipping hyperbolic corner.")
 
 def make_histograms(posterior_samples, names, outdir):
     
