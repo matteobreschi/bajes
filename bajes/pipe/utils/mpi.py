@@ -60,7 +60,7 @@ class MPIPool(object):
         self.comm       = comm
         self.master     = master
         self.rank       = self.comm.Get_rank()
-        self._processes = int(elf.comm.size)
+        self._processes = int(self.comm.size)
         self.parallel_comms = parallel_comms
 
         self.workers    = set(range(comm.size))
