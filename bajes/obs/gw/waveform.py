@@ -42,37 +42,35 @@ def centering_tdwave(hp, hc, seglen, srate, alpha_tukey = 0.1):
 
     if len(h) == lenFin and imax == lenFin//2:
         # if waveform is already centered with the correct length, return input + window
-        hp, wfact = windowing(hp, alpha_tukey)
-        hc, wfact = windowing(hc, alpha_tukey)
+        nlag = 0
     elif len(h) == lenFin:
         # if waveform has the correct length, return centering + window
         nlag = lenFin//2 - imax
-        hp, wfact = windowing(lagging(hp,nlag), alpha_tukey)
-        hc, wfact = windowing(lagging(hc,nlag), alpha_tukey)
     else:
         if len(h) < lenFin:
-            # shorter waveform: add tail, fill with zeros, windowing, centering
+            # shorter waveform: add tail, fill with zeros
             # tailing, if needed
             if hp[0] != 0 or hc[0] != 0:
                 hp, hc  = tailing(hp, hc, srate, min(int(lenFin*alpha_tukey), lenFin-len(h)))
             # filling with zeros
             ldiff   = lenFin-len(hp)
             hp, hc  = np.append(np.zeros(ldiff), hp), np.append(np.zeros(ldiff), hc)
-            # windowing + centering
+            # centering
             imax    = np.argmax(np.abs(hp - 1j*hc))
             nlag    = lenFin//2 - imax
-            hp, wfact = windowing(lagging(hp,nlag), alpha_tukey)
-            hc, wfact = windowing(lagging(hc,nlag), alpha_tukey)
         else:
-            # longer waveform: cut tail,  windowing, centering
+            # longer waveform: cut tail
             # cutting
             ldiff   = len(hp)-lenFin
             hp, hc  = hp[ldiff:], hc[ldiff:]
-            # windowing + centering
+            # centering
             imax    -= ldiff
             nlag    = lenFin//2 - imax
-            hp, wfact = windowing(lagging(hp,nlag), alpha_tukey)
-            hc, wfact = windowing(lagging(hc,nlag), alpha_tukey)
+
+    # lagging + windowing
+    hp, wfact = windowing(lagging(hp,nlag), alpha_tukey)
+    hc, wfact = windowing(lagging(hc,nlag), alpha_tukey)
+
     return hp, hc
 
 class Waveform(object):
