@@ -23,6 +23,10 @@ def initialize_gwlikelihood_kwargs(opts):
         logger.error("Number of IFOs does not match the number of ASDs. Please give in input the same number of arguments in the respective order.")
         raise ValueError("Number of IFOs does not match the number of ASDs. Please give in input the same number of arguments in the respective order.")
 
+    if (opts.f_min is None) or (opts.f_max is None) or (opts.srate is None) or (opts.seglen is None):
+        logger.error("f-min, f-max, srate and seglen cannot be None. Please provide a value for all these parameters.")
+        raise ValueError("f-min, f-max, srate and seglen cannot be None. Please provide a value for all these parameters.")
+
     if opts.f_max > opts.srate/2.:
         logger.error("Requested f_max greater than f_Nyquist=sampling_rate/2, which will induce information loss, see https://en.wikipedia.org/wiki/Nyquist–Shannon_sampling_theorem. Please use f_max <= f_Nyquist.")
         raise ValueError("Requested f_max greater than f_Nyquist=sampling_rate/2, which will induce information loss, see https://en.wikipedia.org/wiki/Nyquist–Shannon_sampling_theorem. Please use f_max <= f_Nyquist.")
@@ -54,6 +58,12 @@ def initialize_gwlikelihood_kwargs(opts):
         ifo         = opts.ifos[i]
         data        = read_data(opts.data_flag, opts.strains[i], opts.srate)
         f_asd , asd = read_asd(opts.asds[i], ifo)
+
+        # check ASD domain
+        f_asd_min, f_asd_max = np.min(f_asd), np.max(f_asd)
+        if (opts.f_min < f_asd_min) or (opts.f_max > f_asd_max):
+            logger.error("The provided ASD for the {} IFO does not have support over the full requested [f-min, f-max] = [{}, {}] range. While, the ASD has [{}, {}]".format(ifo, opts.f_min, opts.f_max, f_asd_min, f_asd_max))
+            raise ValueError("The provided ASD for the {} IFO does not have support over the full requested [f-min, f-max] = [{}, {}] range. While, the ASD has [{}, {}]".format(ifo, opts.f_min, opts.f_max, f_asd_min, f_asd_max))
 
         if opts.binning:
             # if frequency binning is on, the frequency series does not need to be cut

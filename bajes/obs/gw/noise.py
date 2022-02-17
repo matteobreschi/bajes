@@ -99,8 +99,8 @@ class Noise(object):
 
         from scipy.interpolate import interp1d
 
-        self.freqs          = freqs[_i]
-        self.df             = np.median(np.diff(self.freqs))
+        self.freqs = freqs[_i]
+        self.df    = np.median(np.diff(self.freqs))
 
         if f_max == None:
             self.f_max = np.max(self.freqs)

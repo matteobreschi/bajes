@@ -317,23 +317,23 @@ def parse_core_options():
     parser.add_option('--ifo',               dest='ifos',           default=[],        type='string',  action="append",      help='Detector to be considered in the analysis. Has to be passed once per detector, and sets the order for similar commands to pass strains and psds. Available options: [H1, L1, V1, K1, G1]. Default: []')
     parser.add_option('--strain',            dest='strains',        default=[],        type='string',  action="append",      help='Path to strain data. Has to be passed once per detector and in the same order as the `--ifo` options. Default: []')
     parser.add_option('--asd',               dest='asds',           default=[],        type='string',  action="append",      help='Path to ASD data. Has to be passed once per detector and in the same order as the `--ifo` options. Default: []')
+    parser.add_option('--alpha',             dest='alpha',          default=None,      type='float',                         help='Alpha parameter of the Tukey window. Default: 0.4/seglen.')
 
     # Optional, calibration envelopes
     parser.add_option('--spcal',             dest='spcals',         default=[],        type='string',  action="append",      help='Path to calibration envelope. Has to be passed once per detector and in the same order as the `--ifo` options. Default: []')
     parser.add_option('--nspcal',            dest='nspcal',         default=0,         type='int',                           help='Number of spectral calibration nodes. Default: 0')
 
     # Time series information
-    parser.add_option('--f-min',             dest='f_min',          default=None,      type='float',                         help='Minimum frequency at which likelihood is evaluated [Hz]. Default: ???')
-    parser.add_option('--f-max',             dest='f_max',          default=None,      type='float',                         help='Maximum frequency at which likelihood is evaluated [Hz]. Default: ???')
-    parser.add_option('--srate',             dest='srate',          default=None,      type='float',                         help='Requested sampling rate [Hz]. If smaller than data samppling rate, downsampling is applied. Default: ???')
-    parser.add_option('--seglen',            dest='seglen',         default=None,      type='float',                         help='Requested length of the segment to be analysed [sec]. If smaller than data total lenght, data are cropped. If longer, data are padded. Default: data total lenght. Default: ???')
-    parser.add_option('--lmax',              dest='lmax',           default=0,         type='int',                           help='Higher angular mode index to be considered for GW template. Default: 0')
-    parser.add_option('--alpha',             dest='alpha',          default=None,      type='float',                         help='Alpha parameter of the Tukey window. Default: 0.4/seglen.')
+    parser.add_option('--f-min',             dest='f_min',          default=None,      type='float',                         help='Mandatory parameter: minimum frequency at which likelihood is evaluated [Hz]. Default: None')
+    parser.add_option('--f-max',             dest='f_max',          default=None,      type='float',                         help='Mandatory parameter: maximum frequency at which likelihood is evaluated [Hz]. Default: None')
+    parser.add_option('--srate',             dest='srate',          default=None,      type='float',                         help='Mandatory parameter: requested sampling rate [Hz]. If smaller than data samppling rate, downsampling is applied. Default: None')
+    parser.add_option('--seglen',            dest='seglen',         default=None,      type='float',                         help='Mandatory parameter: requested length of the segment to be analysed [sec]. If smaller than data total lenght, data are cropped. If longer, data are padded. Default: None.')
 
     # Waveform model
     parser.add_option('--approx',            dest='approx',         default=None,      type='string',                        help='Gravitational-wave approximant. Default: None')
     parser.add_option('--extra-option',      dest='extra_opt',      default=[],        type='string',  action="append",      help='Names of the additional parameters for the chosen approximant. Has to be passed once for each parameter. Default: []')
     parser.add_option('--extra-option-val',  dest='extra_opt_val',  default=[],        type='int',     action="append",      help='Values of the additional parameters for the chosen approximant. Has to be passed once for each parameter and in the same order as the `--extra-option` option. Default: []')
+    parser.add_option('--lmax',              dest='lmax',           default=0,         type='int',                           help='Higher angular mode index to be considered for GW template. Default: 0')
 
     # Prior flags
     parser.add_option('--data-flag',         dest='data_flag',      default=None,       type='string',                       help='Data flag. Available options: [???]. Default: None')

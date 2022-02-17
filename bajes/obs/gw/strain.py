@@ -250,8 +250,6 @@ class Series(object):
             self.t_gps      = t_gps
             self.f_Nyq      = self.srate/2.
             
-
-
             # temporary values
             raw_N           = len(series)
 

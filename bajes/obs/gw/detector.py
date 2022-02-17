@@ -407,9 +407,13 @@ class Detector(object):
         elif tag == 'freq':
             raise RuntimeError("time-domain projection not already implemented for frequency-domain waveforms")
 
-    def store_measurement(self, series, noise,
-                          nspcal=0, spcal_freqs=None,
-                          nweights=0, len_weights=None):
+    def store_measurement(self,
+                          series,
+                          noise,
+                          nspcal      = 0,
+                          spcal_freqs = None,
+                          nweights    = 0,
+                          len_weights = None):
         """
             Store observation in Detector
 
@@ -441,7 +445,7 @@ class Detector(object):
         self.spcal_freqs = spcal_freqs
 
         # set PSD weights
-        self.nweights   = nweights
+        self.nweights    = nweights
         self.len_weights = len_weights
 
         self._dd = (4./self.seglen) * np.sum(np.abs(self.data)**2./self.psd)
