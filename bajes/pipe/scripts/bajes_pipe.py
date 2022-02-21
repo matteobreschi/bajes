@@ -93,7 +93,7 @@ def write_executable(outdir, config, string1, string2, string3):
         if int(config['pipe']['mpi']):
 
             # set mpi_per_node
-            mpi_per_node =  int(ntasks/nnodes)
+            mpi_per_node =  int(ntasks)/int(nnodes)
 
             # get mpi
             if 'mpi-type' in list_keys_in_pipe:
