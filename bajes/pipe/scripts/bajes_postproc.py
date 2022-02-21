@@ -242,16 +242,23 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
         logger.info("External parameters were fixed. Skipping external corner.")
 
     # other
-    if not (('energy' in priors.const) or ('angmom' in priors.const)):
+    if(('energy' in priors.names) and ('angmom' in priors.names)):
         try:
             logger.info("... plotting hyperbolic parameters ...")
             ext_matrix = np.column_stack((posterior['energy'], posterior['angmom']))
             ext_labels = [r'$E_0/M$', r'$p_{\phi}^0$']
             make_corner_plot(ext_matrix,ext_labels,ppdir+'/hyperbolic_posterior.png')
+
+            if(('align' in spin_flag) and not('s1z' in priors.const) and not('s2z' in priors.const)):
+                logger.info("... plotting angular momentum parameters ...")
+                ext_matrix = np.column_stack((posterior['s1z'], posterior['s2z'], posterior['angmom']))
+                ext_labels = [r'$s_{1z}$', r'$s_{2z}$', r'$p_{\phi}^0$']
+                make_corner_plot(ext_matrix,ext_labels,ppdir+'/angular_momentum_posterior.png')
+
         except Exception:
             logger.info("Hyperbolic parameters plot failed.")
     else:        
-        logger.info("Hyperbolic parameters were fixed. Skipping hyperbolic corner.")
+        logger.info("Hyperbolic parameters were fixed or not included in the sampling. Skipping hyperbolic corner.")
 
 def make_histograms(posterior_samples, names, outdir):
     
