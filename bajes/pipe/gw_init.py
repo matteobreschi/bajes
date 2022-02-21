@@ -10,26 +10,31 @@ from .utils import *
 
 def initialize_gwlikelihood_kwargs(opts):
 
-    from ..obs.gw.noise import Noise
-    from ..obs.gw.strain import Series
+    from ..obs.gw.noise    import Noise
+    from ..obs.gw.strain   import Series
     from ..obs.gw.detector import Detector
-    from ..obs.gw.utils import read_data, read_asd, read_spcal
+    from ..obs.gw.utils    import read_data, read_asd, read_spcal
 
-    # initial check
+    # initial checks
     if len(opts.ifos) != len(opts.strains):
         logger.error("Number of IFOs {} does not match the number of data {}. Please give in input the same number of arguments in the respective order.".format(len(opts.ifos), len(opts.strains)))
         raise ValueError("Number of IFOs {} does not match the number of data {}. Please give in input the same number of arguments in the respective order.".format(len(opts.ifos), len(opts.strains)))
     elif len(opts.ifos) != len(opts.asds):
         logger.error("Number of IFOs does not match the number of ASDs. Please give in input the same number of arguments in the respective order.")
         raise ValueError("Number of IFOs does not match the number of ASDs. Please give in input the same number of arguments in the respective order.")
+
+    if (opts.f_min is None) or (opts.f_max is None) or (opts.srate is None) or (opts.seglen is None):
+        logger.error("f-min, f-max, srate and seglen cannot be None. Please provide a value for all these parameters.")
+        raise ValueError("f-min, f-max, srate and seglen cannot be None. Please provide a value for all these parameters.")
+
     if opts.f_max > opts.srate/2.:
-        logger.error("Requested f_max greater than f_Nyquist, outside of the Fourier domain. Please use f_max <= f_Nyq.")
-        raise ValueError("Requested f_max greater than f_Nyquist, outside of the Fourier domain. Please use f_max <= f_Nyq.")
+        logger.error("Requested f_max greater than f_Nyquist=sampling_rate/2, which will induce information loss, see https://en.wikipedia.org/wiki/Nyquist–Shannon_sampling_theorem. Please use f_max <= f_Nyquist.")
+        raise ValueError("Requested f_max greater than f_Nyquist=sampling_rate/2, which will induce information loss, see https://en.wikipedia.org/wiki/Nyquist–Shannon_sampling_theorem. Please use f_max <= f_Nyquist.")
     if opts.time_shift_min == None:
         opts.time_shift_min = -opts.time_shift_max
 
     # initialise dictionaries for detectors, noises, data, etc
-    strains   = {}
+    strains = {}
     dets    = {}
     noises  = {}
     spcals  = {}
@@ -51,19 +56,37 @@ def initialize_gwlikelihood_kwargs(opts):
     for i,ifo in enumerate(opts.ifos):
         # read data
         ifo         = opts.ifos[i]
-        data        = read_data(opts.data_flag , opts.strains[i])
+        data        = read_data(opts.data_flag, opts.strains[i], opts.srate)
         f_asd , asd = read_asd(opts.asds[i], ifo)
+
+        # check ASD domain
+        f_asd_min, f_asd_max = np.min(f_asd), np.max(f_asd)
+        if (opts.f_min < f_asd_min) or (opts.f_max > f_asd_max):
+            logger.error("The provided ASD for the {} IFO does not have support over the full requested [f-min, f-max] = [{}, {}] range. While, the ASD has [{}, {}]".format(ifo, opts.f_min, opts.f_max, f_asd_min, f_asd_max))
+            raise ValueError("The provided ASD for the {} IFO does not have support over the full requested [f-min, f-max] = [{}, {}] range. While, the ASD has [{}, {}]".format(ifo, opts.f_min, opts.f_max, f_asd_min, f_asd_max))
 
         if opts.binning:
             # if frequency binning is on, the frequency series does not need to be cut
-            strains[ifo]      = Series('time' , data ,
-                                       srate=opts.srate, seglen=opts.seglen, f_min=opts.f_min, f_max=opts.f_max, t_gps=opts.t_gps,
-                                       only=False, alpha_taper=opts.alpha)
+            strains[ifo]      = Series('time' ,
+                                       data ,
+                                       srate=opts.srate,
+                                       seglen=opts.seglen,
+                                       f_min=opts.f_min,
+                                       f_max=opts.f_max,
+                                       t_gps=opts.t_gps,
+                                       only=False,
+                                       alpha_taper=opts.alpha)
 
         else:
-            strains[ifo]      = Series('time' , data ,
-                                       srate=opts.srate, seglen=opts.seglen, f_min=opts.f_min, f_max=opts.f_max, t_gps=opts.t_gps,
-                                       only=False, alpha_taper=opts.alpha)
+            strains[ifo]      = Series('time' ,
+                                       data ,
+                                       srate=opts.srate,
+                                       seglen=opts.seglen,
+                                       f_min=opts.f_min,
+                                       f_max=opts.f_max,
+                                       t_gps=opts.t_gps,
+                                       only=False,
+                                       alpha_taper=opts.alpha)
 
         dets[ifo]       = Detector(ifo, t_gps=opts.t_gps)
         noises[ifo]     = Noise(f_asd, asd, f_max=opts.f_max)
@@ -699,7 +722,7 @@ def initialize_gwprior(ifos,
     # include NRPMw additional parameters
     if 'NRPMw' in approx:
         dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0., periodic=1)   # post-merger phase [rads]
-        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    max=2000, min=1)                        # time of collapse after merger [mass-rescaled geom. units]
+        dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    max=3000, min=1)                        # time of collapse after merger [mass-rescaled geom. units]
         dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-4, min=-1e-4)                    # f_2 slope [mass-rescaled geom. units]
 
     # include NRPMw recalibration parameters

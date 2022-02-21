@@ -99,8 +99,8 @@ class Noise(object):
 
         from scipy.interpolate import interp1d
 
-        self.freqs          = freqs[_i]
-        self.df             = np.median(np.diff(self.freqs))
+        self.freqs = freqs[_i]
+        self.df    = np.median(np.diff(self.freqs))
 
         if f_max == None:
             self.f_max = np.max(self.freqs)
@@ -144,10 +144,10 @@ class Noise(object):
 
         # obs: linear interpolation is performed,
         # because higher orders give ASD/PSD < 0 (and this may screw up everything)
-        self.psd_interp_func        = interp1d(self.freqs, self.power_spectrum)
-        self.asd_interp_func        = interp1d(self.freqs, self.amp_spectrum)
-        self.asd_interp_func_pad    = interp1d(self.freqs_pad, self.amp_spec_pad)
-        self.psd_interp_func_pad    = interp1d(self.freqs_pad, self.pow_spec_pad)
+        self.psd_interp_func        = interp1d(self.freqs,     self.power_spectrum, fill_value=np.inf, bounds_error=False)
+        self.asd_interp_func        = interp1d(self.freqs,     self.amp_spectrum,   fill_value=np.inf, bounds_error=False)
+        self.asd_interp_func_pad    = interp1d(self.freqs_pad, self.amp_spec_pad,   fill_value=np.inf, bounds_error=False)
+        self.psd_interp_func_pad    = interp1d(self.freqs_pad, self.pow_spec_pad,   fill_value=np.inf, bounds_error=False)
 
     def interp_psd(self, fr):
         asd = self.asd_interp_func(fr)

@@ -54,46 +54,58 @@ def make_corner_plot(matrix, labels, outputname):
     except Exception:
         logger.warning("Unable to produce corner plots, corner is not available. Please install corner.")
 
-def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
+def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
 
     # masses
-    try:
-        logger.info("... plotting masses ...")
-        mchirp_post   = posterior['mchirp']
-        q_post      = posterior['q']
+    if not (('mtot' in priors.const) or ('mchirp' in priors.const) or ('q' in priors.const)):
+        try:
+            logger.info("... plotting masses ...")
 
-        nu_post     = q_post/((1+q_post)*(1+q_post))
-        mtot_post   = mchirp_post/np.power(np.abs(nu_post),3./5.)
+            q_post  = posterior['q']
+            nu_post = q_post/((1+q_post)*(1+q_post))
+            if('mtot' in priors.names):
+                mtot_post    = posterior['mtot']
+                mtotq_matrix = np.column_stack((mtot_post, q_post))
+                mtotq_labels = [r'$M_{tot} [{\rm M}_\odot]$',r'$q=m_1/m_2$']
+                make_corner_plot(mtotq_matrix,  mtotq_labels, ppdir+'/mtotq_posterior.png')
+            else:
+                mchirp_post = posterior['mchirp']                           
+                mcq_matrix  = np.column_stack((mchirp_post, q_post))
+                mcq_labels  = [r'$M_{chirp} [{\rm M}_\odot]$',r'$q=m_1/m_2$']
+                make_corner_plot(mcq_matrix,  mcq_labels, ppdir+'/mcq_posterior.png')
 
-        m1_post     = mtot_post/(1.+1./q_post)
-        m2_post     = mtot_post/(1.+q_post)
+                mtot_post   = mchirp_post/np.power(np.abs(nu_post),3./5.)
 
-        m1m2_matrix = np.column_stack((m1_post,m2_post))
-        mcq_matrix  = np.column_stack((mchirp_post,q_post))
-
-        m1m2_labels = [r'$m_1 [{\rm M}_\odot]$',r'$m_2 [{\rm M}_\odot]$']
-        mcq_labels  = [r'$M_{chirp} [{\rm M}_\odot]$',r'$q=m_1/m_2$']
-
-        make_corner_plot(m1m2_matrix,m1m2_labels,ppdir+'/m1m2_posterior.png')
-        make_corner_plot(mcq_matrix,mcq_labels,ppdir+'/mcq_posterior.png')
-    except(KeyError, ValueError):
-        pass
+            m1_post     = mtot_post/(1.+1./q_post)
+            m2_post     = mtot_post/(1.+q_post)
+            m1m2_matrix = np.column_stack((m1_post,m2_post))
+            m1m2_labels = [r'$m_1 [{\rm M}_\odot]$',r'$m_2 [{\rm M}_\odot]$']
+            make_corner_plot(m1m2_matrix, m1m2_labels,ppdir+'/m1m2_posterior.png')
+            
+        except(KeyError, ValueError):
+            logger.info("Masses plot failed.")
+    else:
+        logger.info("Mass parameters were fixed. Skipping masses corner.")
 
     # spins
     if('align' in spin_flag):
-        logger.info("... plotting spins ...")
+        if not (('s1z' in priors.const) or ('s2z' in priors.const)):
 
-        spin_matrix = np.column_stack((posterior['s1z'],posterior['s2z']))
-        spin_labels = [r'$s_{1,z}$',r'$s_{2,z}$']
-        make_corner_plot(spin_matrix,spin_labels,ppdir+'/spins_posterior.png')
+            logger.info("... plotting spins ...")
 
-        try:
-            chieff_post = (m1_post * posterior['s1z'] + m2_post * posterior['s2z'])/mtot_post
-            chiq_matrix = np.column_stack((chieff_post,q_post))
-            chiq_labels = [r'$\chi_{eff}$',r'$q=m_1/m_2$']
-            make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.png')
-        except Exception:
-            pass
+            spin_matrix = np.column_stack((posterior['s1z'],posterior['s2z']))
+            spin_labels = [r'$s_{1,z}$',r'$s_{2,z}$']
+            make_corner_plot(spin_matrix,spin_labels,ppdir+'/spins_posterior.png')
+
+            try:
+                chieff_post = (m1_post * posterior['s1z'] + m2_post * posterior['s2z'])/mtot_post
+                chiq_matrix = np.column_stack((chieff_post,q_post))
+                chiq_labels = [r'$\chi_{eff}$',r'$q=m_1/m_2$']
+                make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.png')
+            except Exception:
+                logger.info("Aligned spins plot failed.")
+        else:
+            logger.info("Aligned spins parameters were fixed. Skipping aligned spins corner.")
 
     elif('precess' in spin_flag):
 
@@ -112,7 +124,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
             chiq_labels = [r'$\chi_{eff}$',r'$q=m_1/m_2$']
             make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.png')
         except Exception:
-            pass
+            logger.info("Precessing spins chi_eff-q plot failed.")
 
         try:
             from bajes.obs.gw.utils import compute_chi_prec
@@ -123,7 +135,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
             chiq_labels = [r'$\chi_{eff}$',r'$\chi_p$']
             make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chis_posterior.png')
         except Exception:
-            pass
+            logger.info("Precessing spins chi_eff-chip plot failed.")
 
     elif('no-spins' in spin_flag):
         logger.info("No spins option selected. Skipping spin plots.")
@@ -132,90 +144,121 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir):
         logger.warning("Unknown spins option selected. Skipping spin plots.")
 
     # tides
-    if(lambda_flag == 'bns-tides'):
-        logger.info("... plotting tides ...")
+    if not (('lambda1' in priors.const) or ('lambda2' in priors.const)):
 
-        tide1_matrix = np.column_stack((posterior['lambda1'],posterior['lambda2']))
-        tide1_labels = [r'$\Lambda_1$',r'$\Lambda_2$']
-        make_corner_plot(tide1_matrix,tide1_labels,ppdir+'/tides_posterior.png')
+        if(lambda_flag == 'bns-tides'):
+            logger.info("... plotting tides ...")
 
-        try:
-            lambdat_post = compute_lambda_tilde(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
-            dlambda_post = compute_delta_lambda(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
+            tide1_matrix = np.column_stack((posterior['lambda1'],posterior['lambda2']))
+            tide1_labels = [r'$\Lambda_1$',r'$\Lambda_2$']
+            make_corner_plot(tide1_matrix,tide1_labels,ppdir+'/tides_posterior.png')
 
-            tide2_matrix = np.column_stack((lambdat_post, dlambda_post))
-            tide2_labels = [r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
-            make_corner_plot(tide2_matrix,tide2_labels,ppdir+'/lambdat_posterior.png')
-        except Exception:
-            pass
+            try:
+                lambdat_post = compute_lambda_tilde(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
+                dlambda_post = compute_delta_lambda(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
 
-    elif(lambda_flag == 'bhns-tides' or lambda_flag == 'nsbh-tides'):
+                tide2_matrix = np.column_stack((lambdat_post, dlambda_post))
+                tide2_labels = [r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
+                make_corner_plot(tide2_matrix,tide2_labels,ppdir+'/lambdat_posterior.png')
+            except Exception:
+                logger.info("BNS-tides plot failed.")
 
-        if(lambda_flag == 'nsbh-tides'): 
-            logger.warning("The 'nsbh-tides' string for the 'tidal-flag' option is deprecated and will be removed in a future release. Please use the 'nsbh-tides' string.")
+        elif(lambda_flag == 'bhns-tides' or lambda_flag == 'nsbh-tides'):
 
-        logger.info("... plotting tides ...")
-        try:
-            lambda1 = posterior['lambda1']
-            lambda2 = 0.
-            lambda_post = lambda1
-        except KeyError:
-            lambda1 = 0.
-            lambda2 = posterior['lambda2']
-            lambda_post = lambda2
+            if(lambda_flag == 'nsbh-tides'): 
+                logger.warning("The 'nsbh-tides' string for the 'tidal-flag' option is deprecated and will be removed in a future release. Please use the 'nsbh-tides' string.")
 
-        try:
-            lambdat_post = compute_lambda_tilde(m1_post,m2_post,lambda1,lambda2)
-            dlambda_post = compute_delta_lambda(m1_post,m2_post,lambda1,lambda2)
+            logger.info("... plotting tides ...")
+            try:
+                lambda1 = posterior['lambda1']
+                lambda2 = 0.
+                lambda_post = lambda1
+            except KeyError:
+                lambda1 = 0.
+                lambda2 = posterior['lambda2']
+                lambda_post = lambda2
 
-            tide_matrix = np.column_stack((lambda_post, lambdat_post,dlambda_post))
-            tide_labels = [r'$\Lambda_{NS}$',r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
+            try:
+                lambdat_post = compute_lambda_tilde(m1_post,m2_post,lambda1,lambda2)
+                dlambda_post = compute_delta_lambda(m1_post,m2_post,lambda1,lambda2)
 
-        except Exception:
+                tide_matrix = np.column_stack((lambda_post, lambdat_post,dlambda_post))
+                tide_labels = [r'$\Lambda_{NS}$',r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
 
-            tide_matrix = np.column_stack((lambda_post,np.zeros(len(lambda_post))))
-            tide_labels = [r'$\Lambda_{NS}$', r'$\Lambda_{BH}$']
+            except Exception:
 
-        make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.png')
+                tide_matrix = np.column_stack((lambda_post,np.zeros(len(lambda_post))))
+                tide_labels = [r'$\Lambda_{NS}$', r'$\Lambda_{BH}$']
 
-    elif('no-tides' in lambda_flag):
-        logger.info("No spins option selected. Skipping tides plots.")
+            make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.png')
 
-    else:
-        logger.warning("Unknown tides option selected. Skipping tides plots.")
+        elif('no-tides' in lambda_flag):
+            logger.info("No tides option selected. Skipping tides plots.")
+
+        else:
+            logger.warning("Unknown tides option selected. Skipping tides plots.")
+    else:        
+        logger.info("Tides parameters were fixed. Skipping tides corner.")
 
     # sky location
-    try:
-        logger.info("... plotting sky location ...")
-        skyloc_matrix = np.column_stack((posterior['ra'],posterior['dec']))
-        skyloc_labels = [r'$\alpha [{\rm rad}]$', r'$\delta [{\rm rad}]$']
-        make_corner_plot(skyloc_matrix,skyloc_labels,ppdir+'/skyloc_posterior.png')
-    except Exception:
-        pass
+    if not (('ra' in priors.const) or ('dec' in priors.const)):
+        try:
+            logger.info("... plotting sky location ...")
+            skyloc_matrix = np.column_stack((posterior['ra'],posterior['dec']))
+            skyloc_labels = [r'$\alpha [{\rm rad}]$', r'$\delta [{\rm rad}]$']
+            make_corner_plot(skyloc_matrix,skyloc_labels,ppdir+'/skyloc_posterior.png')
+        except Exception:
+            logger.info("Sky position plot failed.")
+    else:        
+        logger.info("Sky position parameters were fixed. Skipping sky position corner.")
 
     # distance - inclination
-    try:
-        logger.info("... plotting distance-iota ...")
-        iota_post = np.arccos(posterior['cosi'])
-        distiot_matrix = np.column_stack((posterior['distance'], iota_post))
-        distiot_labels = [r'$D_L [{\rm Mpc}]$', r'$\iota [{\rm rad}]$']
-        make_corner_plot(distiot_matrix,distiot_labels,ppdir+'/distance_posterior.png')
-    except Exception:
-        pass
+    if not (('distance' in priors.const) or ('cosi' in priors.const)):
+        try:
+            logger.info("... plotting distance-iota ...")
+            iota_post = np.arccos(posterior['cosi'])
+            distiot_matrix = np.column_stack((posterior['distance'], iota_post))
+            distiot_labels = [r'$D_L [{\rm Mpc}]$', r'$\iota [{\rm rad}]$']
+            make_corner_plot(distiot_matrix,distiot_labels,ppdir+'/distance_posterior.png')
+        except Exception:
+            logger.info("Distance-inclination plot failed.")
+    else:        
+        logger.info("Distance-inclination parameters were fixed. Skipping distance-inclination corner.")
 
     # other
-    try:
-        logger.info("... plotting external parameters ...")
+    if not (('psi' in priors.const) or ('phi_ref' in priors.const) or ('time_shift' in priors.const)):
         try:
-            ext_matrix = np.column_stack((posterior['psi'],posterior['phi_ref'],posterior['time_shift']))
-            ext_labels = [r'$\psi  [{\rm rad}]$', r'$\phi_{ref} [{\rm rad}]$', r'$t_0 [{\rm s}]$']
+            logger.info("... plotting external parameters ...")
+            if('phi_ref' in priors.names):
+                ext_matrix = np.column_stack((posterior['psi'],posterior['phi_ref'],posterior['time_shift']))
+                ext_labels = [r'$\psi  [{\rm rad}]$', r'$\phi_{ref} [{\rm rad}]$', r'$t_0 [{\rm s}]$']
+            else:
+                ext_matrix = np.column_stack((posterior['psi'],posterior['time_shift']))
+                ext_labels = [r'$\psi  [{\rm rad}]$', r'$t_0  [{\rm s}]$']
+            make_corner_plot(ext_matrix,ext_labels,ppdir+'/external_posterior.png')
         except Exception:
-            ext_matrix = np.column_stack((posterior['psi'],posterior['time_shift']))
-            ext_labels = [r'$\psi  [{\rm rad}]$', r'$t_0  [{\rm s}]$']
-        make_corner_plot(ext_matrix,ext_labels,ppdir+'/external_posterior.png')
+            logger.info("External parameters plot failed.")
+    else:        
+        logger.info("External parameters were fixed. Skipping external corner.")
 
-    except Exception:
-        pass
+    # other
+    if(('energy' in priors.names) and ('angmom' in priors.names)):
+        try:
+            logger.info("... plotting hyperbolic parameters ...")
+            ext_matrix = np.column_stack((posterior['energy'], posterior['angmom']))
+            ext_labels = [r'$E_0/M$', r'$p_{\phi}^0$']
+            make_corner_plot(ext_matrix,ext_labels,ppdir+'/hyperbolic_posterior.png')
+
+            if(('align' in spin_flag) and not('s1z' in priors.const) and not('s2z' in priors.const)):
+                logger.info("... plotting angular momentum parameters ...")
+                ext_matrix = np.column_stack((posterior['s1z'], posterior['s2z'], posterior['angmom']))
+                ext_labels = [r'$s_{1z}$', r'$s_{2z}$', r'$p_{\phi}^0$']
+                make_corner_plot(ext_matrix,ext_labels,ppdir+'/angular_momentum_posterior.png')
+
+        except Exception:
+            logger.info("Hyperbolic parameters plot failed.")
+    else:        
+        logger.info("Hyperbolic parameters were fixed or not included in the sampling. Skipping hyperbolic corner.")
 
 def make_histograms(posterior_samples, names, outdir):
     
@@ -280,7 +323,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
     w         = Waveform(freqs=freqs, srate=srate, seglen=seglen, approx=approx)
 
     for det in strains_dets.keys():
-
+        
         strains_dets[det]['s'] = container_gw.datas[det]
         strains_dets[det]['d'] = container_gw.dets[det]
         strains_dets[det]['n'] = container_gw.noises[det]
@@ -307,7 +350,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
     for j,k in enumerate(samples_list):
 
         # Every 100 steps, update the user on the status of the plot.
-        if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(posterior)))
+        if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(samples_list)))
 
         params = {name: posterior[name][k] for name in names}
         p      = {**params,**constants}
@@ -392,19 +435,21 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
             for i in range(len(strains_dets[det]['s'].times)):
                 wf_ci_fl.write("%.10f \t %.10f \t %.10f \t %.10f \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
             wf_ci_fl.close()
-            
-        if(whiten): plt.savefig(outdir +'/Reconstructed_waveform_whitened_zoom.pdf', bbox_inches='tight')
-        else:       plt.savefig(outdir +'/Reconstructed_waveform_zoom.pdf', bbox_inches='tight')
+        
+        if(whiten): plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_whitened_zoom.pdf'), bbox_inches='tight')
+        else:       plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_zoom.pdf'), bbox_inches='tight')
 
+        del(wfs, me, lo, hi, strains_dets)
 
 
 if __name__ == "__main__":
 
     parser=op.OptionParser()
-    parser.add_option('-p','--post',      dest='posterior',       default=None,           type='string',                        help="Posterior file to postprocess.")
-    parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the output directory.")
+    # Required options
+    parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the directory containing the output of the run.")
     
-    parser.add_option('--M-tot-estimate', dest='M_tot',           default=None,                                                 help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
+    # Optional options
+    parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
     parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=1000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 1000.")
     parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
     parser.add_option('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
@@ -413,7 +458,7 @@ if __name__ == "__main__":
     (opts,args) = parser.parse_args()
 
     if not(opts.outdir==None): outdir = opts.outdir
-    else: raise ValueError("The 'outdir' option is a mandatory parameter. Aborting.")
+    else: raise ValueError("The 'outdir' option is required. Aborting.")
     
     ppdir  = os.path.abspath(outdir+'/postproc')
     wf_dir = os.path.abspath(outdir+'/postproc/Waveform_reconstruction') 
@@ -426,28 +471,31 @@ if __name__ == "__main__":
     logger.info("Running bajes postprocessing:")
     logger.info("The reported uncertainties correpond to 90% credible regions.")
     logger.info("The contours of the corner plots represent 50%, 90% credible regions.")
-
-    if not(opts.posterior==None): posterior = np.genfromtxt(opts.posterior, names=True)
-    else: raise ValueError("The 'post' option is a mandatory parameter. Aborting.")
     
-    # extract prior object from pickle
-    if not(os.path.exists(outdir + '/run')): dc    = data_container(outdir + '/inf.pkl')
-    else:                                    dc    = data_container(outdir + 'run/inf.pkl')
-    if not(os.path.exists(outdir + '/run')): dc_gw = data_container(outdir + '/gw_obs.pkl')
-    else:                                    dc_gw = data_container(outdir + 'run/gw_obs.pkl')
+    run_dir_output = os.path.join(outdir, 'run')
+    # extract posterior and prior object from pickle
+    if not(os.path.exists(run_dir_output)): posterior = np.genfromtxt( os.path.join(outdir, 'posterior.dat'),     names=True)
+    else:                                   posterior = np.genfromtxt( os.path.join(outdir, 'run/posterior.dat'), names=True)
+    if not(os.path.exists(run_dir_output)): dc        = data_container(os.path.join(outdir, 'inf.pkl')                      )
+    else:                                   dc        = data_container(os.path.join(outdir, 'run/inf.pkl')                  )
+    if not(os.path.exists(run_dir_output)): dc_gw     = data_container(os.path.join(outdir, 'gw_obs.pkl')                   )
+    else:                                   dc_gw     = data_container(os.path.join(outdir, 'run/gw_obs.pkl')               )
     container_inf = dc.load()
     container_gw  = dc_gw.load()
     priors        = container_inf.prior
 
+    
     # produce histogram plots
     logger.info("Producing histograms...")
-    ensure_dir(ppdir+'/histgr')
-    make_histograms(posterior, priors.names, ppdir+'/histgr')
+    hist_dir = os.path.join(ppdir, 'histgr')
+    ensure_dir(hist_dir)
+    make_histograms(posterior, priors.names, hist_dir)
 
     # produce corner plots
     logger.info("Producing corners...")
-    ensure_dir(ppdir+'/corner')
-    make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, ppdir+'/corner')
+    corner_dir = os.path.join(ppdir, 'corner')
+    ensure_dir(corner_dir)
+    make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, corner_dir, priors)
 
     if not(opts.M_tot==None):
         if(opts.M_tot=='posterior'):
@@ -455,14 +503,14 @@ if __name__ == "__main__":
                 opts.M_tot = np.median(posterior['mtot'])
             elif('mtot' in priors.const):
                 opts.M_tot = priors.const['mtot']
-            elif(('mc' in priors.names) and ('q' in priors.names)):
-                opts.M_tot = mcq_to_m1(np.median(posterior['mc']), np.median(posterior['q'])) + mcq_to_m2(np.median(posterior['mc']), np.median(posterior['q']))
-            elif(('mc' in priors.names) and ('q' in priors.const)):
-                opts.M_tot = mcq_to_m1(np.median(posterior['mc']), priors.const['q']) + mcq_to_m2(np.median(posterior['mc']), priors.const['q'])
-            elif(('mc' in priors.const) and ('q' in priors.names)):
-                opts.M_tot = mcq_to_m1(priors.const['mc'], np.median(posterior['q'])) + mcq_to_m2(priors.const['mc'], np.median(posterior['q']))
-            elif(('mc' in priors.const) and ('q' in priors.const)):
-                opts.M_tot = mcq_to_m1(priors.const['mc'], priors.const['q']) + mcq_to_m2(priors.const['mc'], priors.const['q'])
+            elif(('mchirp' in priors.names) and ('q' in priors.names)):
+                opts.M_tot = mcq_to_m1(np.median(posterior['mchirp']), np.median(posterior['q'])) + mcq_to_m2(np.median(posterior['mchirp']), np.median(posterior['q']))
+            elif(('mchirp' in priors.names) and ('q' in priors.const)):
+                opts.M_tot = mcq_to_m1(np.median(posterior['mchirp']), priors.const['q']) + mcq_to_m2(np.median(posterior['mchirp']), priors.const['q'])
+            elif(('mchirp' in priors.const) and ('q' in priors.names)):
+                opts.M_tot = mcq_to_m1(priors.const['mchirp'], np.median(posterior['q'])) + mcq_to_m2(priors.const['mchirp'], np.median(posterior['q']))
+            elif(('mchirp' in priors.const) and ('q' in priors.const)):
+                opts.M_tot = mcq_to_m1(priors.const['mchirp'], priors.const['q']) + mcq_to_m2(priors.const['mchirp'], priors.const['q'])
             else:
                 logger.warning("Could not extract M_tot (either directly or through related mass parameters) from posterior or fixed parameters. Setting it to None and skipping zoomed plots.")
                 opts.M_tot = None
@@ -470,9 +518,9 @@ if __name__ == "__main__":
             opts.M_tot = float(opts.M_tot)
 
     # produce waveform plots
-    logger.info("Reconstructing whitened waveforms...")
-    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
     logger.info("Reconstructing waveforms...")
     reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+    logger.info("Reconstructing whitened waveforms...")
+    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
 
     logger.info("... done.")
