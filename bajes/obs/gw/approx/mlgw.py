@@ -29,14 +29,14 @@ class mlgw_bns_wrapper():
 
     def __init__(self, freqs, seglen, srate):
 
-        self.model = Model.default('')
+        self.model = Model.default()
         self.freqs = freqs
         self.srate = srate
         self.seglen = seglen
 
-    def __call__(self, params):
+    def __call__(self, freqs, params):
         bns_params = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
-        return self.model.predict(self.freqs, bns_params)
+        return self.model.predict(freqs, bns_params)
 
 class mlgw_wrapper(object):
 
