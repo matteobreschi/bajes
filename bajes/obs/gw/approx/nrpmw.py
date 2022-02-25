@@ -216,24 +216,41 @@ def _wavelet_func_smallalpha(freq, alpha, beta, eta, tau, nmax=4):
     x1      = np.conj(beta)-1j*TWOPI*freq
     return 0.5*np.conj(eta)*sum([_integral_xn_exp(ni, alpha_c, tau, x1) for ni in range(nmax+1)])
 
-def _wavelet_func_safe(freq, alpha, beta, eta, tau):
+def _fix_overflow_peak(freq, model, alpha, beta, delta_z):
+    # identify frequency range
+    fc      = np.abs(np.imag(beta))/TWOPI
+    df      = np.sqrt(delta_z)/TWOPI
+    iw      = np.where((freq>fc-df)&(freq<fc+df))[0]
+    if len(iw)>0:
+        imin    = max(np.min(iw)-1, 0)
+        imax    = min(np.max(iw)+1, len(freq)-1)
+        # set first good values
+        fs      = np.array([freq[imin],freq[imax]])
+        ms      = np.array([model[imin],model[imax]])
+        # interpolate
+        model[iw] = np.interp(freq[iw], fs, np.abs(ms)) * np.exp(1j * np.interp(freq[iw], fs, np.angle(ms)))
+    return model
+
+def _wavelet_func_safe(freq, alpha, beta, eta, tau, delta_z = None):
     """
         Compute Gaussian wavelet
         Safe exit when error is catched
     """
-    alpha_c = np.conj(alpha)
-    x1      = np.conj(beta)-1j*TWOPI*freq
-    # auxiliary
-    absx1   = np.abs(x1)
-    abtau   = np.abs(tau)
-    # bound |x1*tau| < 500 in order to avoid overflows
-    iov     = np.where(absx1*abtau>500)
-    x1[iov] = (500./abtau)*np.angle(x1[iov])
-    # remove zeros
-    izr     = np.where(absx1<1e-200)
-    x1[izr] = 1e-200*np.angle(x1[izr])
-    # return _wavelet_func_smallalpha with nmax=1
-    return 0.5*np.conj(eta)*sum([_integral_xn_exp(ni, alpha_c, tau, x1) for ni in range(2)])
+    with np.errstate(all='ignore'):
+        alpha_c = np.conj(alpha)
+        x1      = np.conj(beta)-1j*TWOPI*freq
+        # auxiliary
+        absx1   = np.abs(x1)
+        abtau   = np.abs(tau)
+        # bound |x1*tau| < 500 in order to avoid overflows
+        iov     = np.where(absx1*abtau>500)
+        x1[iov] = (500./abtau)*np.angle(x1[iov])
+        # compute _wavelet_func_smallalpha with nmax=1
+        out = 0.5*np.conj(eta)*sum([_integral_xn_exp(ni, alpha_c, tau, x1) for ni in range(2)])
+        # check erroneous peak
+        if delta_z is None: delta_z = 4*np.abs(alpha) - np.real(beta)**2
+        if delta_z > 0. : out = _fix_overflow_peak(freq, out, alpha, beta, delta_z)
+    return _sanity_check(out)
 
 def _wavelet_func_rea(freq, alpha, beta, eta, tau):
     """
@@ -302,27 +319,27 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
     # set approximation scales
     at2        = alpha*tau**2.
     ab_at2     = np.abs(alpha*tau**2.)
+    z_d        = 4*np.abs(alpha)-np.real(beta)**2
     # activate raising errors
-    with np.errstate(all='raise'):
+    with np.errstate(divide='raise', over='raise', under='ignore', invalid='raise'):
         try:
             # switch between approximations
-            if ab_at2<1e-2 or -10.*ab_at2 > np.real(beta)*tau:
+            if (ab_at2<1e-12) or (-10.*ab_at2>np.real(beta)*tau):
                 # exponential case, alpha = 0
                 model   = _wavelet_func_exponential(freq, beta, eta, tsign*tau)
-            elif ab_at2<0.25:
-                # gaussian case, |alpha| < 1
+            elif (ab_at2<0.15) or (z_d<0):
+                # gaussian case, |z| < 1
                 model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau)
-            elif np.real(alpha)==0 and -np.abs(np.imag(at2)) > np.real(beta)*tau :
-                # gaussian case, Re(alpha) = 0 and Re(beta) << 0
-                model   = _wavelet_func_smallalpha(freq, alpha, beta, eta, tsign*tau, nmax=min(10,2*(1+int(np.abs(np.imag(at2))))))
             elif np.real(alpha)==0:
                 # gaussian case, Re(alpha) = 0
                 model   = _wavelet_func_rea(freq, alpha, beta, eta, tsign*tau)
             else:
                 # gaussian case, general
                 model   = _wavelet_func_generic(freq, alpha, beta, eta, tsign*tau)
+            # catch numerical errors
+            if any(np.abs(model)>1e32): raise
         except Exception:
-            model   = _wavelet_func_safe(freq, alpha, beta, eta, tsign*tau)
+            model   = _wavelet_func_safe(freq, alpha, beta, eta, tsign*tau, delta_z = z_d)
     return model * np.exp(-1j*TWOPI*freq*tshift)
 
 def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=8):
@@ -367,13 +384,12 @@ def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, P
         nmax        = min(max(1,int(2.*(1.+np.abs(Delta/Omega)))),nthr)
 
         # compute FM corrections
-        h0  = (h0 + sum([(d**n/factorial(n))*sum([binom(n,k)*((-np.conj(nu))**k)*((nu)**(n-k))*_wavelet_func(freq,
-                                                                                                             eta*np.exp(-1j*Phi*(n-2*k)),
-                                                                                                             alpha,
-                                                                                                             beta-n*Gamma-1j*Omega*(n-2*k),
-                                                                                                             tau, tshift)
-                                                        for k in range(n+1)])
-                            for n in range(1,nmax+1)]))*phi_extra
+        h0  = (h0 + sum([(d**n/factorial(n))*binom(n,k)*((-np.conj(nu))**k)*((nu)**(n-k))*_wavelet_func(freq,
+                                                                                                        eta*np.exp(-1j*Phi*(n-2*k)),
+                                                                                                        alpha,
+                                                                                                        beta-n*Gamma-1j*Omega*(n-2*k),
+                                                                                                        tau, tshift)
+                         for n in range(1,nmax+1) for k in range(n+1) ]))*phi_extra
 
     return h0
 
