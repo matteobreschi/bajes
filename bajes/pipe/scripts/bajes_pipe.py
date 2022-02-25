@@ -99,6 +99,7 @@ def write_executable(outdir, config, string1, string2, string3):
             if 'mpi-type' in list_keys_in_pipe:
                 which_mpi = config['pipe']['mpi-type']
             else:
+                logger.warning("Process management interface not specified, using PMI-2.")
                 which_mpi = 'pmi2'
 
             # set up core string
@@ -126,6 +127,7 @@ def write_executable(outdir, config, string1, string2, string3):
         if 'mem-per-cpu' in list_keys_in_pipe:
             execfile.write('#SBATCH --mem-per-cpu={}'.format(config['pipe']['mem-per-cpu'])+'\n')
         else:
+            logger.warning("Memory-per-CPU not specified, using 1G.")
             execfile.write('#SBATCH --mem-per-cpu=1G '+'\n')
 
         execfile.write('#SBATCH -o {}/bajes.out'.format(config['pipe']['outdir'])+'\n')
@@ -218,7 +220,6 @@ def write_executable(outdir, config, string1, string2, string3):
     # create executable
     bashcommand = 'chmod u+x {}'.format(execname)
     execute_bash(bashcommand)
-
     return execname
 
 def write_inject_string(config, ifos, outdir):
@@ -708,7 +709,7 @@ def write_postproc_string(config, tags, outdir):
     """
     ifos = config['gw-data']['ifos'].split(',')
 
-    pp_string = 'bajes_postproc.py  --outdir {} --post {} '.format(outdir , outdir+'/run/posterior.dat')
+    pp_string = 'bajes_postproc.py  --outdir {} '.format(outdir)
 
     if 'gw' in tags:
 
@@ -790,7 +791,7 @@ if __name__ == "__main__":
         elif  config['gw-data']['data-flag'] == 'gwosc':
 
             try:
-                if config['gw-data']['event']:
+                if config['gw-data']['event'] in __known_events__:
                     logger.info("... writing urls to GWOSC archive with {} event ...".format(config['gw-data']['event']))
 
                     if config['gw-data']['event'] not in __known_events__:
