@@ -162,13 +162,13 @@ class Injection(object):
 
                 from scipy.signal import tukey
                 if wind_flag == 'low':
-                    window  = tukey(len(hp), alpha=0.1)
+                    window  = tukey(len(hp), alpha=0.4/seglen)
                     imin    = np.max(np.where(window==1))
                     for i in range(len(window)):
                         if i >= imin:
                             window[i] = 1.
                 elif wind_flag == 'both':
-                    window  = tukey(len(hp), alpha=0.1)
+                    window  = tukey(len(hp), alpha=0.4/seglen)
                 elif wind_flag == 'none':
                     window  = np.ones(len(hp))
                 else:
@@ -331,21 +331,25 @@ class Injection(object):
     def write_injections(self, outdir):
         for ifo in self.ifos:
             injectionfile = open(outdir + '/{}_INJECTION.txt'.format(ifo), 'w')
-            injectionfile.write('# time \t strain \n')
+            injectionfile.write('#time\t strain\n')
             for i in range(len(self.inj_strains[ifo])):
-                injectionfile.write('{:.15f} \t {} \n'.format(self.times[ifo][i], self.inj_strains[ifo][i]))
+                try:
+                    tii = float(self.times[ifo][i])
+                    hii = float(self.inj_strains[ifo][i])
+                except ValueError:
+                    logger.error("Unable to write injection file, line {} cannot be converted in two columns. Please check the input.".format(i))
+                    raise ValueError("Unable to write injection file, line {} cannot be converted in two columns. Please check the input.".format(i))
+                injectionfile.write('{}\t{}\n'.format(tii, hii))
             injectionfile.close()
-
             make_injection_plot(ifo, self.times[ifo] , self.inj_strains[ifo], self.wave_strains[ifo], self.noises[ifo], self.f_min, outdir )
             make_spectrogram_plot(ifo, self.times[ifo], self.inj_strains[ifo], self.noises[ifo], outdir)
 
-
-if __name__ == "__main__":
+def bajes_inject_parser():
 
     parser=op.OptionParser()
     parser.add_option('--ifo',         dest='ifos',                       type='string',  action="append",    help="Single IFO tag. This option needs to be passed separately for every ifo in which the injection is requested. The order must correspond to the one in which the '--asd' commands are passed. Available options: ['H1', 'L1', 'V1', 'K1', 'G1'].")
     parser.add_option('--asd',         dest='asds',                       type='string',  action="append",    help="Single path to ASD file. This option needs to be passed separately for every ifo in which the injection is requested.  The order must correspond to the one in which the '--ifo' commands are passed.")
-    
+
     parser.add_option('--zero-noise',  dest='zero',   default=False,                     action="store_true", help='Flag to avoid the addition of noise to the signal. Default: False.')
     parser.add_option('--seed',        dest='seed',   default=None,       type='int',                         help='Seed for random number generator. Default: None.')
     parser.add_option('--window',      dest='window', default='low',      type='string',                      help="Location of the window. Available options: ['low' or 'both']. Default: 'low'.")
@@ -360,10 +364,13 @@ if __name__ == "__main__":
     parser.add_option('--ra',          dest='ra',     default=None,       type='float',                       help='right ascencion location of the injected source. Default optimal location for the first IFO.')
     parser.add_option('--dec',         dest='dec',    default=None,       type='float',                       help='declination location of the injected source. Default optimal location for the first IFO.')
     parser.add_option('--pol',         dest='psi',    default=0.,         type='float',                       help='polarization angle of the injected source. Default: 0.')
-    
-    parser.add_option('-o','--outdir', dest='outdir', default=None,       type='string',                      help='Output directory. Default: None.')
-    (opts,args) = parser.parse_args()
 
+    parser.add_option('-o','--outdir', dest='outdir', default=None,       type='string',                      help='Output directory. Default: None.')
+    return parser.parse_args()
+
+if __name__ == "__main__":
+
+    (opts,args) = bajes_inject_parser()
     dets    = {}
     noises  = {}
 
@@ -380,7 +387,7 @@ if __name__ == "__main__":
     for i in range(len(opts.ifos)):
         ifo = opts.ifos[i]
         logger.info("... setting detector {} for injection ...".format(ifo))
-        if not(ifo in opts.asds[i]): 
+        if not(ifo in opts.asds[i]):
             logger.info("WARNING: the name of ASD file does not correspond to selected IFO. Please check that IFO and ASD were passed in the right order.")
         dets[ifo]   = Detector(ifo,opts.t_gps)
         fr,asd      = read_asd(opts.asds[i], ifo)
