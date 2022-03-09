@@ -339,8 +339,8 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
                 # Avoid being close to Nyquist frequency when bandpassing.
                 f_max_bp = f_max-10
 
-            strains_dets[det]['s'].bandpassing(flow=f_min, fhigh=f_max_bp)
             strains_dets[det]['s'].whitening(strains_dets[det]['n'])
+            strains_dets[det]['s'].bandpassing(flow=f_min, fhigh=f_max_bp)
 
     logger.info("Plotting the reconstructed waveform.")
 
@@ -429,12 +429,6 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
             ax.legend(loc='upper right', prop={'size': 6})
             if not(i==len(strains_dets.keys())-1):
                 ax.get_xaxis().set_visible(False)
-
-            wf_ci_fl = open(outdir +'/wf_ci_{}.dat'.format(det),'w')
-            wf_ci_fl.write('#\t t \t median \t lower \t higher\n')
-            for i in range(len(strains_dets[det]['s'].times)):
-                wf_ci_fl.write("%.10f \t %.10f \t %.10f \t %.10f \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
-            wf_ci_fl.close()
         
         if(whiten): plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_whitened_zoom.pdf'), bbox_inches='tight')
         else:       plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_zoom.pdf'), bbox_inches='tight')
