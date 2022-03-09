@@ -254,7 +254,7 @@ class Series(object):
             self.f_max      = f_max
             self.t_gps      = t_gps
             self.f_Nyq      = self.srate/2.
-            
+
             # temporary values
             raw_N           = len(series)
 
@@ -365,6 +365,7 @@ class Series(object):
                 self.time_series = None
             else:
                 # compute ifft
+                # TODO : include check for frequency axis
                 self.times, self.time_series    = ifft(self.freq_series, self.srate, self.seglen, self.t_gps)
 
         else:

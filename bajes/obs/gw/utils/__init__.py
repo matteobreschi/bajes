@@ -6,7 +6,7 @@ from scipy.signal import decimate
 import numpy as np, os, sys
 
 from ..noise import get_design_sensitivity, get_event_sensitivity, get_event_calibration
-from ..strain import fft
+from ..strain import fft, ifft
 
 def lambda_2_kappa(M1,M2,L1,L2):
     Mt = M1 + M2
@@ -166,6 +166,26 @@ def tdwf_2_fdwf(freqs , h, dt):
     # return FD-WF
     return amp_interp * np.exp(1j * phi_interp)
 
+def fdwf_2_tdwf(fr, hf, dt):
+
+    # pad frequency axis from 0 to f_min
+    fmin    = np.min(fr)
+    df      = fr[1]-fr[0]
+    fr      = np.concatenate(np.arange(fmin//df)*df, fr)
+    hf      = np.concatenate(np.zeros(fmin//df, dtype=complex), hf)
+
+    # pad frequency axis from f_max to f_Nyq
+    fnyq    = 0.5/dt
+    fmax    = np.max(fr)
+    if fnyq-fmax >= df:
+        np  = (fnyq-fmax)//df
+        fr  = np.concatenate(fr, np.arange(np)*df+fmax+df)
+        hf  = np.concatenate(hf, np.zeros(np, dtype=complex))
+
+    # compute ifft
+    time, ht = ifft(hf, 1./dt, 1./df)
+    return ht
+
 def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
     """
         Read GW OpenScience in order to fetch the data,
@@ -188,7 +208,7 @@ def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
 def read_data(data_flag, data_path, srate):
 
     if data_flag == 'inject' or data_flag == 'local' or  data_flag == 'gwosc':
-        
+
         time, data = np.genfromtxt(data_path, unpack=True)
         srate_dt = 1./float(time[1] - time[0])
         if (srate > srate_dt):

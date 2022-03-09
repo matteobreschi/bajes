@@ -2,7 +2,7 @@ from __future__ import division, unicode_literals, absolute_import
 import numpy as np
 from numpy import cos, sin
 
-from .utils import tdwf_2_fdwf
+from .utils import tdwf_2_fdwf, fdwf_2_tdwf
 from .strain import lagging
 from ... import CLIGHT_SI
 
@@ -397,15 +397,17 @@ class Detector(object):
         fplus , fcross  = self.antenna_pattern(params['ra'], params['dec'], params['psi'], params['t_gps']+params['time_shift'])
         # compute delay from Earth geocenter to detector
         delay = self.time_delay_from_earth_center(params['ra'] , params['dec'] , params['t_gps']+params['time_shift']) + params['time_shift']
+        # apply antenna patterns
+        proj_h  = fplus*wave.plus + fcross*wave.cross
 
         if tag == 'time':
-
-            # project wave on the detector and compute apply time delay from geocenter
-            proj_wave   = fplus*wave.plus + fcross*wave.cross
-            return lagging(proj_wave, int(round(delay*self.srate)))
+            # apply time delay from geocenter
+            return lagging(proj_h, int(round(delay*self.srate)))
 
         elif tag == 'freq':
-            raise RuntimeError("time-domain projection not already implemented for frequency-domain waveforms")
+            # compute ifft and apply time delay from geocenter
+            proj_wave = fdwf_2_tdwf(self.freqs, proj_h, 1./self.srate)
+            return lagging(proj_wave, int(round(delay*self.srate)))
 
     def store_measurement(self,
                           series,

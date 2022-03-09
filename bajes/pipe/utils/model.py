@@ -38,6 +38,10 @@ class GWLikelihood(Likelihood):
         self.ifos   = ifos
         self.dets   = dets
 
+        # store information
+        self.nspcal = nspcal
+        self.nweights = nweights
+
         # set marginalization flags
         self.marg_phi_ref       = marg_phi_ref
         self.marg_time_shift    = marg_time_shift
