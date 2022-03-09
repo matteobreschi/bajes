@@ -143,6 +143,13 @@ class GWLikelihood(Likelihood):
         if not any(wave.plus):
             return -np.inf
 
+        if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))): 
+            logger.warning('Nans in the waveform, with the configuration: {}. Returning -inf in the likelihood.'.format(params))
+            return -np.inf
+        if(np.any(np.isinf(wave.plus)) or np.any(np.isinf(wave.cross))):
+            logger.warning('Infinities in the waveform, with the configuration: {}. Returning -inf in the likelihood.'.format(params))
+            return -np.inf
+
         hh = 0.
         dd = 0.
         _psd_fact = 0.
@@ -192,6 +199,7 @@ class GWLikelihood(Likelihood):
                 R   = np.real(dh)
 
         logL =  -0.5*(hh + dd) + R - self.logZ_noise - 0.5*_psd_fact
+
         return logL
 
 # KILO-NOVA LIKELIHOOD
