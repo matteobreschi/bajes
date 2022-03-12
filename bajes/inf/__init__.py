@@ -3,6 +3,10 @@ from __future__ import absolute_import
 __import__("pkg_resources").declare_namespace(__name__)
 
 import numpy as np
+
+from scipy.special import erf, erfinv
+from collections import namedtuple
+
 from .prior import Prior, Parameter, JointPrior
 from .likelihood import Likelihood, Posterior, JointLikelihood
 
@@ -59,12 +63,9 @@ def Sampler(engine, model, **kwargs):
     return sampler(engine, posterior, **kwargs)
 
 # namedtuple for customized probability
-
-from collections import namedtuple
 CustomProbability    = namedtuple("CustomProbability",    ("log_density","cumulative","quantile"),    defaults=(None,None,None) )
 
 # Known probability functions
-
 __known_probs__     = ['uniform', 'linear', 'quadratic', 'power-law',
                        'triangular', 'cosinusoidal', 'sinusoidal',
                        'log-uniform', 'exponential', 'normal']
@@ -325,11 +326,7 @@ class NormalProbability:
 
         self._mu        = mu
         self._sigma     = sigma
-
-        from scipy.special import erf, erfinv
-        self._erf   = erf
-        self._ierf  = erfinv
-        self._sqrt2 = np.sqrt(2.)
+        self._sqrt2     = np.sqrt(2.)
 
         a   = (min - mu)/sigma
         b   = (max - mu)/sigma
@@ -344,9 +341,9 @@ class NormalProbability:
 
     def cumulative(self, x):
         xi = (x-mu)/sigma
-        px = 0.5*(1.+self._erf(xi/self._sqrt2))
+        px = 0.5*(1.+erf(xi/self._sqrt2))
         return (px-self._pmin)/self._zeta
 
     def quantile(self, x):
         _x = 2.*(self._zeta*x + self._pmin)-1.
-        return self._mu + self._sigma*self._sqrt2*self._ierf(_x)
+        return self._mu + self._sigma*self._sqrt2*erfinv(_x)

@@ -2,8 +2,10 @@
 from __future__ import division, unicode_literals, absolute_import
 __import__("pkg_resources").declare_namespace(__name__)
 
+import os, sys
+import numpy as np
+
 from scipy.signal import decimate
-import numpy as np, os, sys
 
 from ..noise import get_design_sensitivity, get_event_sensitivity, get_event_calibration
 from ..strain import fft, ifft
@@ -171,16 +173,19 @@ def fdwf_2_tdwf(fr, hf, dt):
     # pad frequency axis from 0 to f_min
     fmin    = np.min(fr)
     df      = fr[1]-fr[0]
-    fr      = np.concatenate(np.arange(fmin//df)*df, fr)
-    hf      = np.concatenate(np.zeros(fmin//df, dtype=complex), hf)
+    num     = int(fmin//df)
+    if num > 0 :
+        fr      = np.concatenate([np.arange(num)*df, fr])
+        hf      = np.concatenate([np.zeros(num, dtype=complex), hf])
 
     # pad frequency axis from f_max to f_Nyq
     fnyq    = 0.5/dt
     fmax    = np.max(fr)
     if fnyq-fmax >= df:
-        np  = (fnyq-fmax)//df
-        fr  = np.concatenate(fr, np.arange(np)*df+fmax+df)
-        hf  = np.concatenate(hf, np.zeros(np, dtype=complex))
+        num = int((fnyq-fmax)//df)
+        if num > 0 :
+            fr  = np.concatenate([fr, np.arange(num)*df+fmax+df])
+            hf  = np.concatenate([hf, np.zeros(num, dtype=complex)])
 
     # compute ifft
     time, ht = ifft(hf, 1./dt, 1./df)

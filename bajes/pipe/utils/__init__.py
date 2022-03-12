@@ -5,6 +5,8 @@ __import__("pkg_resources").declare_namespace(__name__)
 import os
 import numpy as np
 
+from scipy.special import logsumexp
+
 try:
     import pickle
 except ImportError:
@@ -55,6 +57,19 @@ def save_container(path, kwargs):
             dc.store(ki, pkl_kwarg[ki])
         dc.save()
 
+### USE AS: pickle.load(f) -> CustomUnpickler(f).load()
+### TODO: to improve and generalize, for a safer load
+# class CustomUnpickler(pickle.Unpickler):
+#
+#     def find_class(self, module, name):
+#         if name == 'erfinv':
+#             from scipy.special import erfinv
+#             return erfinv
+#         elif name == 'erf':
+#             from scipy.special import erf
+#             return erf
+#         return super().find_class(module, name)
+
 class data_container(object):
     """
         Object for storing MCMC Inference class,
@@ -98,7 +113,7 @@ class data_container(object):
 
         except Exception as e:
             f.close()
-            logger.warning("Exception ({}) occurred while loading {}.".format(e, self.__file__))
+            logger.warning("Exception ({}) occurred while loading {}. Returning empty container.".format(e, self.__file__))
             return None
 
 # auxiliary GW priors
@@ -157,3 +172,212 @@ def fill_params_from_dict(dict):
         elif isinstance(dict[k], Constant):
             const.append(dict[k])
     return  params, variab, const
+
+# SNRs
+def extract_snr(ifos, detectors, hphc, pars, domain, marg_phi=False, marg_time=False, ngrid=500):
+
+    # compute SNR and (dt, dphi) sample
+    if (marg_time and marg_phi) :
+        phiref, tshift, snr, snr_per_det = extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=ngrid)
+    elif marg_time :
+        tshift, snr, snr_per_det = extract_snr_sample_time_marg(ifos, detectors, hphc, pars, domain)
+        phiref = 0.
+    elif marg_phi :
+        phiref, snr, snr_per_det = extract_snr_sample_phi_marg(ifos, detectors, hphc, pars, domain, ngrid=ngrid)
+        tshift = 0.
+    else :
+        snr, snr_per_det = extract_snr_sample_plain(ifos, detectors, hphc, pars, domain)
+        phiref = 0.
+        tshift = 0.
+
+    return phiref, tshift, snr, snr_per_det
+
+def extract_snr_sample(ifos, detectors, hphc, pars, domain):
+
+    dh_list     = []
+    hh_list     = []
+
+    for ifo in ifos:
+        this_dh, this_hh, this_dd = detectors[ifo].compute_inner_products(hphc, pars, domain)
+        dh_list.append(this_dh)
+        hh_list.append(this_hh)
+
+    snr2 = 0
+    snr_per_det = {ifo : 0 for ifo in ifos}
+
+    for ifo, dh, hh in zip(ifos, dh_list, hh_list):
+        _dh     = np.real(np.sum(dh))
+        snr     = _dh/np.sqrt(np.real(hh))
+        snr2    = snr2 + snr**2
+        snr_per_det[ifo] = snr
+
+    snr = np.sqrt(snr2)
+
+    return snr, snr_per_det
+
+def extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=500):
+    """
+        Extract (time-shift,phi-ref) sample assuming (time-shift,phi-ref) are the only marginalized parameters
+    """
+
+    phi_ax      = np.linspace(0,2.*np.pi,ngrid)
+    d_inner_h   = 0. + 0.j
+    h_inner_h   = 0.
+
+    dh_list     = []
+    hh_list     = []
+
+    for ifo in ifos:
+        this_dh, this_hh, this_dd = detectors[ifo].compute_inner_products(hphc, pars, domain)
+        d_inner_h = d_inner_h + this_dh
+        h_inner_h = h_inner_h + this_hh
+        dh_list.append(this_dh)
+        hh_list.append(this_hh)
+
+    # compute likelihood (for this samples) as a function of time_shift
+    dh_fft   = np.fft.fft( d_inner_h )
+    time_ax  = np.fft.fftfreq(len(dh_fft), d=1./pars["seglen"])
+    isort    = np.argsort(time_ax)
+    time_ax  = time_ax[isort]
+    dh_fft   = dh_fft[isort]
+
+    # compute likelihood (for this samples) as a function of time_shift and phi_ref
+    # NOTE: like_mat is a rank-2 matrix where like_mat[i][j] is the loglike for time_ax[i] and phi_ax[j]
+    like_mat = -0.5*h_inner_h + np.real([ dh * np.exp(-1j*phi_ax) for dh in dh_fft ])
+
+    # sum over phi_ax and extract time_shift
+    like_arr    = np.sum(like_mat, axis=1)
+    prob        = np.exp(like_arr - logsumexp(like_arr))
+    cdf         = np.cumsum(prob)
+    cdf         /= np.max(cdf)
+    time_shift  = np.interp(np.random.uniform(0,1), cdf, time_ax)
+
+    # identify time_shift on time_ax and compute likelihood as a function of phi_ref
+    if time_shift in time_ax:
+        ix = np.argmin(np.abs(time_shift-time_ax))
+        like_arr = np.array(like_mat[ix])
+    else:
+        # NOTE: there are only two values that satify
+        # |time_shift-time_ax| < dt
+        # if time_shift is not in time_ax
+        ix  = np.where(np.abs(time_shift-time_ax)<1./pars['srate'])
+        iup = np.min(ix)
+        ilo = np.max(ix)
+        tup = time_ax[iup]
+        tlo = time_ax[ilo]
+        Lup = like_mat[iup]
+        Llo = like_mat[ilo]
+        like_arr = np.array( [ np.interp(time_shift, [tlo,tup], [Llo[i],Lup[i]]) for i in range(len(Lup)) ] )
+
+    # extract phi_ref
+    assert len(like_arr) == len(phi_ax) # TODO: remove this assertion in the future
+    prob    = np.exp(like_arr - logsumexp(like_arr))
+    cdf     = np.cumsum(prob)
+    cdf     /= np.max(cdf)
+    phi_ref = np.interp(np.random.uniform(0,1), cdf, phi_ax)
+
+    # compute SNR
+    snr2 = 0
+    snr_per_det = {ifo : 0 for ifo in ifos}
+
+    f_ax      = np.linspace(0, pars['srate']/2, int(pars['srate']*pars['seglen']//2+1))
+    unit_fact = np.exp(-1j* ( phi_ref + 2*np.pi*time_shift*f_ax ) )
+    for ifo, dh, hh in zip(ifos, dh_list, hh_list):
+        _dh     = np.real(np.sum(dh*unit_fact))
+        snr     = _dh/np.sqrt(np.real(hh))
+        snr2    = snr2 + snr**2
+        snr_per_det[ifo] = snr
+
+    snr = np.sqrt(snr2)
+
+    return phi_ref, time_shift, snr, snr_per_det
+
+def extract_snr_sample_time_marg(ifos, detectors, hphc, pars, domain):
+    """
+        Extract time-shift sample assuming time-shift is the only marginalized parameter
+    """
+
+    d_inner_h   = 0. + 0.j
+    h_inner_h   = 0.
+
+    dh_list     = []
+    hh_list     = []
+
+    for ifo in ifos:
+        this_dh, this_hh, this_dd = detectors[ifo].compute_inner_products(hphc, pars, domain)
+        d_inner_h = d_inner_h + this_dh
+        h_inner_h = h_inner_h + this_hh
+        dh_list.append(this_dh)
+        hh_list.append(this_hh)
+
+    # compute likelihood (for this samples) as a function of time_shift
+    like_arr = -0.5*h_inner_h + np.real(np.fft.fft( d_inner_h ))
+    time_ax  = np.fft.fftfreq(len(dh_fft), d=1./pars["seglen"])
+    isort    = np.argsort(time_ax)
+    time_ax  = time_ax[isort]
+    like_arr = like_arr[isort]
+
+    # extract time_shift random sample
+    prob    = np.exp(like_arr - logsumexp(like_arr))
+    cdf     = np.cumsum(prob)
+    cdf     /= np.max(cdf)
+    time_shift = np.interp(np.random.uniform(0,1), cdf, time_ax)
+
+    # compute SNR
+    snr2 = 0
+    snr_per_det = {ifo : 0 for ifo in ifos}
+
+    f_ax      = np.linspace(0, pars['srate']/2, int(pars['srate']*pars['seglen']//2+1))
+    unit_fact = np.exp( -2j*np.pi*time_shift*f_ax )
+    for ifo, dh, hh in zip(ifos, dh_list, hh_list):
+        _dh     = np.real(np.sum(dh*unit_fact))
+        snr     = _dh/np.sqrt(np.real(hh))
+        snr2    = snr2 + snr**2
+        snr_per_det[ifo] = snr
+
+    snr = np.sqrt(snr2)
+
+    return time_shift, snr, snr_per_det
+
+def extract_snr_sample_phi_marg(ifos, detectors, hphc, pars, domain, ngrid=500):
+    """
+        Extract phi-ref sample assuming phi-ref is the only marginalized parameter
+    """
+
+    phi_ax      = np.linspace(0,2.*np.pi,ngrid)
+    d_inner_h   = 0. + 0.j
+    h_inner_h   = 0.
+
+    dh_list     = []
+    hh_list     = []
+
+    for ifo in ifos:
+        this_dh, this_hh, this_dd = detectors[ifo].compute_inner_products(hphc, pars, domain)
+        d_inner_h = d_inner_h + this_dh.sum()
+        h_inner_h = h_inner_h + this_hh
+        dh_list.append(this_dh)
+        hh_list.append(this_hh)
+
+    # compute likelihood (for this samples) as a function of phi_ref
+    like_arr = -0.5*h_inner_h + np.real( d_inner_h * np.exp(-1j*phi_ax) )
+
+    # extract phi_ref random sample
+    prob    = np.exp(like_arr - logsumexp(like_arr))
+    cdf     = np.cumsum(prob)
+    cdf     /= np.max(cdf)
+    phi_ref = np.interp(np.random.uniform(0,1), cdf, phi_ax)
+
+    # compute SNR
+    snr2 = 0
+    snr_per_det = {ifo : 0 for ifo in ifos}
+
+    unit_fact = np.exp(-1j*phi_ref)
+    for ifo, dh, hh in zip(ifos, dh_list, hh_list):
+        _dh     = np.real(np.sum(dh*unit_fact))
+        snr     = _dh/np.sqrt(np.real(hh))
+        snr2    = snr2 + snr**2
+        snr_per_det[ifo] = snr
+
+    snr = np.sqrt(snr2)
+
+    return phi_ref, snr, snr_per_det

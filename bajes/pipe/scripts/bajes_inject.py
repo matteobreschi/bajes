@@ -18,7 +18,7 @@ from bajes.obs.gw.detector import Detector, calc_project_array_td
 from bajes.obs.gw.utils import read_asd, read_params
 from bajes.pipe import set_logger, ensure_dir
 
-def make_spectrogram_plot(ifo, time, inj_strain, noise, outdir):
+def make_spectrogram_plot(ifo, time, inj_strain, noise, f_min, outdir):
 
     dt      = np.median(np.diff(time))
     srate   = 1./dt
@@ -37,12 +37,12 @@ def make_spectrogram_plot(ifo, time, inj_strain, noise, outdir):
         fig = plt.figure(figsize=(12,9))
         plt.title("{} spectrogram".format(ifo), size = 14)
         spec, freqs, bins, im = plt.specgram(inj_strain_whit, NFFT=int(Nfft), Fs=int(opts.srate), noverlap=int(Novl),
-                                             window=window, cmap='viridis', xextent=[0,seglen])
+                                             window=window, cmap='PuBu', xextent=[0,seglen])
         plt.yscale('log')
-        plt.ylim((20,0.5/dt))
+        plt.ylim((f_min,0.5/dt))
         plt.xlabel("time [s]")
         plt.ylabel("frequency [Hz]")
-        plt.savefig(outdir + '/{}_spectrogram.png'.format(ifo), dpi=200)
+        plt.savefig(outdir + '/{}_spectrogram.png'.format(ifo), dpi=150, bbox_inches='tight')
         plt.close()
     except Exception:
         pass
@@ -57,8 +57,8 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
 
         # plot injected strain (black) and signal (red)
         ax1.set_title("{} injection".format(ifo), size = 14)
-        ax1.plot(time , inj_strain, c='k', lw=0.7, label='injected strain')
-        ax1.plot(time , wave_strain, c='r', label='projected wave')
+        ax1.plot(time , inj_strain, c='gray', lw=0.7, label='Injected strain')
+        ax1.plot(time , wave_strain, c='slateblue', label='Projected wave')
         ax1.legend(loc='best')
         ax1.set_xlabel('time [s]')
         ax1.set_ylabel('strain')
@@ -67,7 +67,7 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
         mask_ax2 = np.where((time>=np.median(time)-0.5)&(time<=np.median(time)+0.5))
         ax2.plot(time[mask_ax2], wave_strain[mask_ax2], c='r')
 
-        plt.savefig(outdir + '/{}_strains.png'.format(ifo), dpi=250)
+        plt.savefig(outdir + '/{}_strains.png'.format(ifo), dpi=100, bbox_inches='tight')
         plt.close()
     except Exception:
         pass
@@ -75,9 +75,10 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
 
     from scipy.signal import tukey
 
-    dt = np.median(np.diff(time))
+    dt                   = np.median(np.diff(time))
+    seglen               = time[-1]-time[0]
     freq_proj, hfft_proj = fft(wave_strain, dt)
-    freq_inj, hfft_inj = fft(inj_strain*tukey(len(inj_strain),alpha=0.1), dt)
+    freq_inj, hfft_inj   = fft(inj_strain*tukey(len(inj_strain),alpha=0.4/seglen), dt)
 
     try:
         fig = plt.figure(figsize=(12,9))
@@ -85,16 +86,16 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
 
         # plot injected strain (black) and signal (red)
         ax1.set_title("{} spectra".format(ifo), size = 14)
-        ax1.loglog(freq_inj , np.abs(hfft_inj), c='k', lw=0.7, label='injected strain')
-        ax1.loglog(freq_proj , np.abs(hfft_proj), c='r', label='projected wave')
-        ax1.loglog(freq_inj , noise.interp_asd_pad(freq_inj), c='g', label='ASD')
+        ax1.loglog(freq_inj , np.abs(hfft_inj), c='gray', lw=0.7, label='Injected strain')
+        ax1.loglog(freq_proj , np.abs(hfft_proj), c='royalblue', label='Projected wave')
+        ax1.loglog(freq_inj , noise.interp_asd_pad(freq_inj), c='navy', label='ASD')
         ax1.legend(loc='best')
 
         ax1.set_xlim((f_min,1./dt/2.))
         ax1.set_xlabel('frequency [Hz]')
         ax1.set_ylabel('amplitude spectrum')
 
-        plt.savefig(outdir + '/{}_spectra.png'.format(ifo), dpi=250)
+        plt.savefig(outdir + '/{}_spectra.png'.format(ifo), dpi=100, bbox_inches='tight')
         plt.close()
     except Exception:
         pass
@@ -330,19 +331,33 @@ class Injection(object):
 
     def write_injections(self, outdir):
         for ifo in self.ifos:
+
+            # write signal
+            if len(list(self.wave_strains[ifo].keys()))>0:
+                injectionfile = open(outdir + '/{}_signal.txt'.format(ifo), 'w')
+                injectionfile.write('#time\t strain\n')
+                for tii,hii in zip(np.array(self.times[ifo][i],dtype=float), np.array(self.wave_strains[ifo][i],dtype=float)):
+                    injectionfile.write('{}\t{}\n'.format(tii, hii))
+                injectionfile.close()
+
+            # write noie
+            if len(list(self.noise_strains[ifo].keys()))>0:
+                injectionfile = open(outdir + '/{}_noise.txt'.format(ifo), 'w')
+                injectionfile.write('#time\t strain\n')
+                for tii,hii in zip(np.array(self.times[ifo][i],dtype=float),  np.array(self.noise_strains[ifo][i],dtype=float)):
+                    injectionfile.write('{}\t{}\n'.format(tii, hii))
+                injectionfile.close()
+
+            # write data
             injectionfile = open(outdir + '/{}_INJECTION.txt'.format(ifo), 'w')
             injectionfile.write('#time\t strain\n')
-            for i in range(len(self.inj_strains[ifo])):
-                try:
-                    tii = float(self.times[ifo][i])
-                    hii = float(self.inj_strains[ifo][i])
-                except ValueError:
-                    logger.error("Unable to write injection file, line {} cannot be converted in two columns. Please check the input.".format(i))
-                    raise ValueError("Unable to write injection file, line {} cannot be converted in two columns. Please check the input.".format(i))
+            for tii,hii in zip(np.array(self.times[ifo][i],dtype=float), np.array(self.inj_strains[ifo][i],dtype=float)):
                 injectionfile.write('{}\t{}\n'.format(tii, hii))
             injectionfile.close()
+
+            # plots
             make_injection_plot(ifo, self.times[ifo] , self.inj_strains[ifo], self.wave_strains[ifo], self.noises[ifo], self.f_min, outdir )
-            make_spectrogram_plot(ifo, self.times[ifo], self.inj_strains[ifo], self.noises[ifo], outdir)
+            make_spectrogram_plot(ifo, self.times[ifo], self.inj_strains[ifo], self.noises[ifo], self.f_min, outdir)
 
 def bajes_inject_parser():
 

@@ -406,8 +406,8 @@ class Detector(object):
 
         elif tag == 'freq':
             # compute ifft and apply time delay from geocenter
-            proj_wave = fdwf_2_tdwf(self.freqs, proj_h, 1./self.srate)
-            return lagging(proj_wave, int(round(delay*self.srate)))
+            proj_wave = fdwf_2_tdwf(self.freqs, proj_h * np.exp(-2j*np.pi*self.freqs*delay), 1./self.srate)
+            return proj_wave
 
     def store_measurement(self,
                           series,

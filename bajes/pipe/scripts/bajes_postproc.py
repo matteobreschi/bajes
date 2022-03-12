@@ -4,6 +4,8 @@ import os
 import numpy as np
 import optparse as op
 
+from scipy.special import logsumexp
+
 try:
     import corner
 except Exception:
@@ -12,22 +14,29 @@ except Exception:
 try:
     import matplotlib.pyplot as plt
     import matplotlib
-    matplotlib.use('Agg')
+    # matplotlib.use('Agg')
 except Exception:
     pass
 
 from bajes.pipe            import ensure_dir, data_container, cart2sph, sph2cart, set_logger
+from bajes.pipe.utils      import extract_snr
 from bajes.obs.gw          import Detector, Noise, Series, Waveform
 from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda, mcq_to_m1, mcq_to_m2
 from bajes.obs.gw.waveform import PolarizationTuple
 from bajes import MSUN_SI, MTSUN_SI, CLIGHT_SI, GNEWTON_SI
 
+def _stats(samples):
+    md = np.median(samples)
+    up = np.percentile(samples, 95)
+    lo = np.percentile(samples, 5)
+    return md, up-md, md-lo
+
 def make_corner_plot(matrix, labels, outputname):
-    
+
     N = len(labels)
-    
+
     try:
-        
+
         cornerfig=corner.corner(matrix,
                                 labels          = labels,
                                 bins            = 40,
@@ -39,7 +48,7 @@ def make_corner_plot(matrix, labels, outputname):
                                 plot_density    = True,
                                 smooth1d        = True,
                                 smooth          = True)
-    
+
         axes = np.array(cornerfig.axes).reshape((N,N))
 
         for i in range(N):
@@ -48,13 +57,13 @@ def make_corner_plot(matrix, labels, outputname):
             ax.axvline(np.percentile(matrix[:,i],5),   color="slateblue",   linestyle='--', linewidth  = 0.9)
             ax.axvline(np.percentile(matrix[:,i],95),  color="slateblue",   linestyle='--', linewidth  = 0.9)
 
-        plt.savefig(outputname , dpi=250)
+        plt.savefig(outputname , dpi=100, bbox_inches='tight')
         plt.close()
 
     except Exception:
         logger.warning("Unable to produce corner plots, corner is not available. Please install corner.")
 
-def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
+def make_corners(posterior, spin_flag, lambda_flag, ppdir, priors):
 
     # masses
     if not (('mtot' in priors.const) or ('mchirp' in priors.const) or ('q' in priors.const)):
@@ -67,12 +76,12 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
                 mtot_post    = posterior['mtot']
                 mtotq_matrix = np.column_stack((mtot_post, q_post))
                 mtotq_labels = [r'$M_{tot} [{\rm M}_\odot]$',r'$q=m_1/m_2$']
-                make_corner_plot(mtotq_matrix,  mtotq_labels, ppdir+'/mtotq_posterior.png')
+                make_corner_plot(mtotq_matrix,  mtotq_labels, ppdir+'/mtotq_posterior.pdf')
             else:
-                mchirp_post = posterior['mchirp']                           
+                mchirp_post = posterior['mchirp']
                 mcq_matrix  = np.column_stack((mchirp_post, q_post))
                 mcq_labels  = [r'$M_{chirp} [{\rm M}_\odot]$',r'$q=m_1/m_2$']
-                make_corner_plot(mcq_matrix,  mcq_labels, ppdir+'/mcq_posterior.png')
+                make_corner_plot(mcq_matrix,  mcq_labels, ppdir+'/mcq_posterior.pdf')
 
                 mtot_post   = mchirp_post/np.power(np.abs(nu_post),3./5.)
 
@@ -80,8 +89,8 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
             m2_post     = mtot_post/(1.+q_post)
             m1m2_matrix = np.column_stack((m1_post,m2_post))
             m1m2_labels = [r'$m_1 [{\rm M}_\odot]$',r'$m_2 [{\rm M}_\odot]$']
-            make_corner_plot(m1m2_matrix, m1m2_labels,ppdir+'/m1m2_posterior.png')
-            
+            make_corner_plot(m1m2_matrix, m1m2_labels,ppdir+'/m1m2_posterior.pdf')
+
         except(KeyError, ValueError):
             logger.info("Masses plot failed.")
     else:
@@ -95,13 +104,13 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
 
             spin_matrix = np.column_stack((posterior['s1z'],posterior['s2z']))
             spin_labels = [r'$s_{1,z}$',r'$s_{2,z}$']
-            make_corner_plot(spin_matrix,spin_labels,ppdir+'/spins_posterior.png')
+            make_corner_plot(spin_matrix,spin_labels,ppdir+'/spins_posterior.pdf')
 
             try:
                 chieff_post = (m1_post * posterior['s1z'] + m2_post * posterior['s2z'])/mtot_post
                 chiq_matrix = np.column_stack((chieff_post,q_post))
                 chiq_labels = [r'$\chi_{eff}$',r'$q=m_1/m_2$']
-                make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.png')
+                make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.pdf')
             except Exception:
                 logger.info("Aligned spins plot failed.")
         else:
@@ -112,17 +121,17 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
         logger.info("... plotting spins ...")
         spin_matrix = np.column_stack((posterior['s1'],posterior['tilt1']))
         spin_labels = [r'$s_{1}$',r'$\theta_{1L}$']
-        make_corner_plot(spin_matrix,spin_labels,ppdir+'/spin1_posterior.png')
+        make_corner_plot(spin_matrix,spin_labels,ppdir+'/spin1_posterior.pdf')
 
         spin_matrix = np.column_stack((posterior['s2'],posterior['tilt2']))
         spin_labels = [r'$s_{2}$',r'$\theta_{2L}$']
-        make_corner_plot(spin_matrix,spin_labels,ppdir+'/spin2_posterior.png')
+        make_corner_plot(spin_matrix,spin_labels,ppdir+'/spin2_posterior.pdf')
 
         try:
             chieff_post = (m1_post * posterior['s1'] * np.cos(posterior['tilt1']) + m2_post * posterior['s2'] * np.cos(posterior['tilt2']))/mtot_post
             chiq_matrix = np.column_stack((chieff_post,q_post))
             chiq_labels = [r'$\chi_{eff}$',r'$q=m_1/m_2$']
-            make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.png')
+            make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chiq_posterior.pdf')
         except Exception:
             logger.info("Precessing spins chi_eff-q plot failed.")
 
@@ -133,7 +142,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
                                                                                                                posterior['tilt1'],posterior['tilt2']) ])
             chichi_matrix = np.column_stack((chieff_post,chip_post))
             chiq_labels = [r'$\chi_{eff}$',r'$\chi_p$']
-            make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chis_posterior.png')
+            make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chis_posterior.pdf')
         except Exception:
             logger.info("Precessing spins chi_eff-chip plot failed.")
 
@@ -151,7 +160,7 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
 
             tide1_matrix = np.column_stack((posterior['lambda1'],posterior['lambda2']))
             tide1_labels = [r'$\Lambda_1$',r'$\Lambda_2$']
-            make_corner_plot(tide1_matrix,tide1_labels,ppdir+'/tides_posterior.png')
+            make_corner_plot(tide1_matrix,tide1_labels,ppdir+'/tides_posterior.pdf')
 
             try:
                 lambdat_post = compute_lambda_tilde(m1_post,m2_post,posterior['lambda1'],posterior['lambda2'])
@@ -159,13 +168,13 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
 
                 tide2_matrix = np.column_stack((lambdat_post, dlambda_post))
                 tide2_labels = [r'$\tilde \Lambda$', r'$\delta\tilde \Lambda$']
-                make_corner_plot(tide2_matrix,tide2_labels,ppdir+'/lambdat_posterior.png')
+                make_corner_plot(tide2_matrix,tide2_labels,ppdir+'/lambdat_posterior.pdf')
             except Exception:
                 logger.info("BNS-tides plot failed.")
 
         elif(lambda_flag == 'bhns-tides' or lambda_flag == 'nsbh-tides'):
 
-            if(lambda_flag == 'nsbh-tides'): 
+            if(lambda_flag == 'nsbh-tides'):
                 logger.warning("The 'nsbh-tides' string for the 'tidal-flag' option is deprecated and will be removed in a future release. Please use the 'nsbh-tides' string.")
 
             logger.info("... plotting tides ...")
@@ -190,14 +199,14 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
                 tide_matrix = np.column_stack((lambda_post,np.zeros(len(lambda_post))))
                 tide_labels = [r'$\Lambda_{NS}$', r'$\Lambda_{BH}$']
 
-            make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.png')
+            make_corner_plot(tide_matrix,tide_labels,ppdir+'/lambdat_posterior.pdf')
 
         elif('no-tides' in lambda_flag):
             logger.info("No tides option selected. Skipping tides plots.")
 
         else:
             logger.warning("Unknown tides option selected. Skipping tides plots.")
-    else:        
+    else:
         logger.info("Tides parameters were fixed. Skipping tides corner.")
 
     # sky location
@@ -206,10 +215,10 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
             logger.info("... plotting sky location ...")
             skyloc_matrix = np.column_stack((posterior['ra'],posterior['dec']))
             skyloc_labels = [r'$\alpha [{\rm rad}]$', r'$\delta [{\rm rad}]$']
-            make_corner_plot(skyloc_matrix,skyloc_labels,ppdir+'/skyloc_posterior.png')
+            make_corner_plot(skyloc_matrix,skyloc_labels,ppdir+'/skyloc_posterior.pdf')
         except Exception:
             logger.info("Sky position plot failed.")
-    else:        
+    else:
         logger.info("Sky position parameters were fixed. Skipping sky position corner.")
 
     # distance - inclination
@@ -219,10 +228,10 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
             iota_post = np.arccos(posterior['cosi'])
             distiot_matrix = np.column_stack((posterior['distance'], iota_post))
             distiot_labels = [r'$D_L [{\rm Mpc}]$', r'$\iota [{\rm rad}]$']
-            make_corner_plot(distiot_matrix,distiot_labels,ppdir+'/distance_posterior.png')
+            make_corner_plot(distiot_matrix,distiot_labels,ppdir+'/distance_posterior.pdf')
         except Exception:
             logger.info("Distance-inclination plot failed.")
-    else:        
+    else:
         logger.info("Distance-inclination parameters were fixed. Skipping distance-inclination corner.")
 
     # other
@@ -235,10 +244,10 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
             else:
                 ext_matrix = np.column_stack((posterior['psi'],posterior['time_shift']))
                 ext_labels = [r'$\psi  [{\rm rad}]$', r'$t_0  [{\rm s}]$']
-            make_corner_plot(ext_matrix,ext_labels,ppdir+'/external_posterior.png')
+            make_corner_plot(ext_matrix,ext_labels,ppdir+'/external_posterior.pdf')
         except Exception:
             logger.info("External parameters plot failed.")
-    else:        
+    else:
         logger.info("External parameters were fixed. Skipping external corner.")
 
     # other
@@ -247,43 +256,50 @@ def make_corners(posterior, spin_flag, lambda_flag, extra_flag, ppdir, priors):
             logger.info("... plotting hyperbolic parameters ...")
             ext_matrix = np.column_stack((posterior['energy'], posterior['angmom']))
             ext_labels = [r'$E_0/M$', r'$p_{\phi}^0$']
-            make_corner_plot(ext_matrix,ext_labels,ppdir+'/hyperbolic_posterior.png')
+            make_corner_plot(ext_matrix,ext_labels,ppdir+'/hyperbolic_posterior.pdf')
 
             if(('align' in spin_flag) and not('s1z' in priors.const) and not('s2z' in priors.const)):
                 logger.info("... plotting angular momentum parameters ...")
                 ext_matrix = np.column_stack((posterior['s1z'], posterior['s2z'], posterior['angmom']))
                 ext_labels = [r'$s_{1z}$', r'$s_{2z}$', r'$p_{\phi}^0$']
-                make_corner_plot(ext_matrix,ext_labels,ppdir+'/angular_momentum_posterior.png')
+                make_corner_plot(ext_matrix,ext_labels,ppdir+'/angular_momentum_posterior.pdf')
 
         except Exception:
             logger.info("Hyperbolic parameters plot failed.")
-    else:        
+    else:
         logger.info("Hyperbolic parameters were fixed or not included in the sampling. Skipping hyperbolic corner.")
 
-def make_histograms(posterior_samples, names, outdir):
-    
+def make_histograms(posterior_samples, priors, outdir, nprior=None):
+
     from bajes.inf.utils import autocorrelation
-    
-    names = np.append(names, ['logL', 'logPrior'])
-    
+    names = priors.names
+    if nprior is None: nprior = min(len(posterior_samples)//2, 5000)
+    prior_samples = np.transpose(priors.get_prior_samples(nprior))
+
     for i,ni in enumerate(names):
-        
+
         logger.info("... producing histogram for {} ...".format(ni))
-    
+
         try:
-            mean    = np.median(posterior_samples[ni])
-            upper   = np.percentile(posterior_samples[ni],95)
-            lower   = np.percentile(posterior_samples[ni],5)
-            
+            mean, upper, lower  = _stats(posterior_samples[ni])
+
             fig = plt.figure()
-            plt.hist(posterior_samples[ni], bins=66, edgecolor = 'royalblue', histtype='step', density=True)
-            plt.axvline(mean,   color='navy',ls='--')
-            plt.axvline(upper,  color='slateblue',ls='--')
-            plt.axvline(lower,  color='slateblue',ls='--')
-            plt.ylabel('posterior')
+
+            plt.title("{} = ".format(ni) + r"${"+ "{:.5f}".format(mean) + r"}^{ + "+ "{:.5f}".format(upper) + r"}_{ - "+ "{:.5f}".format(lower) +"}$")
+
+            plt.hist(posterior_samples[ni], bins=66, edgecolor = 'royalblue', histtype='step', density=True, label="Posterior")
+            plt.hist(prior_samples[i],      bins=66, edgecolor = 'gray', histtype='step', density=True, label="Prior")
+
+            plt.axvline(mean,   color='navy',ls='--', label="Median")
+            plt.axvline(mean+upper,  color='slateblue',ls='--', label="90% C.L.")
+            plt.axvline(mean-lower,  color='slateblue',ls='--')
+
+            plt.ylabel('probability')
+            plt.xlim(priors.bounds[i])
             plt.xlabel('{}'.format(names[i]),size=12)
-            plt.savefig(outdir+'/hist_{}.png'.format(names[i]), dpi=200)
-            
+            plt.legend(loc='best')
+            plt.savefig(outdir+'/hist_{}.pdf'.format(names[i]), dpi=100, bbox_inches='tight')
+
             plt.close()
 
             fig = plt.figure()
@@ -298,115 +314,257 @@ def make_histograms(posterior_samples, names, outdir):
             ax2.set_ylabel('autocorr')
             ax2.set_xlabel('lag')
 
-            plt.savefig(outdir+'/samples_{}.png'.format(names[i]), dpi=200)
+            plt.savefig(outdir+'/samples_{}.pdf'.format(names[i]), dpi=100, bbox_inches='tight')
             plt.close()
-        
+
         except Exception:
             logger.warning("Unable to produce histogram plot for {}, an exception occurred.".format(ni))
             pass
 
+    logger.info("... producing histogram for logL ...")
+    mean, upper, lower  = _stats(posterior_samples['logL'])
+
+    fig = plt.figure()
+
+    plt.title("{} = ".format('logL') + r"${"+ "{:.5f}".format(mean) + r"}^{ + "+ "{:.5f}".format(upper) + r"}_{ - "+ "{:.5f}".format(lower) +"}$")
+
+    plt.hist(posterior_samples['logL'], bins=66, edgecolor = 'royalblue', histtype='step', density=True, label="Likelihood")
+    plt.hist(posterior_samples['logL']+posterior_samples['logPrior'], bins=66, edgecolor = 'gray', histtype='step', density=True, label="Posterior")
+
+    plt.axvline(mean,   color='navy',ls='--', label="Median")
+    plt.axvline(mean+upper,  color='slateblue',ls='--', label="90% C.L.")
+    plt.axvline(mean-lower,  color='slateblue',ls='--')
+
+    plt.ylabel('probability')
+    plt.xlabel('logL',size=12)
+    plt.legend(loc='best')
+    plt.savefig(outdir+'/hist_{}.pdf'.format('logL'), dpi=100, bbox_inches='tight')
+
+    plt.close()
+
+# def compute_wf_and_snr(dets, p, w, marg_phi=False, marg_time=False):
+#
+#     # compute waveform
+#     hphc   = w.compute_hphc(p)
+#
+#     # compute SNR
+#     phiref, tshift, snr, snr_per_det = extract_snr(list(dets.keys()), dets, hphc, p, w.domain,
+#                                                    marg_phi=marg_phi, marg_time=marg_time)
+#
+#     p['time_shift'] = p['time_shift'] + tshift
+#     hphc   = PolarizationTuple(plus  = hphc.plus*np.cos(phiref) - hphc.cross*np.sin(phiref),
+#                                cross = hphc.plus*np.sin(phiref) + hphc.cross*np.cos(phiref))
+#
+#     # collect quantities
+#     wf = {}
+#     ww = {}
+#     sp = {}
+#
+#     for det in dets.keys():
+#
+#         h_tmp       = dets[det].project_tdwave(hphc, p, w.domain)
+#         h_strain    = Series('time', h_tmp, seglen=seglen, srate=srate, t_gps=t_gps, f_min=f_min, f_max=f_max)
+#         sp[det]     = np.abs(h_strain.freq_series)
+#
+#         # store waveform
+#         wf[det]     = h_strain.time_series
+#
+#         # store whitened waveform
+#         h_strain.whitening(strains_dets[det]['n'])
+#         ww[det]     = h_strain.time_series
+#
+#     return snr, snr_per_det, sp, wf, ww
 
 def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False, N_samples=0, M_tot=None):
 
+    # get general information
+    SNRs         = []
     nsub_panels  = len(container_gw.datas.keys())
     strains_dets = {det: {} for det in container_gw.datas.keys()}
     wfs          = {det: [] for det in container_gw.datas.keys()}
+    wfw          = {det: [] for det in container_gw.datas.keys()}
+    sps          = {det: [] for det in container_gw.datas.keys()}
+    spd          = {det: [] for det in container_gw.datas.keys()}
+    SNRs_per_det = {ifo: [] for ifo in container_inf.like.ifos}
 
     first_det                                 = list(container_gw.datas.keys())[0]
     data_first_det                            = container_gw.datas[first_det]
     freqs, f_min, f_max, t_gps, seglen, srate = data_first_det.freqs, data_first_det.f_min, data_first_det.f_max, data_first_det.t_gps, data_first_det.seglen, data_first_det.srate
 
-    posterior = posterior
+    # initialize model
     names     = container_inf.prior.names
     constants = container_inf.prior.const
-    approx    = container_inf.like.wave.approx
-    w         = Waveform(freqs=freqs, srate=srate, seglen=seglen, approx=approx)
+    w         = container_inf.like.wave
 
+    # set sp-cal
+    try:
+        nspcal = container_inf.like.nspcal
+    except Exception:
+        # use exception for compatibility issues with old versions
+        logger.warning("Unable to read information on spectral calibration envelopes. Setting nspcal = 0.")
+        nspcal = 0
+
+    if nspcal > 0 :
+        spcal_freqs = np.logspace(1., np.log(np.max(freqs))/np.log(np.min(freqs)), base=np.min(freqs), num = nspcal)
+
+    # iterate on detectors
+    from copy import deepcopy
     for det in strains_dets.keys():
-        
+
         strains_dets[det]['s'] = container_gw.datas[det]
+        strains_dets[det]['w'] = deepcopy(container_gw.datas[det])
         strains_dets[det]['d'] = container_gw.dets[det]
         strains_dets[det]['n'] = container_gw.noises[det]
+        spd[det]               = strains_dets[det]['s'].freq_series
 
-        strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'])
+        if nspcal > 0 :
+            strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'],
+                                                     nspcal = nspcal, spcal_freqs = spcal_freqs)
+        else:
+            strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'])
 
-        if(whiten):
-            if not(M_tot==None):
-                #Estimate of the ringdown frequency, approximating M_final with M_tot and using Schwarzschild value
-                f_ringdown = ((CLIGHT_SI**3)/(2.*np.pi*GNEWTON_SI*M_tot*MSUN_SI)) * (1.5251-1.1568*(1-0.7)**0.1292)
-                f_max_bp = 2*f_ringdown
-            else:
-                # Avoid being close to Nyquist frequency when bandpassing.
-                f_max_bp = f_max-10
+        if M_tot is not None:
+            #Estimate of the ringdown frequency, approximating M_final with M_tot and using Schwarzschild value
+            f_ringdown = ((CLIGHT_SI**3)/(2.*np.pi*GNEWTON_SI*M_tot*MSUN_SI)) * (1.5251-1.1568*(1-0.7)**0.1292)
+            f_max_bp = 2*f_ringdown
+            if f_max_bp > f_max: f_max_bp = f_max-10
+        else:
+            # Avoid being close to Nyquist frequency when bandpassing.
+            f_max_bp = f_max-10
 
-            strains_dets[det]['s'].bandpassing(flow=f_min, fhigh=f_max_bp)
-            strains_dets[det]['s'].whitening(strains_dets[det]['n'])
+        strains_dets[det]['w'].bandpassing(flow=f_min, fhigh=f_max_bp)
+        strains_dets[det]['w'].whitening(strains_dets[det]['n'])
 
-    logger.info("Plotting the reconstructed waveform.")
+    if ((N_samples==0) or (N_samples > len(posterior))):    samples_list = np.arange(0,len(posterior))
+    else:                                                   samples_list = np.random.choice(len(posterior), N_samples, replace=False)
 
-    if ((N_samples==0) or (N_samples > len(posterior))): samples_list = np.arange(0,len(posterior))
-    else:                                                samples_list = np.random.choice(len(posterior), N_samples, replace=False)
-
+    logger.info("... extracting {} samples ...".format(len(samples_list)))
     for j,k in enumerate(samples_list):
 
         # Every 100 steps, update the user on the status of the plot.
-        if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(samples_list)))
+        # if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(samples_list)))
 
+        # generate waveform
         params = {name: posterior[name][k] for name in names}
         p      = {**params,**constants}
         hphc   = w.compute_hphc(p)
-        h      = (hphc.plus +1j*hphc.cross)
-        hphc   = PolarizationTuple(plus=np.real(h), cross=np.imag(h))
+
+        # compute SNR
+        phiref, tshift, snr, snr_per_det = extract_snr(container_inf.like.ifos,
+                                                       {ifo: strains_dets[ifo]['d'] for ifo in container_inf.like.ifos},
+                                                       hphc, p, w.domain,
+                                                       marg_phi=container_inf.like.marg_phi_ref,
+                                                       marg_time=container_inf.like.marg_time_shift)
+        p['time_shift'] = p['time_shift'] + tshift
+        hphc   = PolarizationTuple(plus  = hphc.plus*np.cos(phiref) - hphc.cross*np.sin(phiref),
+                                   cross = hphc.plus*np.sin(phiref) + hphc.cross*np.cos(phiref))
+
+        # collect quantities
+        SNRs.append(snr)
 
         for det in strains_dets.keys():
 
+            SNRs_per_det[det].append(snr_per_det[det])
             h_tmp = strains_dets[det]['d'].project_tdwave(hphc, p, w.domain)
             h_strain = Series('time', h_tmp, seglen=seglen, srate=srate, t_gps=t_gps, f_min=f_min, f_max=f_max)
-            if(whiten):
-                h_strain.whitening(strains_dets[det]['n'])
-                wfs[det].append(h_strain.time_series/np.sqrt(srate))
-            else:
-                wfs[det].append(h_strain.time_series)
+            sps[det].append(np.abs(h_strain.freq_series))
+
+            # store waveform
+            wfs[det].append(h_strain.time_series)
+
+            # store whitened waveform
+            h_strain.whitening(strains_dets[det]['n'])
+            wfw[det].append(h_strain.time_series)
+
+    # print and plot recovered SNRs
+    for ifo in container_inf.like.ifos:
+        logger.info(" > Recovered {} SNR = {:.3f} + {:.3f} - {:.3f}".format(ifo, *_stats(SNRs_per_det[ifo])))
+    logger.info(" > Recovered Network SNR = {:.3f} + {:.3f} - {:.3f}".format(*_stats(SNRs)))
+
+    snr_matrix = np.column_stack([SNRs]+[SNRs_per_det[ifo] for ifo in container_inf.like.ifos])
+    snr_labels = [r"${\rm Net.}$ ${\rm SNR}$"] + [r"${\rm " + ifo + r"}$ ${\rm SNR}$" for ifo in container_inf.like.ifos]
+    make_corner_plot(snr_matrix,  snr_labels, outdir +'/../snr/corner.pdf')
+
+    snr_fl = open(outdir +'/../snr/posterior.dat'.format(det),'w')
+    snr_fl.write('#\t index \t network' + ''.join([' \t ' + ifo for ifo in container_inf.like.ifos] + [' \n']))
+    for i in range(len(SNRs)):
+        snr_fl.write("{} {} ".format(samples_list[i], SNRs[i]))
+        for ifo in container_inf.like.ifos:
+            snr_fl.write("\t {} ".format(SNRs_per_det[ifo][i]))
+        snr_fl.write("\n")
+    snr_fl.close()
 
     # Plot the data
     fig = plt.figure(figsize=(8,6))
     plt.subplots_adjust(hspace = .001)
 
-    # plot median, upper, lower and save
+    # plot median, upper, lower and save waveform
     for i,det in enumerate(strains_dets.keys()):
 
         lo, me, hi = np.percentile(wfs[det],[5,50,95], axis=0)
 
         ax = fig.add_subplot(nsub_panels,1,i+1)
 
-        if(whiten):
-            ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series/np.sqrt(srate), c='black', linestyle='--', lw=1.0, label='Data')
-        else:
-            ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='black', linestyle='--', lw=1.0, label='Data')
-        ax.plot(strains_dets[det]['s'].times-t_gps, me, c='gold', lw=0.8, label='Waveform')
-        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='gold', alpha=0.4, lw=0.5)
+        ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='gray', lw=.5, label='Data')
+        ax.plot(strains_dets[det]['s'].times-t_gps, me, c='navy', lw=0.8, label='Waveform')
+        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='navy', alpha=0.4, lw=0.5)
 
-        ax.set_xlabel('t - t$_{\mathrm{gps}}$')
+        ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
         ax.set_ylabel('Strain {}'.format(det))
-        ax.legend(loc='upper right', prop={'size': 6})
+        ax.set_xlim((-seglen/4,seglen/4))
+        if i==0: ax.legend(loc='upper right', prop={'size': 10})
         if not(i==len(strains_dets.keys())-1):
             ax.get_xaxis().set_visible(False)
 
-        wf_ci_fl = open(outdir +'/wf_ci_{}.dat'.format(det),'w')
-        wf_ci_fl.write('#\t t \t median \t lower \t higher\n')
+        wf_ci_fl = open(outdir +'/waveform_{}.dat'.format(det),'w')
+        wf_ci_fl.write('#\t time \t median \t lower \t higher\n')
         for i in range(len(strains_dets[det]['s'].times)):
-            wf_ci_fl.write("%.10f \t %.10f \t %.10f \t %.10f \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
+            wf_ci_fl.write("%.10f \t %.10g \t %.10g \t %.10g \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
         wf_ci_fl.close()
-        
-    if(whiten): plt.savefig(outdir +'/Reconstructed_waveform_whitened.pdf', bbox_inches='tight')
-    else:       plt.savefig(outdir +'/Reconstructed_waveform.pdf', bbox_inches='tight')
 
-    if not(M_tot==None):    
+    plt.savefig(outdir +'/Reconstructed_waveform.pdf', bbox_inches='tight', dpi=100)
+    plt.close()
+
+    # Plot the data
+    fig = plt.figure(figsize=(8,6))
+    plt.subplots_adjust(hspace = .001)
+
+    # plot median, upper, lower and save whitened waveform
+    for i,det in enumerate(strains_dets.keys()):
+
+        lo, me, hi = np.percentile(wfw[det],[5,50,95], axis=0)
+
+        ax = fig.add_subplot(nsub_panels,1,i+1)
+
+        ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='gray', lw=.5, label='Data')
+        ax.plot(strains_dets[det]['w'].times-t_gps, me, c='navy', lw=0.8, label='Waveform')
+        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='navy', alpha=0.4, lw=0.5)
+
+        ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
+        ax.set_ylabel('Strain {}'.format(det))
+        ax.set_xlim((-seglen/4,seglen/4))
+        if i==0: ax.legend(loc='upper right', prop={'size': 10})
+        if not(i==len(strains_dets.keys())-1):
+            ax.get_xaxis().set_visible(False)
+
+        wf_ci_fl = open(outdir +'/whiten_waveform_{}.dat'.format(det),'w')
+        wf_ci_fl.write('#\t time \t median \t lower \t higher\n')
+        for i in range(len(strains_dets[det]['w'].times)):
+            wf_ci_fl.write("%.10f \t %.10g \t %.10g \t %.10g \n" %(strains_dets[det]['w'].times[i], me[i], lo[i], hi[i]))
+        wf_ci_fl.close()
+
+    plt.savefig(outdir +'/Reconstructed_waveform_whitened.pdf', bbox_inches='tight', dpi=100)
+    plt.close()
+
+    if not(M_tot==None):
         # Repeating the above plot while zooming on the merger.
         # FIXME: this could be done in a single shot, storing the axes.
+
+        # waveform
         fig = plt.figure(figsize=(8,6))
         plt.subplots_adjust(hspace = .001)
 
+        t_peak = None
         for i,det in enumerate(strains_dets.keys()):
 
             lo, me, hi = np.percentile(wfs[det],[5,50,95], axis=0)
@@ -414,64 +572,181 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
             ax = fig.add_subplot(nsub_panels,1,i+1)
 
             # Compute the t_peak of the median waveform, relative to the gps time
-            t_peak = strains_dets[det]['s'].times[np.argmax(me)]-t_gps
+            if t_peak is None : t_peak = strains_dets[det]['s'].times[np.argmax(np.abs(me))]-t_gps
 
-            if(whiten):
-                ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series/np.sqrt(srate), c='black', linestyle='--', lw=1.0, label='Data')
-            else:
-                ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='black', linestyle='--', lw=1.0, label='Data')
-            ax.plot(strains_dets[det]['s'].times-t_gps, me, c='gold', lw=0.8, label='Waveform')
-            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='gold', alpha=0.4, lw=0.5)
+            ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='k', lw=0.8, label='Data')
+            ax.plot(strains_dets[det]['s'].times-t_gps, me, c='royalblue', lw=0.8, label='Waveform')
+            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='royalblue', alpha=0.4, lw=0.5)
 
             ax.set_xlim([t_peak-200*M_tot*MTSUN_SI, t_peak+200*M_tot*MTSUN_SI])
-            ax.set_xlabel('t - t$_{\mathrm{gps}}$')
+            ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
             ax.set_ylabel('Strain {}'.format(det))
-            ax.legend(loc='upper right', prop={'size': 6})
+            if i==0: ax.legend(loc='upper right', prop={'size': 10})
             if not(i==len(strains_dets.keys())-1):
                 ax.get_xaxis().set_visible(False)
 
-            wf_ci_fl = open(outdir +'/wf_ci_{}.dat'.format(det),'w')
-            wf_ci_fl.write('#\t t \t median \t lower \t higher\n')
-            for i in range(len(strains_dets[det]['s'].times)):
-                wf_ci_fl.write("%.10f \t %.10f \t %.10f \t %.10f \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
-            wf_ci_fl.close()
-        
-        if(whiten): plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_whitened_zoom.pdf'), bbox_inches='tight')
-        else:       plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_zoom.pdf'), bbox_inches='tight')
+        plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_zoom.pdf'), bbox_inches='tight', dpi=100)
+        plt.close()
 
-        del(wfs, me, lo, hi, strains_dets)
+        # whiten waveform
+        fig = plt.figure(figsize=(8,6))
+        plt.subplots_adjust(hspace = .001)
 
+        t_peak = None
+        for i,det in enumerate(strains_dets.keys()):
+
+            lo, me, hi = np.percentile(wfw[det],[5,50,95], axis=0)
+
+            ax = fig.add_subplot(nsub_panels,1,i+1)
+
+            # Compute the t_peak of the median waveform, relative to the gps time
+            if t_peak is None : t_peak = strains_dets[det]['s'].times[np.argmax(np.abs(me))]-t_gps
+
+            ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='k', lw=0.8, label='Data')
+            ax.plot(strains_dets[det]['w'].times-t_gps, me, c='royalblue', lw=0.8, label='Waveform')
+            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='royalblue', alpha=0.4, lw=0.5)
+
+            ax.set_xlim([t_peak-200*M_tot*MTSUN_SI, t_peak+200*M_tot*MTSUN_SI])
+            ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
+            ax.set_ylabel('Strain {}'.format(det))
+            if i==0: ax.legend(loc='upper right', prop={'size': 10})
+            if not(i==len(strains_dets.keys())-1):
+                ax.get_xaxis().set_visible(False)
+
+        plt.savefig(os.path.join(outdir, 'Reconstructed_waveform_whitened_zoom.pdf'), bbox_inches='tight', dpi=100)
+        plt.close()
+
+    # plot median, upper, lower and save spectrum
+    fig = plt.figure(figsize=(8,6))
+    plt.subplots_adjust(hspace = .001)
+
+    for i,det in enumerate(strains_dets.keys()):
+
+        lo, me, hi = np.percentile(sps[det],[5,50,95], axis=0)
+
+        ax = fig.add_subplot(nsub_panels,1,i+1)
+
+        ax.loglog(strains_dets[det]['s'].freqs, np.abs(spd[det]), c='gray', lw=.1, label='Data', zorder=0)
+        ax.loglog(strains_dets[det]['s'].freqs, me, c='royalblue', lw=0.8, label='Waveform')
+        ax.fill_between(strains_dets[det]['s'].freqs, lo, hi, color='royalblue', alpha=0.4, lw=0.5)
+        ax.loglog(strains_dets[det]['n'].freqs, strains_dets[det]['n'].amp_spectrum*np.sqrt(seglen), c='navy', lw=1, label='ASD')
+
+        bucket = np.min(strains_dets[det]['n'].amp_spectrum*np.sqrt(seglen))
+        ax.set_xlabel(r'$f$ [Hz]')
+        ax.set_ylabel('Spectrum {}'.format(det))
+        ax.set_xlim((f_min, f_max))
+        ax.set_ylim((bucket*1e-3,bucket*1e2))
+        if i==0: ax.legend(loc='upper right', prop={'size': 10})
+        if not(i==len(strains_dets.keys())-1):
+            ax.get_xaxis().set_visible(False)
+
+        wf_ci_fl = open(outdir +'/spectrum_{}.dat'.format(det),'w')
+        wf_ci_fl.write('#\t freq \t median \t lower \t higher\n')
+        inds = np.where((strains_dets[det]['s'].freqs>=f_min)&(strains_dets[det]['s'].freqs<=f_max))[0]
+        for i in inds:
+            wf_ci_fl.write("%.10f \t %.10g \t %.10g \t %.10g \n" %(strains_dets[det]['s'].freqs[i], me[i], lo[i], hi[i]))
+        wf_ci_fl.close()
+
+    plt.savefig(outdir +'/Reconstructed_spectrum.pdf', bbox_inches='tight', dpi=100)
+    plt.close()
+
+def make_final_summary(outdir, posterior, container_inf, container_gw, nprior=None):
+
+    # get information
+    names            = container_inf.prior.names
+    bounds           = container_inf.prior.bounds
+    consts           = container_inf.prior.const
+    consts['approx'] = container_inf.like.wave.approx
+
+    # set sp-cal
+    try:
+        consts['nspcal'] = container_inf.like.nspcal
+    except Exception:
+        # use exception for compatibility issues with old versions
+        logger.warning("Unable to read information on spectral calibration envelopes. Setting nspcal = 0.")
+        consts['nspcal'] = 0
+
+    # set psd-weight
+    try:
+        consts['nweights'] = container_inf.like.nweights
+    except Exception:
+        # use exception for compatibility issues with old versions
+        logger.warning("Unable to read information on PSD weights. Setting nweights = 0.")
+        consts['nweights'] = 0
+
+    # get prior samples
+    if nprior is None:  nprior = len(posterior)
+    prior_samples = np.transpose(container_inf.prior.get_prior_samples(nprior))
+
+    # # TODO: do we want to include data properties ? Might be very large data
+    # # get data information
+    # data = {}
+    # for det in container_inf.like.ifos:
+    #
+    #     data[det]           = {}
+    #
+    #     data[det]['strain']      = {}
+    #     data[det]['strain']['t'] = container_gw.datas[det].times.tolist()
+    #     data[det]['strain']['d'] = container_gw.datas[det].time_series.tolist()
+    #
+    #     data[det]['noise']        = {}
+    #     data[det]['noise']['f']   = container_gw.noises[det].freqs.tolist()
+    #     data[det]['noise']['asd'] = container_gw.noises[det].amp_spectrum.tolist()
+
+    # define output
+    # TODO: include bayes_factor, sampler, reconstructed waveform, etc
+    summary = {'parameters':        {'names': names, 'bounds': bounds},
+               'constants':         consts,
+               # 'data':              data,
+               'prior_samples':     {ni: prior_samples[i].tolist() for i,ni in enumerate(names)},
+               'posterior_samples': {ni: posterior[ni].tolist() for ni in np.append(names , ['logL', 'logPrior'])}
+               }
+
+    # save json
+    import json
+    with open(outdir+'/summary.json', 'w', encoding='utf-8') as file:
+        json.dump(summary, file, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":
 
     parser=op.OptionParser()
+
     # Required options
     parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the directory containing the output of the run.")
-    
+
     # Optional options
+    parser.add_option('-v', '--verbose',  dest='silence',         default=True,           action="store_false",                 help='Optional: Activate stream handler, use this if you are running on terminal. Dafault: False')
     parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
-    parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=1000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 1000.")
+    parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=3000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 3000.")
     parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
     parser.add_option('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
-    parser.add_option('--engine',         dest='engine',          default='Unknown',      type='string',                        help="Optional: Engine sampler label. Default: 'Unknown'. Currently UNUSED.")
-    parser.add_option('--extra-flag',     dest='extra_flag',      default='',             type='string',      action="append",  help="Optional: Extra prior flag. Default: ''. Currently UNUSED.")
+    parser.add_option('--seed',           dest='seed',            default=None,           type='int',                           help="Optional: Seed for pseudo-random number generator.")
+
     (opts,args) = parser.parse_args()
 
-    if not(opts.outdir==None): outdir = opts.outdir
+    if opts.outdir is not None: outdir = opts.outdir
     else: raise ValueError("The 'outdir' option is required. Aborting.")
-    
-    ppdir  = os.path.abspath(outdir+'/postproc')
-    wf_dir = os.path.abspath(outdir+'/postproc/Waveform_reconstruction') 
+    if opts.seed is not None: np.random.seed(opts.seed)
+
+    ppdir       = os.path.abspath(outdir+'/postproc')
+    wf_dir      = os.path.abspath(os.path.join(ppdir, 'waveform'))
+    hist_dir    = os.path.abspath(os.path.join(ppdir, 'hist'))
+    corner_dir  = os.path.abspath(os.path.join(ppdir, 'corner'))
+    snr_dir  = os.path.abspath(os.path.join(ppdir, 'snr'))
+
     ensure_dir(ppdir)
+    ensure_dir(corner_dir)
+    ensure_dir(hist_dir)
     ensure_dir(wf_dir)
+    ensure_dir(snr_dir)
 
     global logger
 
-    logger = set_logger(outdir=ppdir, label='bajes_postproc')
+    logger = set_logger(outdir=ppdir, label='bajes_postproc', silence=opts.silence)
     logger.info("Running bajes postprocessing:")
     logger.info("The reported uncertainties correpond to 90% credible regions.")
     logger.info("The contours of the corner plots represent 50%, 90% credible regions.")
-    
+
     run_dir_output = os.path.join(outdir, 'run')
     # extract posterior and prior object from pickle
     if not(os.path.exists(run_dir_output)): posterior = np.genfromtxt( os.path.join(outdir, 'posterior.dat'),     names=True)
@@ -484,18 +759,13 @@ if __name__ == "__main__":
     container_gw  = dc_gw.load()
     priors        = container_inf.prior
 
-    
     # produce histogram plots
     logger.info("Producing histograms...")
-    hist_dir = os.path.join(ppdir, 'histgr')
-    ensure_dir(hist_dir)
-    make_histograms(posterior, priors.names, hist_dir)
+    make_histograms(posterior, priors, hist_dir)
 
     # produce corner plots
     logger.info("Producing corners...")
-    corner_dir = os.path.join(ppdir, 'corner')
-    ensure_dir(corner_dir)
-    make_corners(posterior, opts.spin_flag, opts.lambda_flag, opts.extra_flag, corner_dir, priors)
+    make_corners(posterior, opts.spin_flag, opts.lambda_flag, corner_dir, priors)
 
     if not(opts.M_tot==None):
         if(opts.M_tot=='posterior'):
@@ -518,9 +788,14 @@ if __name__ == "__main__":
             opts.M_tot = float(opts.M_tot)
 
     # produce waveform plots
+    # TODO : use multiprocessing pool for wf reconstruction
     logger.info("Reconstructing waveforms...")
     reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
     logger.info("Reconstructing whitened waveforms...")
     reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+
+    # generate final summary
+    logger.info("Generating summary...")
+    make_final_summary(ppdir, posterior, container_inf, container_gw)
 
     logger.info("... done.")

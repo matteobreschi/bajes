@@ -707,7 +707,6 @@ def write_postproc_string(config, tags, outdir):
         Write command string to execute bajes_postproc.py
         given a config file
     """
-    ifos = config['gw-data']['ifos'].split(',')
 
     pp_string = 'bajes_postproc.py  --outdir {} '.format(outdir)
 
@@ -715,13 +714,6 @@ def write_postproc_string(config, tags, outdir):
 
         pp_string += '--spin-flag {} '.format(config['gw-prior']['spin-flag'])
         pp_string += '--tidal-flag {} '.format(config['gw-prior']['tidal-flag'])
-
-        list_keys_in_prior = np.transpose(list(config.items('gw-prior')))[0]
-        for ki in list_keys_in_prior:
-            if 'fix' in ki:
-                fix_name    = ki.split('-')[1]
-                fix_value   = config['gw-prior']['fix-{}'.format(fix_name)]
-                pp_string += '--fix-name {} --fix-value {}  '.format(fix_name, fix_value)
 
     return pp_string
 
