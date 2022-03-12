@@ -2,6 +2,9 @@ from __future__ import division, unicode_literals, absolute_import
 import numpy as np
 import warnings
 
+import logging
+logger = logging.getLogger(__name__)
+
 # Note: Running with TEOBResumS requires the EOBRun_module to be installed.
 #
 # The installation requires the C libray LibConfig and
@@ -195,8 +198,12 @@ def teobresums_hyperb_wrapper(freqs, params):
                     }
 
             t, hp, hc = teobresums(params_teob)
-            if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))): print('Nans in the waveform, with the configuration: ', params_teob)
-            # if not (np.isfinite(np.isnan(hp)) and np.any(np.isnan(hc))): print('INFSSSSS')
+            if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))): 
+                logger.warning('Nans in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
+                return [None], [None]
+            if(np.any(np.isinf(hp)) or np.any(np.isinf(hc))):
+                logger.warning('Infinities in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
+                return [None], [None]
             return hp, hc
         else:
             return [None], [None]

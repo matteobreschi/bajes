@@ -402,7 +402,7 @@ class Detector(object):
 
         if tag == 'time':
             # apply time delay from geocenter
-            return lagging(proj_wave, int(round(delay*self.srate)))
+            return lagging(proj_h, int(round(delay*self.srate)))
 
         elif tag == 'freq':
             # compute ifft and apply time delay from geocenter
