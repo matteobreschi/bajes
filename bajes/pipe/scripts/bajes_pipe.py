@@ -711,12 +711,17 @@ def write_postproc_string(config, tags, outdir):
     pp_string = 'bajes_postproc.py  --outdir {} '.format(outdir)
 
     if 'gw' in tags:
-
         pp_string += '--spin-flag {} '.format(config['gw-prior']['spin-flag'])
         pp_string += '--tidal-flag {} '.format(config['gw-prior']['tidal-flag'])
 
-    return pp_string
+        list_keys_in_pipe = np.transpose(list(config.items('pipe')))[0]
+        if 'mpi' not in list_keys_in_pipe: config['pipe']['mpi'] = 0
+        if config['pipe']['mpi']:
+            pp_string += ' -n {} '.format(int(config['pipe']['nprocs'])/int(config['pipe']['nnodes']))
+        else:
+            pp_string += ' -n {} '.format(config['pipe']['nprocs'])
 
+    return pp_string
 
 if __name__ == "__main__":
 

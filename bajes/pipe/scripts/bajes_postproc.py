@@ -14,16 +14,19 @@ except Exception:
 try:
     import matplotlib.pyplot as plt
     import matplotlib
-    # matplotlib.use('Agg')
+    matplotlib.use('Agg')
 except Exception:
     pass
 
+from bajes                 import MSUN_SI, MTSUN_SI, CLIGHT_SI, GNEWTON_SI
+
 from bajes.pipe            import ensure_dir, data_container, cart2sph, sph2cart, set_logger
 from bajes.pipe.utils      import extract_snr
+
 from bajes.obs.gw          import Detector, Noise, Series, Waveform
 from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda, mcq_to_m1, mcq_to_m2
 from bajes.obs.gw.waveform import PolarizationTuple
-from bajes import MSUN_SI, MTSUN_SI, CLIGHT_SI, GNEWTON_SI
+
 
 def _stats(samples):
     md = np.median(samples)
@@ -342,40 +345,43 @@ def make_histograms(posterior_samples, priors, outdir, nprior=None):
 
     plt.close()
 
-# def compute_wf_and_snr(dets, p, w, marg_phi=False, marg_time=False):
-#
-#     # compute waveform
-#     hphc   = w.compute_hphc(p)
-#
-#     # compute SNR
-#     phiref, tshift, snr, snr_per_det = extract_snr(list(dets.keys()), dets, hphc, p, w.domain,
-#                                                    marg_phi=marg_phi, marg_time=marg_time)
-#
-#     p['time_shift'] = p['time_shift'] + tshift
-#     hphc   = PolarizationTuple(plus  = hphc.plus*np.cos(phiref) - hphc.cross*np.sin(phiref),
-#                                cross = hphc.plus*np.sin(phiref) + hphc.cross*np.cos(phiref))
-#
-#     # collect quantities
-#     wf = {}
-#     ww = {}
-#     sp = {}
-#
-#     for det in dets.keys():
-#
-#         h_tmp       = dets[det].project_tdwave(hphc, p, w.domain)
-#         h_strain    = Series('time', h_tmp, seglen=seglen, srate=srate, t_gps=t_gps, f_min=f_min, f_max=f_max)
-#         sp[det]     = np.abs(h_strain.freq_series)
-#
-#         # store waveform
-#         wf[det]     = h_strain.time_series
-#
-#         # store whitened waveform
-#         h_strain.whitening(strains_dets[det]['n'])
-#         ww[det]     = h_strain.time_series
-#
-#     return snr, snr_per_det, sp, wf, ww
+def _wrap_compute_wf_and_snr(args):
+    return compute_wf_and_snr(*args)
 
-def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=False, N_samples=0, M_tot=None):
+def compute_wf_and_snr(p, dets, noises, w, marg_phi=False, marg_time=False):
+
+    # compute waveform
+    hphc   = w.compute_hphc(p)
+
+    # compute SNR
+    phiref, tshift, snr, snr_per_det = extract_snr(list(dets.keys()), dets, hphc, p, w.domain,
+                                                   marg_phi=marg_phi, marg_time=marg_time)
+
+    p['time_shift'] = p['time_shift'] + tshift
+    hphc   = PolarizationTuple(plus  = hphc.plus*np.cos(phiref) - hphc.cross*np.sin(phiref),
+                               cross = hphc.plus*np.sin(phiref) + hphc.cross*np.cos(phiref))
+
+    # collect quantities
+    wf = {}
+    ww = {}
+    sp = {}
+
+    for det in dets.keys():
+
+        h_tmp       = dets[det].project_tdwave(hphc, p, w.domain)
+        h_strain    = Series('time', h_tmp, seglen=p['seglen'], srate=p['srate'], t_gps=p['t_gps'], f_min=p['f_min'], f_max=p['f_max'])
+        sp[det]     = np.abs(h_strain.freq_series)
+
+        # store waveform
+        wf[det]     = h_strain.time_series
+
+        # store whitened waveform
+        h_strain.whitening(noises[det])
+        ww[det]     = h_strain.time_series
+
+    return snr, snr_per_det, sp, wf, ww
+
+def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_samples=0, M_tot=None, pool=None):
 
     # get general information
     SNRs         = []
@@ -439,42 +445,56 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, whiten=
     else:                                                   samples_list = np.random.choice(len(posterior), N_samples, replace=False)
 
     logger.info("... extracting {} samples ...".format(len(samples_list)))
-    for j,k in enumerate(samples_list):
+    if pool is None:
 
-        # Every 100 steps, update the user on the status of the plot.
-        # if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(samples_list)))
+        for j,k in enumerate(samples_list):
 
-        # generate waveform
-        params = {name: posterior[name][k] for name in names}
-        p      = {**params,**constants}
-        hphc   = w.compute_hphc(p)
+            # Every 100 steps, update the user on the status of the plot.
+            # if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(samples_list)))
 
-        # compute SNR
-        phiref, tshift, snr, snr_per_det = extract_snr(container_inf.like.ifos,
-                                                       {ifo: strains_dets[ifo]['d'] for ifo in container_inf.like.ifos},
-                                                       hphc, p, w.domain,
-                                                       marg_phi=container_inf.like.marg_phi_ref,
-                                                       marg_time=container_inf.like.marg_time_shift)
-        p['time_shift'] = p['time_shift'] + tshift
-        hphc   = PolarizationTuple(plus  = hphc.plus*np.cos(phiref) - hphc.cross*np.sin(phiref),
-                                   cross = hphc.plus*np.sin(phiref) + hphc.cross*np.cos(phiref))
+            # generate waveform
+            params = {name: posterior[name][k] for name in names}
+            p      = {**params,**constants}
 
-        # collect quantities
-        SNRs.append(snr)
+            # compute waveform and snr
+            snr, snr_per_det, _sp, _wf, _ww = compute_wf_and_snr(p,
+                                                                 {ifo: strains_dets[ifo]['d'] for ifo in container_inf.like.ifos},
+                                                                 {ifo: strains_dets[ifo]['n'] for ifo in container_inf.like.ifos},
+                                                                 w, marg_phi=container_inf.like.marg_phi_ref,
+                                                                 marg_time=container_inf.like.marg_time_shift)
 
+            # collect quantities
+            SNRs.append(snr)
+            for det in strains_dets.keys():
+                SNRs_per_det[det].append(snr_per_det[det])
+                sps[det].append(_sp[det])
+                wfs[det].append(_wf[det])
+                wfw[det].append(_ww[det])
+
+    else:
+
+        from itertools import repeat
+
+        # list all params
+        params  = [ {**{name: posterior[name][k] for name in names}, **constants} for k in samples_list ]
+        dets    = {ifo: strains_dets[ifo]['d'] for ifo in container_inf.like.ifos}
+        nois    = {ifo: strains_dets[ifo]['n'] for ifo in container_inf.like.ifos}
+
+        # compute with pool
+        results = list(pool.map(_wrap_compute_wf_and_snr,
+                                zip(params, repeat(dets), repeat(nois), repeat(w),
+                                    repeat(container_inf.like.marg_phi_ref),
+                                    repeat(container_inf.like.marg_time_shift))))
+
+        # unpack
+        SNRs = [r[0] for r in results]
         for det in strains_dets.keys():
+            SNRs_per_det[det]   = [r[1][det] for r in results]
+            sps[det]            = [r[2][det] for r in results]
+            wfs[det]            = [r[3][det] for r in results]
+            wfw[det]            = [r[4][det] for r in results]
 
-            SNRs_per_det[det].append(snr_per_det[det])
-            h_tmp = strains_dets[det]['d'].project_tdwave(hphc, p, w.domain)
-            h_strain = Series('time', h_tmp, seglen=seglen, srate=srate, t_gps=t_gps, f_min=f_min, f_max=f_max)
-            sps[det].append(np.abs(h_strain.freq_series))
-
-            # store waveform
-            wfs[det].append(h_strain.time_series)
-
-            # store whitened waveform
-            h_strain.whitening(strains_dets[det]['n'])
-            wfw[det].append(h_strain.time_series)
+        del results
 
     # print and plot recovered SNRs
     for ifo in container_inf.like.ifos:
@@ -715,6 +735,7 @@ if __name__ == "__main__":
     parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the directory containing the output of the run.")
 
     # Optional options
+    parser.add_option('-n', '--nprocs',   dest='nprocs',          default=0,              type='int',                           help='Optional: Number of parallel threads. Dafault: 0 (serial)')
     parser.add_option('-v', '--verbose',  dest='silence',         default=True,           action="store_false",                 help='Optional: Activate stream handler, use this if you are running on terminal. Dafault: False')
     parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
     parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=3000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 3000.")
@@ -767,6 +788,7 @@ if __name__ == "__main__":
     logger.info("Producing corners...")
     make_corners(posterior, opts.spin_flag, opts.lambda_flag, corner_dir, priors)
 
+    # get Mtot estimate
     if not(opts.M_tot==None):
         if(opts.M_tot=='posterior'):
             if('mtot' in priors.names):
@@ -788,11 +810,14 @@ if __name__ == "__main__":
             opts.M_tot = float(opts.M_tot)
 
     # produce waveform plots
-    # TODO : use multiprocessing pool for wf reconstruction
     logger.info("Reconstructing waveforms...")
-    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=False, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
-    logger.info("Reconstructing whitened waveforms...")
-    reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, whiten=True,  N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+    if opts.nprocs <= 1 :
+        reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+    else:
+        from bajes.pipe import initialize_mthr_pool
+        pool, close_pool   = initialize_mthr_pool(opts.nprocs)
+        reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, N_samples = opts.N_samples_wf, M_tot = opts.M_tot, pool=pool)
+        close_pool(pool)
 
     # generate final summary
     logger.info("Generating summary...")
