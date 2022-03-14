@@ -867,7 +867,7 @@ if __name__ == "__main__":
     container_inf = dc.load()
     container_gw  = dc_gw.load()
 
-    def dc, dc_gw
+    del dc, dc_gw
     priors        = container_inf.prior
 
     # set pool
