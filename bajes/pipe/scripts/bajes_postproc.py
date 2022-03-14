@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from __future__ import division, unicode_literals
 import os
 import numpy as np
@@ -8,22 +9,23 @@ from scipy.special import logsumexp
 
 try:
     import corner
-except Exception:
+except ImportError:
     pass
 
 try:
     import matplotlib.pyplot as plt
     import matplotlib
     matplotlib.use('Agg')
-except Exception:
+except ImportError:
     pass
 
 from bajes                 import MSUN_SI, MTSUN_SI, CLIGHT_SI, GNEWTON_SI
 
-from bajes.pipe            import ensure_dir, data_container, cart2sph, sph2cart, set_logger
+from bajes.pipe            import ensure_dir, data_container, cart2sph, sph2cart, set_logger, save_dict_to_hdf5
 from bajes.pipe.utils      import extract_snr
 
 from bajes.obs.gw          import Detector, Noise, Series, Waveform
+from bajes.obs.utils       import Cosmology
 from bajes.obs.gw.utils    import compute_tidal_components, compute_lambda_tilde, compute_delta_lambda, mcq_to_m1, mcq_to_m2
 from bajes.obs.gw.waveform import PolarizationTuple
 
@@ -272,12 +274,9 @@ def make_corners(posterior, spin_flag, lambda_flag, ppdir, priors):
     else:
         logger.info("Hyperbolic parameters were fixed or not included in the sampling. Skipping hyperbolic corner.")
 
-def make_histograms(posterior_samples, priors, outdir, nprior=None):
+def make_histograms(names, posterior_samples, prior_samples, outdir):
 
     from bajes.inf.utils import autocorrelation
-    names = priors.names
-    if nprior is None: nprior = min(len(posterior_samples)//2, 5000)
-    prior_samples = np.transpose(priors.get_prior_samples(nprior))
 
     for i,ni in enumerate(names):
 
@@ -291,14 +290,14 @@ def make_histograms(posterior_samples, priors, outdir, nprior=None):
             plt.title("{} = ".format(ni) + r"${"+ "{:.5f}".format(mean) + r"}^{ + "+ "{:.5f}".format(upper) + r"}_{ - "+ "{:.5f}".format(lower) +"}$")
 
             plt.hist(posterior_samples[ni], bins=66, edgecolor = 'royalblue', histtype='step', density=True, label="Posterior")
-            plt.hist(prior_samples[i],      bins=66, edgecolor = 'gray', histtype='step', density=True, label="Prior")
+            plt.hist(prior_samples[ni],     bins=66, edgecolor = 'gray', histtype='step', density=True, label="Prior")
 
             plt.axvline(mean,   color='navy',ls='--', label="Median")
             plt.axvline(mean+upper,  color='slateblue',ls='--', label="90% C.L.")
             plt.axvline(mean-lower,  color='slateblue',ls='--')
 
             plt.ylabel('probability')
-            plt.xlim(priors.bounds[i])
+            plt.xlim((np.min(prior_samples[ni]), np.max(prior_samples[ni])))
             plt.xlabel('{}'.format(names[i]),size=12)
             plt.legend(loc='best')
             plt.savefig(outdir+'/hist_{}.pdf'.format(names[i]), dpi=100, bbox_inches='tight')
@@ -324,26 +323,31 @@ def make_histograms(posterior_samples, priors, outdir, nprior=None):
             logger.warning("Unable to produce histogram plot for {}, an exception occurred.".format(ni))
             pass
 
-    logger.info("... producing histogram for logL ...")
-    mean, upper, lower  = _stats(posterior_samples['logL'])
+    try:
 
-    fig = plt.figure()
+        mean, upper, lower  = _stats(posterior_samples['logL'])
+        logger.info("... producing histogram for logL ...")
 
-    plt.title("{} = ".format('logL') + r"${"+ "{:.5f}".format(mean) + r"}^{ + "+ "{:.5f}".format(upper) + r"}_{ - "+ "{:.5f}".format(lower) +"}$")
+        fig = plt.figure()
 
-    plt.hist(posterior_samples['logL'], bins=66, edgecolor = 'royalblue', histtype='step', density=True, label="Likelihood")
-    plt.hist(posterior_samples['logL']+posterior_samples['logPrior'], bins=66, edgecolor = 'gray', histtype='step', density=True, label="Posterior")
+        plt.title("{} = ".format('logL') + r"${"+ "{:.5f}".format(mean) + r"}^{ + "+ "{:.5f}".format(upper) + r"}_{ - "+ "{:.5f}".format(lower) +"}$")
 
-    plt.axvline(mean,   color='navy',ls='--', label="Median")
-    plt.axvline(mean+upper,  color='slateblue',ls='--', label="90% C.L.")
-    plt.axvline(mean-lower,  color='slateblue',ls='--')
+        plt.hist(posterior_samples['logL'], bins=66, edgecolor = 'royalblue', histtype='step', density=True, label="Likelihood")
+        plt.hist(posterior_samples['logL']+posterior_samples['logPrior'], bins=66, edgecolor = 'gray', histtype='step', density=True, label="Posterior")
 
-    plt.ylabel('probability')
-    plt.xlabel('logL',size=12)
-    plt.legend(loc='best')
-    plt.savefig(outdir+'/hist_{}.pdf'.format('logL'), dpi=100, bbox_inches='tight')
+        plt.axvline(mean,   color='navy',ls='--', label="Median")
+        plt.axvline(mean+upper,  color='slateblue',ls='--', label="90% C.L.")
+        plt.axvline(mean-lower,  color='slateblue',ls='--')
 
-    plt.close()
+        plt.ylabel('probability')
+        plt.xlabel('logL',size=12)
+        plt.legend(loc='best')
+        plt.savefig(outdir+'/hist_{}.pdf'.format('logL'), dpi=100, bbox_inches='tight')
+
+        plt.close()
+
+    except KeyError:
+        pass
 
 def _wrap_compute_wf_and_snr(args):
     return compute_wf_and_snr(*args)
@@ -392,6 +396,8 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
     sps          = {det: [] for det in container_gw.datas.keys()}
     spd          = {det: [] for det in container_gw.datas.keys()}
     SNRs_per_det = {ifo: [] for ifo in container_inf.like.ifos}
+    data_output  = {}
+    snr_output   = {}
 
     first_det                                 = list(container_gw.datas.keys())[0]
     data_first_det                            = container_gw.datas[first_det]
@@ -413,6 +419,17 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
     if nspcal > 0 :
         spcal_freqs = np.logspace(1., np.log(np.max(freqs))/np.log(np.min(freqs)), base=np.min(freqs), num = nspcal)
 
+    # estimate bandpassing frequency
+    # set default in proximity of f_max
+    f_max_bp = f_max-10
+    if M_tot is not None:
+        #Estimate of the ringdown frequency, approximating M_final with M_tot and using Schwarzschild value
+        f_ringdown      = ((CLIGHT_SI**3)/(2.*np.pi*GNEWTON_SI*M_tot*MSUN_SI)) * (1.5251-1.1568*(1-0.7)**0.1292)
+        temp_f_max_bp   = 2*f_ringdown
+        # avoid f_max_bp to be larger than f_max
+        if temp_f_max_bp < f_max_bp: f_max_bp = temp_f_max_bp
+    logger.info("... bandpassing between [{:.0f}, {:.0f}] Hz ...".format(f_min,f_max_bp))
+
     # iterate on detectors
     from copy import deepcopy
     for det in strains_dets.keys():
@@ -429,22 +446,13 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
         else:
             strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'])
 
-        if M_tot is not None:
-            #Estimate of the ringdown frequency, approximating M_final with M_tot and using Schwarzschild value
-            f_ringdown = ((CLIGHT_SI**3)/(2.*np.pi*GNEWTON_SI*M_tot*MSUN_SI)) * (1.5251-1.1568*(1-0.7)**0.1292)
-            f_max_bp = 2*f_ringdown
-            if f_max_bp > f_max: f_max_bp = f_max-10
-        else:
-            # Avoid being close to Nyquist frequency when bandpassing.
-            f_max_bp = f_max-10
-
         strains_dets[det]['w'].bandpassing(flow=f_min, fhigh=f_max_bp)
         strains_dets[det]['w'].whitening(strains_dets[det]['n'])
 
     if ((N_samples==0) or (N_samples > len(posterior))):    samples_list = np.arange(0,len(posterior))
     else:                                                   samples_list = np.random.choice(len(posterior), N_samples, replace=False)
 
-    logger.info("... extracting {} samples ...".format(len(samples_list)))
+    logger.info("... extracting {} posterior samples ...".format(len(samples_list)))
     if pool is None:
 
         for j,k in enumerate(samples_list):
@@ -497,7 +505,10 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
         del results
 
     # print and plot recovered SNRs
+    snr_output['indeces'] = samples_list
+    snr_output['network'] = SNRs
     for ifo in container_inf.like.ifos:
+        snr_output[ifo] = SNRs_per_det[ifo]
         logger.info(" > Recovered {} SNR = {:.3f} + {:.3f} - {:.3f}".format(ifo, *_stats(SNRs_per_det[ifo])))
     logger.info(" > Recovered Network SNR = {:.3f} + {:.3f} - {:.3f}".format(*_stats(SNRs)))
 
@@ -518,8 +529,16 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
     fig = plt.figure(figsize=(8,6))
     plt.subplots_adjust(hspace = .001)
 
+    data_output['strain']   = {}
+    data_output['noise']    = {}
+    data_output['waveform'] = {}
+
     # plot median, upper, lower and save waveform
     for i,det in enumerate(strains_dets.keys()):
+
+        data_output['strain'][det] = {}
+        data_output['noise'][det] = {}
+        data_output['waveform'][det] = {}
 
         lo, me, hi = np.percentile(wfs[det],[5,50,95], axis=0)
 
@@ -528,6 +547,13 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
         ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='gray', lw=.5, label='Data')
         ax.plot(strains_dets[det]['s'].times-t_gps, me, c='navy', lw=0.8, label='Waveform')
         ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='navy', alpha=0.4, lw=0.5)
+
+        data_output['strain'][det]['time']        = strains_dets[det]['s'].times
+        data_output['strain'][det]['series']      = strains_dets[det]['s'].time_series
+        data_output['waveform'][det]['time']      = strains_dets[det]['s'].times
+        data_output['waveform'][det]['series']    = me
+        data_output['waveform'][det]['series_up'] = hi
+        data_output['waveform'][det]['series_lo'] = lo
 
         ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
         ax.set_ylabel('Strain {}'.format(det))
@@ -559,6 +585,11 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
         ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='gray', lw=.5, label='Data')
         ax.plot(strains_dets[det]['w'].times-t_gps, me, c='navy', lw=0.8, label='Waveform')
         ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='navy', alpha=0.4, lw=0.5)
+
+        data_output['strain'][det]['series_whiten']      = strains_dets[det]['w'].time_series
+        data_output['waveform'][det]['series_whiten']    = me
+        data_output['waveform'][det]['series_whiten_up'] = hi
+        data_output['waveform'][det]['series_whiten_lo'] = lo
 
         ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
         ax.set_ylabel('Strain {}'.format(det))
@@ -651,6 +682,15 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
         ax.fill_between(strains_dets[det]['s'].freqs, lo, hi, color='royalblue', alpha=0.4, lw=0.5)
         ax.loglog(strains_dets[det]['n'].freqs, strains_dets[det]['n'].amp_spectrum*np.sqrt(seglen), c='navy', lw=1, label='ASD')
 
+        data_output['noise'][det]['freq']           = strains_dets[det]['n'].freqs
+        data_output['noise'][det]['asd']            = strains_dets[det]['n'].amp_spectrum
+        data_output['strain'][det]['freq']          = strains_dets[det]['s'].freqs
+        data_output['strain'][det]['spectrum']      = np.abs(spd[det])
+        data_output['waveform'][det]['freq']        = strains_dets[det]['s'].freqs
+        data_output['waveform'][det]['spectrum']    = me
+        data_output['waveform'][det]['spectrum_up'] = hi
+        data_output['waveform'][det]['spectrum_lo'] = lo
+
         bucket = np.min(strains_dets[det]['n'].amp_spectrum*np.sqrt(seglen))
         ax.set_xlabel(r'$f$ [Hz]')
         ax.set_ylabel('Spectrum {}'.format(det))
@@ -670,7 +710,41 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
     plt.savefig(outdir +'/Reconstructed_spectrum.pdf', bbox_inches='tight', dpi=100)
     plt.close()
 
-def make_final_summary(outdir, posterior, container_inf, container_gw, nprior=None):
+    return data_output , snr_output
+
+def compute_cosmology_and_masses(names, cosmo, posterior_samples, prior_samples, map_fn):
+
+    cosmo  = Cosmology(cosmo=cosmo, kwargs=None)
+    post_dict = {}
+    prio_dict = {}
+
+    if 'distance' in names:
+
+        post_dict['z'] = np.array(list(map_fn(cosmo.dl_to_z, posterior_samples['distance'])))
+        prio_dict['z'] = np.array(list(map_fn(cosmo.dl_to_z, prior_samples['distance'])))
+
+        if 'mtot' in names:
+            post_dict['mtot_src'] = posterior_samples['mtot']/(1+post_dict['z'])
+            prio_dict['mtot_src'] = prior_samples['mtot']/(1+prio_dict['z'])
+
+        elif 'mchirp' in names:
+            post_dict['mchirp_src'] = posterior_samples['mchirp']/(1+post_dict['z'])
+            prio_dict['mchirp_src'] = prior_samples['mchirp']/(1+prio_dict['z'])
+
+        else:
+            logger.warning("Unable to compute source-frame mass from posterior samples. Skipping this quantity.")
+
+    else:
+        logger.warning("Unable to compute redshift from posterior samples. Skipping this quantity.")
+
+    return post_dict, prio_dict
+
+def make_final_summary(outdir,
+                       posterior_samples, prior_samples,
+                       z_posterior_samples, z_prior_samples,
+                       container_inf, container_gw,
+                       data_dict, snr_dict,
+                       nprior=None):
 
     # get information
     names            = container_inf.prior.names
@@ -694,38 +768,43 @@ def make_final_summary(outdir, posterior, container_inf, container_gw, nprior=No
         logger.warning("Unable to read information on PSD weights. Setting nweights = 0.")
         consts['nweights'] = 0
 
-    # get prior samples
-    if nprior is None:  nprior = len(posterior)
-    prior_samples = np.transpose(container_inf.prior.get_prior_samples(nprior))
+    # posterior and prior samples
+    pri     = {ni: np.array(prior_samples[ni]) for i,ni in enumerate(names)}
+    pos     = {ni: np.array(posterior_samples[ni]) for ni in np.append(names , ['logL', 'logPrior'])}
+    z_pri   = {ni: np.array(z_prior_samples[ni]) for ni in list(z_prior_samples.keys())}
+    z_pos   = {ni: np.array(z_posterior_samples[ni]) for ni in list(z_prior_samples.keys())}
 
-    # # TODO: do we want to include data properties ? Might be very large data
-    # # get data information
-    # data = {}
-    # for det in container_inf.like.ifos:
-    #
-    #     data[det]           = {}
-    #
-    #     data[det]['strain']      = {}
-    #     data[det]['strain']['t'] = container_gw.datas[det].times.tolist()
-    #     data[det]['strain']['d'] = container_gw.datas[det].time_series.tolist()
-    #
-    #     data[det]['noise']        = {}
-    #     data[det]['noise']['f']   = container_gw.noises[det].freqs.tolist()
-    #     data[det]['noise']['asd'] = container_gw.noises[det].amp_spectrum.tolist()
+    # clean data
+    snr_dict = {ki : np.array(snr_dict[ki]) for ki in snr_dict.keys()}
 
-    # define output
-    # TODO: include bayes_factor, sampler, reconstructed waveform, etc
-    summary = {'parameters':        {'names': names, 'bounds': bounds},
+    # define final output
+    # TODO: include bayes_factor, sampler information
+    summary = {'parameters':        {'names': np.array(names),
+                                     'bounds': np.array(bounds)},
                'constants':         consts,
-               # 'data':              data,
-               'prior_samples':     {ni: prior_samples[i].tolist() for i,ni in enumerate(names)},
-               'posterior_samples': {ni: posterior[ni].tolist() for ni in np.append(names , ['logL', 'logPrior'])}
-               }
+               'data':              data_dict,
+               'prior_samples':     {**pri, **z_pri},
+               'posterior_samples': {**pos, **z_pos},
+               'snr':               snr_dict }
 
-    # save json
-    import json
-    with open(outdir+'/summary.json', 'w', encoding='utf-8') as file:
-        json.dump(summary, file, ensure_ascii=False, indent=4)
+    # save hdf5
+    save_dict_to_hdf5(summary, 'summary/', os.path.join(outdir,'../summary.hdf5'))
+
+def clean_outdir(outdir):
+
+    # making folder for pickles
+    run_dir = os.path.abspath(outdir+'/run')
+    if os.path.exists(run_dir):
+        pkl_dir = os.path.abspath(run_dir+'/pkl')
+    else:
+        pkl_dir = os.path.abspath(outdir+'/pkl')
+    ensure_dir(pkl_dir)
+
+    listdir = os.listdir(outdir)
+    for di in listdir:
+        if di.split('.')[-1] == 'pkl':
+            os.replace(outdir+'/'+di, pkl_dir+'/'+di)
+
 
 if __name__ == "__main__":
 
@@ -739,10 +818,11 @@ if __name__ == "__main__":
     parser.add_option('-v', '--verbose',  dest='silence',         default=True,           action="store_false",                 help='Optional: Activate stream handler, use this if you are running on terminal. Dafault: False')
     parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
     parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=3000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 3000.")
+    parser.add_option('--N-samples-prior',dest='nprior',          default=None,           type='int',                           help="Optional: Number of prior samples. Default: Min( Npost, 10000 ).")
     parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
     parser.add_option('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
+    parser.add_option('--cosmo',          dest='cosmo',           default='Planck18_arXiv_v2',     type='string',               help="Optional: Cosmology model for redshift computation. Default: Planck18_arXiv_v2")
     parser.add_option('--seed',           dest='seed',            default=None,           type='int',                           help="Optional: Seed for pseudo-random number generator.")
-
     (opts,args) = parser.parse_args()
 
     if opts.outdir is not None: outdir = opts.outdir
@@ -769,20 +849,50 @@ if __name__ == "__main__":
     logger.info("The contours of the corner plots represent 50%, 90% credible regions.")
 
     run_dir_output = os.path.join(outdir, 'run')
+    pkl_dir_output = os.path.join(run_dir_output, 'pkl')
     # extract posterior and prior object from pickle
     if not(os.path.exists(run_dir_output)): posterior = np.genfromtxt( os.path.join(outdir, 'posterior.dat'),     names=True)
     else:                                   posterior = np.genfromtxt( os.path.join(outdir, 'run/posterior.dat'), names=True)
-    if not(os.path.exists(run_dir_output)): dc        = data_container(os.path.join(outdir, 'inf.pkl')                      )
-    else:                                   dc        = data_container(os.path.join(outdir, 'run/inf.pkl')                  )
-    if not(os.path.exists(run_dir_output)): dc_gw     = data_container(os.path.join(outdir, 'gw_obs.pkl')                   )
-    else:                                   dc_gw     = data_container(os.path.join(outdir, 'run/gw_obs.pkl')               )
+
+    if os.path.exists(pkl_dir_output):
+        dc        = data_container(os.path.join(pkl_dir_output, 'inf.pkl'))
+        dc_gw     = data_container(os.path.join(pkl_dir_output, 'gw_obs.pkl'))
+    elif os.path.exists(run_dir_output):
+        dc        = data_container(os.path.join(run_dir_output, 'inf.pkl'))
+        dc_gw     = data_container(os.path.join(run_dir_output, 'gw_obs.pkl'))
+    else:
+        dc        = data_container(os.path.join(outdir, 'inf.pkl'))
+        dc_gw     = data_container(os.path.join(outdir, 'gw_obs.pkl'))
+
     container_inf = dc.load()
     container_gw  = dc_gw.load()
+
+    def dc, dc_gw
     priors        = container_inf.prior
+
+    # set pool
+    if opts.nprocs <= 1 :
+        pool = None
+        map_fn = map
+    else:
+        from bajes.pipe import initialize_mthr_pool
+        pool, close_pool   = initialize_mthr_pool(opts.nprocs)
+        map_fn = pool.map
+
+    # extract prior samples
+    logger.info("Extracting prior samples...")
+    if opts.nprior is None: opts.nprior = min(len(posterior), 10000)
+    prior_samples = np.transpose(list(map_fn(priors.get_prior_samples, np.ones(opts.nprior, dtype=int))))
+    prior_samples = {ni: prior_samples[i][0] for i,ni in enumerate(priors.names)}
+
+    # compute redshift
+    logger.info("Computing redshifts...")
+    z_post, z_prio = compute_cosmology_and_masses(priors.names, opts.cosmo, posterior, prior_samples, map_fn)
 
     # produce histogram plots
     logger.info("Producing histograms...")
-    make_histograms(posterior, priors, hist_dir)
+    make_histograms(priors.names, posterior, prior_samples, hist_dir)
+    make_histograms(list(z_post.keys()), z_post, z_prio, hist_dir)
 
     # produce corner plots
     logger.info("Producing corners...")
@@ -811,16 +921,17 @@ if __name__ == "__main__":
 
     # produce waveform plots
     logger.info("Reconstructing waveforms...")
-    if opts.nprocs <= 1 :
-        reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
+    if pool is None :
+        data_dict, snr_dict = reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
     else:
-        from bajes.pipe import initialize_mthr_pool
-        pool, close_pool   = initialize_mthr_pool(opts.nprocs)
-        reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, N_samples = opts.N_samples_wf, M_tot = opts.M_tot, pool=pool)
+        data_dict, snr_dict = reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, N_samples = opts.N_samples_wf, M_tot = opts.M_tot, pool=pool)
         close_pool(pool)
 
     # generate final summary
-    logger.info("Generating summary...")
-    make_final_summary(ppdir, posterior, container_inf, container_gw)
+    logger.info("Generating hdf5 summary...")
+    make_final_summary(ppdir, posterior, prior_samples, z_post, z_prio, container_inf, container_gw, data_dict, snr_dict)
+
+    # clean outdir
+    clean_outdir(outdir)
 
     logger.info("... done.")
