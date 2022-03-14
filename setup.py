@@ -6,6 +6,32 @@ import re
 import sys
 import os
 
+__ascii_art__ = """
+                    ....
+              ....--::::-==-:.        .::..
+           ..---::.         :=:..    .:  :..
+        ...--.     ..... ..   :-::   .:   .:.
+       :::-.   .---:::::-::---  :=:.   :    :.
+     .-=.   .---..          .:+   =.. ..:    :.
+   .:=:    --:.               :=  .=..  .:    :.
+  :-=    -=:.                 .:=  + :  .:    :.
+ :.=    --.   .:..:.           :+ --:    .:   :.
+..+. .--:.  .:.   .:  .        :.-:.     .:   ...
+ .:--:..  .::   .:.            ...       .:   ...
+         . :  .:.                        .:   : .
+        ..: .. .                        .:    :.
+        ... ...                        .:    :..
+        .:   :.         .             .:   :
+        .:    :.        .....:.. ..  ..   ...
+         .:    :..      ...    .. .........
+          .:    :.        ............
+           .:.    .:.
+             .::     ..::.   ...
+               .:..       .... ..:.
+                  ......          .-.
+                        .:::.....::..
+"""
+
 # set logger
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
@@ -13,7 +39,6 @@ logging.basicConfig(level=logging.INFO, format='%(message)s')
 py_version = sys.version_info
 if py_version < (3, 7):
     sys.exit("Python < 3.7 is not supported, aborting setup")
-logging.info("Running setup with Python {}.{}".format(py_version.major, py_version.minor))
 
 # get directory path
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -24,18 +49,22 @@ VERS    = r"^__version__ = ['\"]([^'\"]*)['\"]"
 mo      = re.search(VERS, inis, re.M)
 VERSION = mo.group(1)
 
-# Tidy up the project root
-CLEAN_FILES = './build ./dist ./*.pyc ./*.tgz ./*.egg-info'.split(' ')
+# Tidy up the project root if installing
+if 'install' in sys.argv:
 
-for path_spec in CLEAN_FILES:
-    # Make paths absolute and relative to this path
-    abs_paths = glob.glob(os.path.normpath(os.path.join(dir_path, path_spec)))
-    for path in [str(p) for p in abs_paths]:
-        if not path.startswith(dir_path):
-            # Die if path in CLEAN_FILES is absolute + outside this directory
-            raise ValueError("{} is not a path inside {}".format(path, dir_path))
-        logging.info("removing {}".format(os.path.relpath(path)))
-        shutil.rmtree(path)
+      logging.info("Running Bajes {} installation with Python {}.{}".format(VERSION, py_version.major, py_version.minor))
+      logging.info("cleaning project root")
+      CLEAN_FILES = './build ./dist ./*.pyc ./*.tgz ./*.egg-info'.split(' ')
+
+      for path_spec in CLEAN_FILES:
+          # Make paths absolute and relative to this path
+          abs_paths = glob.glob(os.path.normpath(os.path.join(dir_path, path_spec)))
+          for path in [str(p) for p in abs_paths]:
+              if not path.startswith(dir_path):
+                  # Die if path in CLEAN_FILES is absolute + outside this directory
+                  raise ValueError("{} is not a path inside {}".format(path, dir_path))
+              logging.info("removing {}".format(os.path.relpath(path)))
+              shutil.rmtree(path)
 
 setup(# metadata
       name='bajes',
@@ -71,4 +100,7 @@ setup(# metadata
                         'scipy>=1.4.0',
                         'astropy>=4.0.0']
       )
-logging.info("Bajes succesfully installed.")
+
+if 'install' in sys.argv:
+      logging.info("Bajes succesfully installed.")
+      logging.info(__ascii_art__)

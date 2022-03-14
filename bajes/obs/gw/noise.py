@@ -56,7 +56,7 @@ def get_design_sensitivity(ifo):
     elif ifo=='K1':
         filename = 'LIGO-T1600593-v1-KAGRA_Design.txt'
     elif 'ET' in ifo:
-        filename = 'LIGO-P1600143-v18-ET_D-10KHZ.txt'
+        filename = 'ET-0001A-18_ETD.txt'
     elif ifo=='CE':
         filename = 'LIGO-P1600143-v18-CE.txt'
     else:
