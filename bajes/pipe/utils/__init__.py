@@ -246,7 +246,7 @@ def extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=
     like_mat = -0.5*h_inner_h + np.real([ dh * np.exp(-1j*phi_ax) for dh in dh_fft ])
 
     # sum over phi_ax and extract time_shift
-    like_arr    = np.sum(like_mat, axis=1)
+    like_arr    = logsumexp(like_mat, axis=1)
     prob        = np.exp(like_arr - logsumexp(like_arr))
     cdf         = np.cumsum(prob)
     cdf         /= np.max(cdf)
@@ -270,7 +270,6 @@ def extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=
         like_arr = np.array( [ np.interp(time_shift, [tlo,tup], [Llo[i],Lup[i]]) for i in range(len(Lup)) ] )
 
     # extract phi_ref
-    assert len(like_arr) == len(phi_ax) # TODO: remove this assertion in the future
     prob    = np.exp(like_arr - logsumexp(like_arr))
     cdf     = np.cumsum(prob)
     cdf     /= np.max(cdf)
