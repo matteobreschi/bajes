@@ -182,7 +182,6 @@ def teobresums_hyperb_wrapper(freqs, params):
                             'use_mode_lm':         modes             ,
                             'domain':              0                 ,
                             'arg_out':             0                 ,
-
                             'initial_frequency':   params['f_min']   ,
                             'srate':               params['srate']   ,
                             'srate_interp':        params['srate']   ,
