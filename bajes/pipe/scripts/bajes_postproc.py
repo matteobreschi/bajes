@@ -804,7 +804,7 @@ def clean_outdir(outdir):
     ensure_dir(pkl_dir)
 
     for di in listdir:
-        if di.split('.')[-1] == 'pkl' and os.path.isfile(output+'/'+di):
+        if di.split('.')[-1] == 'pkl' and os.path.isfile(outdir+'/'+di):
             os.replace(outdir+'/'+di, pkl_dir+'/'+di)
 
 
