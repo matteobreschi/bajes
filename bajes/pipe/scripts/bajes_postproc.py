@@ -792,6 +792,9 @@ def make_final_summary(outdir,
 
 def clean_outdir(outdir):
 
+    # list folders
+    listdir = os.listdir(outdir)
+
     # making folder for pickles
     run_dir = os.path.abspath(outdir+'/run')
     if os.path.exists(run_dir):
@@ -800,9 +803,8 @@ def clean_outdir(outdir):
         pkl_dir = os.path.abspath(outdir+'/pkl')
     ensure_dir(pkl_dir)
 
-    listdir = os.listdir(outdir)
     for di in listdir:
-        if di.split('.')[-1] == 'pkl':
+        if di.split('.')[-1] == 'pkl' and os.path.isfile(output+'/'+di):
             os.replace(outdir+'/'+di, pkl_dir+'/'+di)
 
 
