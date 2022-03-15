@@ -510,15 +510,10 @@ def parse_core_options():
     # Optional, number of PSD weights
     parser.add_option('--psd-weights',       dest='nweights',         default=0,     type='int',  help='number of PSD weight parameters per IFO, default 0')
 
-    # ROQ options
-    parser.add_option('--use-roq',           dest='roq',         default=False,  action="store_true",    help='ROQ flag')
-    parser.add_option('--roq-epsilon',       dest='roq_epsilon', default=1e-6,   type='float',           help='accuracy for ROQ approximation, default 1e-6')
-    parser.add_option('--roq-training',      dest='roq_points',  default=5000,   type='int',             help='number of training points for ROQ, default 5000')
-
-    # ROQ options
-    parser.add_option('--use-roq',           dest='roq',         default=False,  action="store_true",    help='ROQ flag')
-    parser.add_option('--roq-epsilon',       dest='roq_epsilon', default=1e-6,   type='float',           help='accuracy for ROQ approximation, default 1e-6')
-    parser.add_option('--roq-training',      dest='roq_points',  default=5000,   type='int',             help='number of training points for ROQ, default 5000')
+#    # ROQ options
+#    parser.add_option('--use-roq',           dest='roq',         default=False,  action="store_true",    help='ROQ flag')
+#    parser.add_option('--roq-epsilon',       dest='roq_epsilon', default=1e-6,   type='float',           help='accuracy for ROQ approximation, default 1e-6')
+#    parser.add_option('--roq-training',      dest='roq_points',  default=5000,   type='int',             help='number of training points for ROQ, default 5000')
 
     # GWBinning options
     parser.add_option('--use-binning',       dest='binning',     default=False,  action="store_true",    help='frequency binning flag')

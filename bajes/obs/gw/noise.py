@@ -125,10 +125,6 @@ class Noise(object):
         self.amp_spec_pad   = self.amp_spectrum
         self.pow_spec_pad   = self.power_spectrum
 
-        self.freqs_pad      = self.freqs
-        self.amp_spec_pad   = self.amp_spectrum
-        self.pow_spec_pad   = self.power_spectrum
-
         # enlong ASD/PSD to f=0 to avoid problems during interpolation
         if self.freqs[0] > self.df:
             l_pad               = int(round(np.min(self.freqs)/self.df))+1

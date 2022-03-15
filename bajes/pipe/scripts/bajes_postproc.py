@@ -35,12 +35,6 @@ def _stats(samples):
     lo = np.percentile(samples, 5)
     return md, up-md, md-lo
 
-def _stats(samples):
-    md = np.median(samples)
-    up = np.percentile(samples, 95)
-    lo = np.percentile(samples, 5)
-    return md, up-md, md-lo
-
 def make_corner_plot(matrix, labels, outputname):
 
     N = len(labels)
@@ -155,9 +149,6 @@ def make_corners(posterior, spin_flag, lambda_flag, ppdir, priors):
             make_corner_plot(chiq_matrix,chiq_labels,ppdir+'/chis_posterior.pdf')
         except Exception:
             logger.info("Precessing spins chi_eff-chip plot failed.")
-
-    elif('no-spins' in spin_flag):
-        logger.info("No spins option selected. Skipping spin plots.")
 
     elif('no-spins' in spin_flag):
         logger.info("No spins option selected. Skipping spin plots.")
