@@ -9,7 +9,7 @@ except Exception:
 
 class nrsur7dq4_wrapper(object):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
 
         if not os.path.exists(gwsurrogate.__path__[0]+'/surrogate_downloads/NRSur7dq4.h5'):
             gwsurrogate.catalog.pull('NRSur7dq4')
@@ -53,7 +53,7 @@ class nrsur7dq4_wrapper(object):
 
 class nrhybsur3dq8_wrapper(object):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
 
         if not os.path.exists(gwsurrogate.__path__[0]+'/surrogate_downloads/NRHybSur3dq8.h5'):
             gwsurrogate.catalog.pull('NRHybSur3dq8')
@@ -94,7 +94,7 @@ class nrhybsur3dq8_wrapper(object):
 
 class nrhybsur3dq8tidal_wrapper(object):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
 
         if not os.path.exists(gwsurrogate.__path__[0]+'/surrogate_downloads/NRHybSur3dq8.h5'):
             gwsurrogate.catalog.pull('NRHybSur3dq8')

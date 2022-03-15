@@ -23,11 +23,5 @@ __known_events_metadata__ = {'GW150914':    {'t_gps': 1126259462.4, 'ifos': 'H1,
                              'GW170818':    {'t_gps': 1187058327.1, 'ifos': 'H1,L1,V1'},
                              'GW170823':    {'t_gps': 1187529256.5, 'ifos': 'H1,L1'}}
 
-__known_approxs__          = ['TaylorF2_3.5PN','TaylorF2_5.5PN',
-                              'TaylorF2_5.5PN_7.5PNTides', 'TaylorF2_5.5PN_7.5PNTides2020',
-                              'TaylorF2_5.5PN_3.5PNQM_7.5PNTides',
-                              'TEOBResumS','TEOBResumSPA','EccTEOBResumS','HypTEOBResumS',
-                              'NRPM', 'NRPM_ext', 'NRPM_ext_recal', 'NRPMw', 'NRPMw_recal',
-                              'TEOBResumS_NRPM', 'TEOBResumSPA_NRPMw', 'TEOBResumSPA_NRPMw_recal',
-                              'NRSur7dq4','NRHybSur3dq8','NRHybSur3dq8Tidal',
-                              'MLGW', 'MLTEOBNQC', 'MLSEOBv4', 'MLGW-BNS', 'LALSimFD', 'LALSimTD']
+from .waveform import __approx_dict__
+__known_approxs__          = list(__approx_dict__.keys())
