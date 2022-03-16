@@ -123,9 +123,9 @@ def __get_waveform_generator__(approx, seglen, srate):
             raise AttributeError("Unable to read approximant string. Please use a valid string: {}.\nIf you are using a LAL approximant, the full list can be found at https://lscsoft.docs.ligo.org/lalsuite/".format(__known_approxs__))
 
         this_wave = __approx_dict__[approx]
-        wave_pars = {'seglen' seglen, 'srate': srate, 'domain': this_wave['domain']}
+        wave_pars = {'seglen': seglen, 'srate': srate, 'domain': this_wave['domain']}
 
-    elif:
+    else:
         # if enters here LALSimTD or LALSimFD is in approx name
         lal_approx  = approx.split('-')
         if (lal_approx[0]!='LALSimTD') or (lal_approx[0]!='LALSimFD'):
@@ -133,7 +133,7 @@ def __get_waveform_generator__(approx, seglen, srate):
             raise AttributeError("Wrong syntax for LAL approximant, please use: { LALSimTD or LALSimFD }-{ LAL approx name }\nThe full list of LAL approximants can be found at https://lscsoft.docs.ligo.org/lalsuite/")
 
         this_wave = __approx_dict__[lal_approx[0]]
-        wave_pars = {'seglen' seglen, 'srate': srate, 'domain': this_wave['domain'], approx=lal_approx[1]}
+        wave_pars = {'seglen': seglen, 'srate': srate, 'domain': this_wave['domain'], 'approx': lal_approx[1]}
 
     # set module string and import
     from importlib import import_module
