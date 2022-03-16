@@ -922,7 +922,6 @@ if __name__ == "__main__":
         else:
             opts.M_tot = float(opts.M_tot)
 
-    exit()
     # produce waveform plots
     logger.info("Reconstructing waveforms...")
     if pool is None:
