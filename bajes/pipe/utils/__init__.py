@@ -178,19 +178,19 @@ def extract_snr(ifos, detectors, hphc, pars, domain, marg_phi=False, marg_time=F
 
     # compute SNR and (dt, dphi) sample
     if (marg_time and marg_phi) :
-        phiref, tshift, snr, snr_per_det = extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=ngrid)
+        phiref, tshift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det = extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=ngrid)
     elif marg_time :
-        tshift, snr, snr_per_det = extract_snr_sample_time_marg(ifos, detectors, hphc, pars, domain)
+        tshift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det         = extract_snr_sample_time_marg(ifos, detectors, hphc, pars, domain)
         phiref = 0.
     elif marg_phi :
-        phiref, snr, snr_per_det = extract_snr_sample_phi_marg(ifos, detectors, hphc, pars, domain, ngrid=ngrid)
+        phiref, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det         = extract_snr_sample_phi_marg(ifos, detectors, hphc, pars, domain, ngrid=ngrid)
         tshift = 0.
     else :
-        snr, snr_per_det = extract_snr_sample(ifos, detectors, hphc, pars, domain)
+        snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det                 = extract_snr_sample(ifos, detectors, hphc, pars, domain)
         phiref = 0.
         tshift = 0.
 
-    return phiref, tshift, snr, snr_per_det
+    return phiref, tshift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det
 
 def extract_snr_sample(ifos, detectors, hphc, pars, domain):
 
@@ -202,18 +202,27 @@ def extract_snr_sample(ifos, detectors, hphc, pars, domain):
         dh_list.append(this_dh)
         hh_list.append(this_hh)
 
-    snr2 = 0
-    snr_per_det = {ifo : 0 for ifo in ifos}
+    snr_mf2         = 0
+    snr_mf_per_det  = {ifo : 0 for ifo in ifos}
+    snr_opt2        = 0
+    snr_opt_per_det = {ifo : 0 for ifo in ifos}
 
     for ifo, dh, hh in zip(ifos, dh_list, hh_list):
-        _dh     = np.real(np.sum(dh))
-        snr     = _dh/np.sqrt(np.real(hh))
-        snr2    = snr2 + snr**2
-        snr_per_det[ifo] = snr
 
-    snr = np.sqrt(snr2)
+        _dh                  = np.real(np.sum(dh))
 
-    return snr, snr_per_det
+        snr_mf               = _dh/np.sqrt(np.real(hh))
+        snr_mf2              = snr_mf2 + snr_mf**2
+        snr_mf_per_det[ifo]  = snr_mf
+
+        snr_opt              = np.sqrt(np.real(hh))
+        snr_opt2             = snr_opt2 + snr_opt**2
+        snr_opt_per_det[ifo] = snr_opt
+
+    snr_mf  = np.sqrt(snr_mf2)
+    snr_opt = np.sqrt(snr_opt2)
+
+    return snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det
 
 def extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=500):
     """
@@ -276,20 +285,32 @@ def extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=
     phi_ref = np.interp(np.random.uniform(0,1), cdf, phi_ax)
 
     # compute SNR
-    snr2 = 0
-    snr_per_det = {ifo : 0 for ifo in ifos}
+
+    snr_mf2         = 0
+    snr_mf_per_det  = {ifo : 0 for ifo in ifos}
+    snr_opt2        = 0
+    snr_opt_per_det = {ifo : 0 for ifo in ifos}
+
 
     f_ax      = np.linspace(0, pars['srate']/2, int(pars['srate']*pars['seglen']//2+1))
     unit_fact = np.exp(-1j* ( phi_ref + 2*np.pi*time_shift*f_ax ) )
+
     for ifo, dh, hh in zip(ifos, dh_list, hh_list):
-        _dh     = np.real(np.sum(dh*unit_fact))
-        snr     = _dh/np.sqrt(np.real(hh))
-        snr2    = snr2 + snr**2
-        snr_per_det[ifo] = snr
 
-    snr = np.sqrt(snr2)
+        _dh                  = np.real(np.sum(dh*unit_fact))
 
-    return phi_ref, time_shift, snr, snr_per_det
+        snr_mf               = _dh/np.sqrt(np.real(hh))
+        snr_mf2              = snr_mf2 + snr_mf**2
+        snr_mf_per_det[ifo]  = snr_mf
+
+        snr_opt              = np.sqrt(np.real(hh))
+        snr_opt2             = snr_opt2 + snr_opt**2
+        snr_opt_per_det[ifo] = snr_opt
+
+    snr_mf  = np.sqrt(snr_mf2)
+    snr_opt = np.sqrt(snr_opt2)
+
+    return phi_ref, time_shift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det
 
 def extract_snr_sample_time_marg(ifos, detectors, hphc, pars, domain):
     """
@@ -323,20 +344,29 @@ def extract_snr_sample_time_marg(ifos, detectors, hphc, pars, domain):
     time_shift = np.interp(np.random.uniform(0,1), cdf, time_ax)
 
     # compute SNR
-    snr2 = 0
-    snr_per_det = {ifo : 0 for ifo in ifos}
+    snr_mf2         = 0
+    snr_mf_per_det  = {ifo : 0 for ifo in ifos}
+    snr_opt2        = 0
+    snr_opt_per_det = {ifo : 0 for ifo in ifos}
 
     f_ax      = np.linspace(0, pars['srate']/2, int(pars['srate']*pars['seglen']//2+1))
     unit_fact = np.exp( -2j*np.pi*time_shift*f_ax )
     for ifo, dh, hh in zip(ifos, dh_list, hh_list):
-        _dh     = np.real(np.sum(dh*unit_fact))
-        snr     = _dh/np.sqrt(np.real(hh))
-        snr2    = snr2 + snr**2
-        snr_per_det[ifo] = snr
 
-    snr = np.sqrt(snr2)
+        _dh                  = np.real(np.sum(dh*unit_fact))
 
-    return time_shift, snr, snr_per_det
+        snr_mf               = _dh/np.sqrt(np.real(hh))
+        snr_mf2              = snr_mf2 + snr_mf**2
+        snr_mf_per_det[ifo]  = snr_mf
+
+        snr_opt              = np.sqrt(np.real(hh))
+        snr_opt2             = snr_opt2 + snr_opt**2
+        snr_opt_per_det[ifo] = snr_opt
+
+    snr_mf  = np.sqrt(snr_mf2)
+    snr_opt = np.sqrt(snr_opt2)
+
+    return time_shift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det
 
 def extract_snr_sample_phi_marg(ifos, detectors, hphc, pars, domain, ngrid=500):
     """
@@ -367,16 +397,25 @@ def extract_snr_sample_phi_marg(ifos, detectors, hphc, pars, domain, ngrid=500):
     phi_ref = np.interp(np.random.uniform(0,1), cdf, phi_ax)
 
     # compute SNR
-    snr2 = 0
-    snr_per_det = {ifo : 0 for ifo in ifos}
+    snr_mf2         = 0
+    snr_mf_per_det  = {ifo : 0 for ifo in ifos}
+    snr_opt2        = 0
+    snr_opt_per_det = {ifo : 0 for ifo in ifos}
 
     unit_fact = np.exp(-1j*phi_ref)
     for ifo, dh, hh in zip(ifos, dh_list, hh_list):
-        _dh     = np.real(np.sum(dh*unit_fact))
-        snr     = _dh/np.sqrt(np.real(hh))
-        snr2    = snr2 + snr**2
-        snr_per_det[ifo] = snr
 
-    snr = np.sqrt(snr2)
+        _dh                  = np.real(np.sum(dh*unit_fact))
 
-    return phi_ref, snr, snr_per_det
+        snr_mf               = _dh/np.sqrt(np.real(hh))
+        snr_mf2              = snr_mf2 + snr_mf**2
+        snr_mf_per_det[ifo]  = snr_mf
+
+        snr_opt              = np.sqrt(np.real(hh))
+        snr_opt2             = snr_opt2 + snr_opt**2
+        snr_opt_per_det[ifo] = snr_opt
+
+    snr_mf  = np.sqrt(snr_mf2)
+    snr_opt = np.sqrt(snr_opt2)
+
+    return phi_ref, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det
