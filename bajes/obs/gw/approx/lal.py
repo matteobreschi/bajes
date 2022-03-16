@@ -8,8 +8,10 @@ except Exception:
 
 class lal_wrapper(object):
 
-    def __init__(self, approx, domain):
-    
+    def __init__(self, approx, domain, **kwargs):
+
+        if approx not in list(lalsim.__dict__.keys()):
+            raise ValueError("Unable to set LAL approximant ({}) for waveform generator. Approximant name not found in current installation.".format(approx))
         self.approx = lalsim.__dict__[approx]
         self.domain = domain
 
@@ -55,7 +57,7 @@ def generate_timedomain_waveform(approx, params):
         lalsim.SimInspiralWaveformParamsInsertTidalLambda1(LALDict, params['lambda1'])
     if params['lambda2'] != 0. :
         lalsim.SimInspiralWaveformParamsInsertTidalLambda2(LALDict, params['lambda2'])
-    
+
     hp,hc = lalsim.SimInspiralChooseTDWaveform(lalsim.lal.MSUN_SI*params['mtot']*params['q']/(1.+params['q']),
                                                lalsim.lal.MSUN_SI*params['mtot']/(1.+params['q']),
                                                params['s1x'],params['s1y'],params['s1z'],

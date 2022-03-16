@@ -27,12 +27,9 @@ class mlgw_bns_wrapper():
         Class wrapper for MLGW-BNS waveform
     """
 
-    def __init__(self, freqs, seglen, srate):
+    def __init__(self, **kwargs):
 
         self.model = Model.default()
-        self.freqs = freqs
-        self.srate = srate
-        self.seglen = seglen
 
     def __call__(self, freqs, params):
         bns_params = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
@@ -45,7 +42,7 @@ class mlgw_wrapper(object):
         folder = 0 -> TEOBResumS (w/o NQC)
     """
 
-    def __init__(self, seglen, srate):
+    def __init__(self, seglen, srate, **kwargs):
 
         self.generator  = generator.GW_generator()
         self.srate      = srate
@@ -81,7 +78,7 @@ class mlteobnqc_wrapper(object):
     """
 
 
-    def __init__(self, seglen, srate):
+    def __init__(self, seglen, srate, **kwargs):
 
         self.generator  = generator.GW_generator(folder=1)
         self.srate      = srate
@@ -116,7 +113,7 @@ class mlseobv4_wrapper(object):
         folder = 3 -> SEOBNRv4
     """
 
-    def __init__(self, seglen, srate):
+    def __init__(self, seglen, srate, **kwargs):
 
         self.generator  = generator.GW_generator(folder=3)
         self.srate      = srate
