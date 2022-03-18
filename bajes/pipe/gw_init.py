@@ -187,9 +187,12 @@ def initialize_gwlikelihood_kwargs(opts):
                                                                                   marg_time_shift = opts.marg_time_shift,
                                                                                   tukey_alpha = opts.alpha,
                                                                                   lmax = opts.lmax,
+                                                                                  Eprior = opts.Eprior,
+                                                                                  nqc_TEOBHyp = opts.nqc_TEOBHyp,
                                                                                   prior_grid=opts.priorgrid,
                                                                                   kind='linear',
                                                                                   use_mtot=opts.use_mtot)
+
 
     # set fiducial waveform params for binning
     if opts.binning :
@@ -243,6 +246,8 @@ def initialize_gwprior(ifos,
                        marg_phi_ref=False, marg_time_shift=False,
                        tukey_alpha=None,
                        lmax=2,
+                       Eprior = None,
+                       nqc_TEOBHyp = 1,
                        prior_grid=2000,
                        kind='linear',
                        use_mtot=False):
@@ -648,8 +653,8 @@ def initialize_gwprior(ifos,
                 sigma_w = 1./np.sqrt(len_weights[i])
                 # bounds centered on 1 with width of 5 sigma
                 dict['weight{}_{}'.format(i,ifo)] = Parameter(name='weight{}_{}'.format(i,ifo),
-                                                              min = np.max([0, 1.-5.*sigma]),
-                                                              max = 1.+5.*sigma,
+                                                              min = np.max([0, 1.-5.*sigma_w]),
+                                                              max = 1.+5.*sigma_w,
                                                               prior='normal',
                                                               mu = 1., sigma = sigma_w)
     else:
@@ -776,6 +781,8 @@ def initialize_gwprior(ifos,
     dict['seglen'] = Constant('seglen', seglen)
     dict['srate']  = Constant('srate',  srate)
     dict['lmax']   = Constant('lmax',   lmax)
+    dict['Eprior'] = Constant('Eprior', Eprior)
+    dict['nqc-TEOBHyp'] = Constant('nqc-TEOBHyp', nqc_TEOBHyp)
 
     if tukey_alpha == None:
         tukey_alpha = 0.4/seglen

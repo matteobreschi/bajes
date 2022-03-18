@@ -149,18 +149,19 @@ def teobresums_wrapper(freqs, params):
 # Requires the teob eccentric branch
 def teobresums_hyperb_wrapper(freqs, params):
 
+    params['Eprior']      = 'Constrained'
+    params['nqc-TEOBHyp'] = 1
+
     # unwrap lm modes
     if params['lmax'] == 0: k_modes = [1] # 22-only
     else:                   k_modes = l_to_k(params['lmax'], custom_modes='Hyp') # Keep only modes we trust
 
-    print(k_modes, params['Eprior'], params['nqc-TEOBHyp'])
-
     # Auxiliary parameters
-    a0       = (params['s1z'] * params['q'] + params['s2z'])/(1+params['q'])
-    nu       = params['q']/np.power(1+params['q'], 2.)
+    a0 = (params['s1z'] * params['q'] + params['s2z'])/(1+params['q'])
+    nu = params['q']/np.power(1+params['q'], 2.)
     
     # Initial conditions
-    r        = 1500. # Asymptotic radius at which the evolution is started.
+    r = 1500. # Asymptotic radius at which the evolution is started.
 
     # Restrict to regions far from direct capture
     # For the non-spinning case this is done through the prior,
@@ -173,8 +174,10 @@ def teobresums_hyperb_wrapper(freqs, params):
     # compute E_min and E_max
     Emn, Emx = EnergyLimits(r, params['q'], params['angmom'], params['s1z'], params['s2z'])
 
-    if( (params['Eprior']=='Constrained')   and ( (params['energy'] < Emn) or (params['energy'] > Emx) ) ):  return [None], [None]
-    if( (params['Eprior']=='Unconstrained') and ( (params['energy'] < Emn)                             ) ):  return [None], [None]
+    if (params['Eprior']):
+        if(   (params['Eprior']=='Constrained')   and ( (params['energy'] < Emn) or (params['energy'] > Emx) ) ):  return [None], [None]
+        elif( (params['Eprior']=='Unconstrained') and ( (params['energy'] < Emn)                             ) ):  return [None], [None]
+        else: raise ValueError("Unknown energy prior requested.")
 
     # set TEOB dict
     params_teob = {

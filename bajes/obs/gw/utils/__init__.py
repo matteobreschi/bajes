@@ -266,6 +266,10 @@ def read_params(path, flag):
             params[ki] = config[flag][ki]
         elif ki == 'lmax':
             params[ki] = np.int(config[flag][ki])
+        elif ki == 'Eprior':
+            params[ki] = config[flag][ki]
+        elif ki == 'nqc-TEOBHyp':
+            params[ki] = int(config[flag][ki])
         else:
             params[ki] = np.float(config[flag][ki])
 
@@ -308,5 +312,10 @@ def read_params(path, flag):
 
     if 'lmax' not in params_list:
         params['lmax'] = 0.
+        
+    if 'Eprior' not in params_list:
+        params['Eprior'] = 'Constrained'
+    if 'nqc-TEOBHyp' not in params_list:
+        params['nqc-TEOBHyp'] = 1
 
     return params

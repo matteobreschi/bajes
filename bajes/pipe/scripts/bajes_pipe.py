@@ -518,6 +518,14 @@ def write_run_string(config, tags, outdir):
             else:
                 run_string += '--lmax {} '.format(lmax)
 
+        if 'Eprior' in list_keys_in_prior:
+            Eprior = str(config['gw-prior']['Eprior'])
+            run_string += '--Eprior {} '.format(Eprior)
+
+        if 'nqc-TEOBHyp' in list_keys_in_prior:
+            nqc = int(config['gw-prior']['nqc-TEOBHyp'])
+            run_string += '--nqc-TEOBHyp {} '.format(nqc)
+
         if 'ej-flag' in list_keys_in_prior:
 
             if int(config['gw-prior']['ej-flag']):
