@@ -96,6 +96,7 @@ class SamplerUltraNest(SamplerBody):
                 raise AttributeError("Unable to set parallel processes, pool argument for UltraNest sampler must be a multiprocessing pool.")
 
             # turn on vectorization
+            logger.info("Activating vectorized posterior function...")
             sampler_kwargs['vectorized'] = True
 
             # wrap vectorized posterior
