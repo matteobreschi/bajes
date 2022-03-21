@@ -149,9 +149,6 @@ def teobresums_wrapper(freqs, params):
 # Requires the teob eccentric branch
 def teobresums_hyperb_wrapper(freqs, params):
 
-    params['Eprior']      = 'Constrained'
-    params['nqc-TEOBHyp'] = 1
-
     # unwrap lm modes
     if params['lmax'] == 0: k_modes = [1] # 22-only
     else:                   k_modes = l_to_k(params['lmax'], custom_modes='Hyp') # Keep only modes we trust
