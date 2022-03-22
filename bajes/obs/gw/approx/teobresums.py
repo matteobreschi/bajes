@@ -174,7 +174,6 @@ def teobresums_hyperb_wrapper(freqs, params):
     if (params['Eprior']):
         if(   (params['Eprior']=='Constrained')   and ( (params['energy'] < Emn) or (params['energy'] > Emx) ) ):  return [None], [None]
         elif( (params['Eprior']=='Unconstrained') and ( (params['energy'] < Emn)                             ) ):  return [None], [None]
-        else: raise ValueError("Unknown energy prior requested.")
 
     # set TEOB dict
     params_teob = {
