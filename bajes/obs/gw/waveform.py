@@ -14,6 +14,150 @@ from collections import namedtuple
 PolarizationTuple = namedtuple("PolarizationTuple", ("plus","cross"), defaults=([None],[None]))
 # TODO : introduce scalar, vector, tensor polarizations for polarization tests
 
+# # Dictionary of known approximants
+# # Each key corresponds to the name of the approximant
+# # Each value has to be a dictionary
+# # that include the following keys:
+# #   * 'path':   string to method to be imported, e.g. bajes.obs.gw.approx.taylorf2.taylorf2_35pn_wrapper
+# #   * 'type':   define if the passed func is a function or a class, options: ['fnc', 'cls']
+# #   * 'domain': define if the method returns a frequency- or time-domain waveform, options: ['time', 'freq']
+
+__approx_dict__ = { ### TIME-DOMAIN
+                    # funcs
+                    'TEOBResumS':                           {'path': 'bajes.obs.gw.approx.teobresums.teobresums_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'time'},
+                    'TEOBResumS_NRPM':                      {'path': 'bajes.obs.gw.approx.teobresums.teobresums_nrpm_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'time'},
+                    'EccTEOBResumS':                        {'path': 'bajes.obs.gw.approx.teobresums.teobresums_ecc_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'time'},
+                    'HypTEOBResumS':                        {'path': 'bajes.obs.gw.approx.teobresums.teobresums_hyperb_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'time'},
+                    'NRPM':                                 {'path': 'bajes.obs.gw.approx.nrpm.nrpm_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'time'},
+                    'NRPM_ext':                             {'path': 'bajes.obs.gw.approx.nrpm.nrpm_extended_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'time'},
+                    'NRPM_ext_recal':                       {'path': 'bajes.obs.gw.approx.nrpm.nrpm_extended_recal_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'time'},
+                    # classes
+                    'NRSur7dq4':                            {'path': 'bajes.obs.gw.approx.gwsurrogate.nrsur7dq4_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'time'},
+                    'NRHybSur3dq8':                         {'path': 'bajes.obs.gw.approx.gwsurrogate.nrhybsur3dq8_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'time'},
+                    'NRHybSur3dq8Tidal':                    {'path': 'bajes.obs.gw.approx.gwsurrogate.nrhybsur3dq8tidal_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'time'},
+                    'MLGW':                                 {'path': 'bajes.obs.gw.approx.mlgw.mlgw_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'time'},
+                    'MLTEOBNQC':                            {'path': 'bajes.obs.gw.approx.mlgw.mlteobnqc_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'time'},
+                    'MLSEOBv4':                             {'path': 'bajes.obs.gw.approx.mlgw.mlseobv4_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'time'},
+                    'LALSimTD':                             {'path': 'bajes.obs.gw.approx.lal.lal_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'time'},
+                    ### FREQUENCY-DOMAIN
+                    # funcs
+                    'TaylorF2_3.5PN':                       {'path':   'bajes.obs.gw.approx.taylorf2.taylorf2_35pn_wrapper',
+                                                             'type':   'fnc',
+                                                             'domain': 'freq'},
+                    'TaylorF2_5.5PN':                       {'path': 'bajes.obs.gw.approx.taylorf2.taylorf2_55pn_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    'TaylorF2_5.5PN_7.5PNTides':            {'path': 'bajes.obs.gw.approx.taylorf2.taylorf2_55pn75pntides_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    'TaylorF2_5.5PN_3.5PNQM_7.5PNTides':    {'path': 'bajes.obs.gw.approx.taylorf2.taylorf2_55pn35pnqm75pntides_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    'TaylorF2_5.5PN_7.5PNTides2020':        {'path': 'bajes.obs.gw.approx.taylorf2.taylorf2_55pn75pnnewtides_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    'TEOBResumSPA':                         {'path': 'bajes.obs.gw.approx.teobresums.teobresums_spa_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    'TEOBResumSPA_NRPMw':                   {'path': 'bajes.obs.gw.approx.teobresums.teobresums_spa_nrpmw_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    'NRPMw':                                {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    'NRPMw':                                {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    'NRPMw_recal':                          {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_recal_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
+                    # classes
+                    'MLGW-BNS':                             {'path': 'bajes.obs.gw.approx.mlgw.mlgw_bns_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'freq'},
+                    'LALSimFD':                             {'path': 'bajes.obs.gw.approx.lal.lal_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'freq'}
+                  }
+
+# TODO: describe waveform generator structure
+def __get_waveform_generator__(approx, seglen, srate):
+
+    # get approximant list
+    __known_approxs__ = list(__approx_dict__.keys())
+
+    # switch between LAL approx and others
+    if ('LALSimTD' not in approx) and ('LALSimFD' not in approx):
+
+        # non-LAL waaveforms
+        if (approx not in __known_approxs__):
+            logger.error("Unable to read approximant string. Please use a valid string: {}.\nIf you are using a LAL approximant, the full list can be found at https://lscsoft.docs.ligo.org/lalsuite/".format(__known_approxs__))
+            raise AttributeError("Unable to read approximant string. Please use a valid string: {}.\nIf you are using a LAL approximant, the full list can be found at https://lscsoft.docs.ligo.org/lalsuite/".format(__known_approxs__))
+
+        this_wave = __approx_dict__[approx]
+        wave_pars = {'seglen': seglen, 'srate': srate, 'domain': this_wave['domain']}
+
+    else:
+        # if enters here LALSimTD or LALSimFD is in approx name
+        lal_approx  = approx.split('-')
+        if (lal_approx[0]!='LALSimTD') or (lal_approx[0]!='LALSimFD'):
+            logger.error("Wrong syntax for LAL approximant, please use: { LALSimTD or LALSimFD }-{ LAL approx name }\nThe full list of LAL approximants can be found at https://lscsoft.docs.ligo.org/lalsuite/")
+            raise AttributeError("Wrong syntax for LAL approximant, please use: { LALSimTD or LALSimFD }-{ LAL approx name }\nThe full list of LAL approximants can be found at https://lscsoft.docs.ligo.org/lalsuite/")
+
+        this_wave = __approx_dict__[lal_approx[0]]
+        wave_pars = {'seglen': seglen, 'srate': srate, 'domain': this_wave['domain'], 'approx': lal_approx[1]}
+
+    # set module string and import
+    from importlib import import_module
+    path_to_method  = this_wave['path'].split('.')
+    wave_module     = import_module('.'.join(path_to_method[:-1]))
+
+    # this condition never occurs if the code is properly written
+    if path_to_method[-1] not in dir(wave_module):
+        raise AttributeError("DevelopmentError: Unable to import {} method from {}".format(path_to_method[-1], wave_module))
+
+    # get waveform generator and domain string
+    if wave_pars['type'] == 'fnc':
+        wave_func = getattr(wave_module, path_to_method[-1])
+        wave_domn = this_wave['domain']
+    elif wave_pars['type'] == 'cls':
+        wave_obj  = getattr(wave_module, path_to_method[-1])
+        wave_func = wave_obj(**wave_pars)
+        wave_domn = this_wave['domain']
+    else:
+        # this condition never occurs if the __approx_dict__ is properly written
+        raise AttributeError("DevelopmentError: Unable to define method of type {} for waveform generator. Check bajes.obs.gw.waveform.__approx_dict__".format(wave_pars['type']))
+
+    return wave_func, wave_domn
+
 def tailing(hp, hc, srate, npt):
 
     # estimate initial properties
@@ -87,7 +231,8 @@ class Waveform(object):
         self.seglen = seglen
         self.srate  = srate
 
-        self.f_max  = np.max(self.freqs)
+        self.f_min  = np.amin(self.freqs)
+        self.f_max  = np.amax(self.freqs)
         self.df     = 1./self.seglen
         self.dt     = 1./self.srate
 
@@ -96,154 +241,8 @@ class Waveform(object):
         self.approx = approx
         logger.info("Setting {} waveform ...".format(self.approx))
 
-        # List all the approximants and assign functions for
-        # hplus and hcross components in frequency-domain.
-        # This function should take two arguments : self.freqs, params
-        # Include here initialization commands if necessary.
-
-        if self.approx == 'TaylorF2_3.5PN':
-            from .approx.taylorf2 import taylorf2_35pn_wrapper
-            self.wave_func  = taylorf2_35pn_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'TaylorF2_5.5PN':
-            from .approx.taylorf2 import taylorf2_55pn_wrapper
-            self.wave_func = taylorf2_55pn_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'TaylorF2_5.5PN_7.5PNTides':
-            from .approx.taylorf2 import taylorf2_55pn75pntides_wrapper
-            self.wave_func = taylorf2_55pn75pntides_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'TaylorF2_5.5PN_3.5PNQM_7.5PNTides':
-            from .approx.taylorf2 import taylorf2_55pn35pnqm75pntides_wrapper
-            self.wave_func = taylorf2_55pn35pnqm75pntides_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'TaylorF2_5.5PN_7.5PNTides2020':
-            from .approx.taylorf2 import taylorf2_55pn75pnnewtides_wrapper
-            self.wave_func = taylorf2_55pn75pnnewtides_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'TEOBResumS':
-            from .approx.teobresums import teobresums_wrapper
-            self.wave_func = teobresums_wrapper
-            self.domain     = 'time'
-
-        elif self.approx == 'TEOBResumSPA':
-            from .approx.teobresums import teobresums_spa_wrapper
-            self.wave_func  = teobresums_spa_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'TEOBResumSPA_NRPMw':
-            from .approx.teobresums import teobresums_spa_nrpmw_wrapper
-            self.wave_func  = teobresums_spa_nrpmw_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'HypTEOBResumS':
-            from .approx.teobresums import teobresums_hyperb_wrapper
-            self.wave_func  = teobresums_hyperb_wrapper
-            self.domain     = 'time'
-
-        elif self.approx == 'NRPM':
-            from .approx.nrpm import nrpm_wrapper
-            self.wave_func  = nrpm_wrapper
-            self.domain     = 'time'
-
-        elif self.approx == 'NRPM_ext':
-            from .approx.nrpm import nrpm_extended_wrapper
-            self.wave_func  = nrpm_extended_wrapper
-            self.domain     = 'time'
-
-        elif self.approx == 'NRPM_ext_recal':
-            from .approx.nrpm import nrpm_extended_recal_wrapper
-            self.wave_func  = nrpm_extended_recal_wrapper
-            self.domain     = 'time'
-
-        elif self.approx == 'NRPMw':
-            from .approx.nrpmw import nrpmw_wrapper
-            self.wave_func  = nrpmw_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'NRPMw_recal':
-            from .approx.nrpmw import nrpmw_recal_wrapper
-            self.wave_func  = nrpmw_recal_wrapper
-            self.domain     = 'freq'
-
-        elif self.approx == 'TEOBResumS_NRPM':
-            from .approx.teobresums import teobresums_nrpm_wrapper
-            self.wave_func  = teobresums_nrpm_wrapper
-            self.domain     = 'time'
-
-        elif self.approx == 'NRSur7dq4':
-            # OBS: GWSurrogate functions are class with a __call__ method,
-            # instead of standard methods, because it has to download the catalog
-            from .approx.gwsurrogate import nrsur7dq4_wrapper
-            self.wave_func  = nrsur7dq4_wrapper()
-            self.domain     = 'time'
-
-        elif self.approx == 'NRHybSur3dq8':
-            # OBS: GWSurrogate functions are class with a __call__ method,
-            # instead of standard methods, because it has to download the catalog
-            from .approx.gwsurrogate import nrhybsur3dq8_wrapper
-            self.wave_func  = nrhybsur3dq8_wrapper()
-            self.domain     = 'time'
-
-        elif self.approx == 'NRHybSur3dq8Tidal':
-            # OBS: GWSurrogate functions are class with a __call__ method,
-            # instead of standard methods, because it has to download the catalog
-            from .approx.gwsurrogate import nrhybsur3dq8tidal_wrapper
-            self.wave_func = nrhybsur3dq8tidal_wrapper()
-            self.domain = 'time'
-
-        elif self.approx == 'MLGW':
-            # OBS: MLGW functions are class with a __call__ method,
-            # instead of standard methods, because it has to initilize the generator
-            from .approx.mlgw import mlgw_wrapper
-            self.wave_func = mlgw_wrapper(self.seglen, self.srate)
-            self.domain = 'time'
-
-        elif self.approx == 'MLGW-BNS':
-            # OBS: MLGW-BNS functions are class with a __call__ method,
-            # instead of standard methods, because it has to initilize the generator
-            from .approx.mlgw import mlgw_bns_wrapper
-            self.wave_func = mlgw_bns_wrapper(self.freqs, self.seglen, self.srate)
-            self.domain = 'freq'
-
-        elif self.approx == 'MLTEOBNQC':
-            # OBS: MLGW functions are class with a __call__ method,
-            # instead of standard methods, because it has to initilize the generator
-            from .approx.mlgw import mlteobnqc_wrapper
-            self.wave_func = mlteobnqc_wrapper(self.seglen, self.srate)
-            self.domain = 'time'
-
-        elif self.approx == 'MLSEOBv4':
-            # OBS: MLGW functions are class with a __call__ method,
-            # instead of standard methods, because it has to initilize the generator
-            from .approx.mlgw import mlseobv4_wrapper
-            self.wave_func = mlseobv4_wrapper(self.seglen, self.srate)
-            self.domain = 'time'
-
-        elif 'LALSimFD' in self.approx:
-            # OBS: LALSim functions are class with a __call__ method,
-            # instead of standard methods
-            from .approx.lal import lal_wrapper
-            lal_approx      = self.approx.split('-')[1]
-            self.domain     = 'freq'
-            self.wave_func  = lal_wrapper(lal_approx, self.domain)
-
-        elif 'LALSimTD' in self.approx:
-            # OBS: LALSim functions are class with a __call__ method,
-            # instead of standard methods
-            from .approx.lal import lal_wrapper
-            lal_approx      = self.approx.split('-')[1]
-            self.domain     = 'time'
-            self.wave_func  = lal_wrapper(lal_approx, self.domain)
-
-        else:
-            from . import __known_approxs__
-            raise AttributeError("Unable to read approximant string. Please use a valid value (see bajes.__known_approxs__):\n{}.\nIf you are using a LAL approximant, it is possible to know the full list at https://lscsoft.docs.ligo.org/lalsuite/".format(__known_approxs__))
+        # get waveform generator from string
+        self.wave_func, self.domain = __get_waveform_generator__(self.approx, self.seglen, self.srate)
 
     def compute_hphc(self, params):
         """ Compute waveform for compact binary coalescences

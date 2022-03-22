@@ -250,7 +250,7 @@ def extract_snr_sample_phi_time_marg(ifos, detectors, hphc, pars, domain, ngrid=
     time_ax  = time_ax[isort]
     dh_fft   = dh_fft[isort]
 
-    # compute likelihood (for this samples) as a function of time_shift and phi_ref
+    # compute likelihood (for this sample) as a function of time_shift and phi_ref
     # NOTE: like_mat is a rank-2 matrix where like_mat[i][j] is the loglike for time_ax[i] and phi_ax[j]
     like_mat = -0.5*h_inner_h + np.real([ dh * np.exp(-1j*phi_ax) for dh in dh_fft ])
 
@@ -330,7 +330,8 @@ def extract_snr_sample_time_marg(ifos, detectors, hphc, pars, domain):
         dh_list.append(this_dh)
         hh_list.append(this_hh)
 
-    # compute likelihood (for this samples) as a function of time_shift
+    # See https://dcc.ligo.org/LIGO-T1400460
+    # compute likelihood (for this sample) as a function of time_shift
     like_arr = -0.5*h_inner_h + np.real(np.fft.fft( d_inner_h ))
     time_ax  = np.fft.fftfreq(len(like_arr), d=1./pars["seglen"])
     isort    = np.argsort(time_ax)
@@ -387,7 +388,8 @@ def extract_snr_sample_phi_marg(ifos, detectors, hphc, pars, domain, ngrid=500):
         dh_list.append(this_dh)
         hh_list.append(this_hh)
 
-    # compute likelihood (for this samples) as a function of phi_ref
+    # compute likelihood (for this sample) as a function of phi_ref
+    # See https://dcc.ligo.org/LIGO-T1300326
     like_arr = -0.5*h_inner_h + np.real( d_inner_h * np.exp(-1j*phi_ax) )
 
     # extract phi_ref random sample

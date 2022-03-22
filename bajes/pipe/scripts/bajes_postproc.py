@@ -360,6 +360,8 @@ def compute_wf_and_snr(p, dets, noises, w, marg_phi=False, marg_time=False):
     # compute SNR
     phiref, tshift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det = extract_snr(list(dets.keys()), dets, hphc, p, w.domain, marg_phi=marg_phi, marg_time=marg_time)
 
+    # If the likelihood was phase or time marginalised, apply the correct factor to the waveform.
+    # In the unmarginalised case, tshift and phiref are zero, thus the lines below do not have any effect.
     p['time_shift'] = p['time_shift'] + tshift
     hphc   = PolarizationTuple(plus  = hphc.plus*np.cos(phiref) - hphc.cross*np.sin(phiref),
                                cross = hphc.plus*np.sin(phiref) + hphc.cross*np.cos(phiref))
@@ -371,16 +373,16 @@ def compute_wf_and_snr(p, dets, noises, w, marg_phi=False, marg_time=False):
 
     for det in dets.keys():
 
-        h_tmp       = dets[det].project_tdwave(hphc, p, w.domain)
-        h_strain    = Series('time', h_tmp, seglen=p['seglen'], srate=p['srate'], t_gps=p['t_gps'], f_min=p['f_min'], f_max=p['f_max'])
-        sp[det]     = np.abs(h_strain.freq_series)
+        h_tmp    = dets[det].project_tdwave(hphc, p, w.domain)
+        h_strain = Series('time', h_tmp, seglen=p['seglen'], srate=p['srate'], t_gps=p['t_gps'], f_min=p['f_min'], f_max=p['f_max'])
+        sp[det]  = np.abs(h_strain.freq_series)
 
         # store waveform
-        wf[det]     = h_strain.time_series
+        wf[det]  = h_strain.time_series
 
         # store whitened waveform
         h_strain.whitening(noises[det])
-        ww[det]     = h_strain.time_series
+        ww[det]  = h_strain.time_series
 
     return snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det, sp, wf, ww
 
@@ -421,8 +423,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
     if nspcal > 0 :
         spcal_freqs = np.logspace(1., np.log(np.max(freqs))/np.log(np.min(freqs)), base=np.min(freqs), num = nspcal)
 
-    # estimate bandpassing frequency
-    # set default in proximity of f_max
+    # Estimate bandpassing frequency; set default in proximity of f_max
     f_max_bp = f_max-10
     if M_tot is not None:
         #Estimate of the ringdown frequency, approximating M_final with M_tot and using Schwarzschild value
@@ -432,10 +433,11 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
         if temp_f_max_bp < f_max_bp: f_max_bp = temp_f_max_bp
     logger.info("... bandpassing between [{:.0f}, {:.0f}] Hz ...".format(f_min,f_max_bp))
 
-    # iterate on detectors
+    # Iterate on detectors and fill samples-independent objects
     from copy import deepcopy
     for det in strains_dets.keys():
 
+        # These objects contain the: strains, whitened_strains, detectors, noises
         strains_dets[det]['s'] = container_gw.datas[det]
         strains_dets[det]['w'] = deepcopy(container_gw.datas[det])
         strains_dets[det]['d'] = container_gw.dets[det]
@@ -443,8 +445,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
         spd[det]               = strains_dets[det]['s'].freq_series
 
         if nspcal > 0 :
-            strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'],
-                                                     nspcal = nspcal, spcal_freqs = spcal_freqs)
+            strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'], nspcal = nspcal, spcal_freqs = spcal_freqs)
         else:
             strains_dets[det]['d'].store_measurement(strains_dets[det]['s'], strains_dets[det]['n'])
 
@@ -458,6 +459,9 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
     if pool is None:
 
         for j,k in enumerate(samples_list):
+
+            # Every 100 steps, update the user on the status of the plot.
+            if(j%100==0): logger.info("Progress: {}/{}".format(j+1, len(samples_list)))
 
             # generate waveform
             params = {name: posterior[name][k] for name in names}
@@ -559,17 +563,17 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
     # plot median, upper, lower and save waveform
     for i,det in enumerate(strains_dets.keys()):
 
-        data_output['strain'][det] = {}
-        data_output['noise'][det] = {}
+        data_output['strain'][det]   = {}
+        data_output['noise'][det]    = {}
         data_output['waveform'][det] = {}
 
         lo, me, hi = np.percentile(wfs[det],[5,50,95], axis=0)
 
         ax = fig.add_subplot(nsub_panels,1,i+1)
 
-        ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='gray', lw=.5, label='Data')
-        ax.plot(strains_dets[det]['s'].times-t_gps, me, c='navy', lw=0.8, label='Waveform')
-        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='navy', alpha=0.4, lw=0.5)
+        ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='gray', lw=0.5, label='Data'              )
+        ax.plot(strains_dets[det]['s'].times-t_gps, me,                                 c='navy', lw=0.8, label='Waveform'          )
+        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                     c='navy', lw=0.5,                  alpha=0.4)
 
         data_output['strain'][det]['time']        = strains_dets[det]['s'].times
         data_output['strain'][det]['series']      = strains_dets[det]['s'].time_series
@@ -591,7 +595,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
             wf_ci_fl.write("%.10f \t %.10g \t %.10g \t %.10g \n" %(strains_dets[det]['s'].times[i], me[i], lo[i], hi[i]))
         wf_ci_fl.close()
 
-    plt.savefig(outdir +'/Reconstructed_waveform.pdf', bbox_inches='tight', dpi=100)
+    plt.savefig(outdir+'/Reconstructed_waveform.pdf', bbox_inches='tight', dpi=100)
     plt.close()
 
     # Plot the data
@@ -605,9 +609,9 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
 
         ax = fig.add_subplot(nsub_panels,1,i+1)
 
-        ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='gray', lw=.5, label='Data')
-        ax.plot(strains_dets[det]['w'].times-t_gps, me, c='navy', lw=0.8, label='Waveform')
-        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='navy', alpha=0.4, lw=0.5)
+        ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='gray', lw=0.5, label='Data'              )
+        ax.plot(strains_dets[det]['w'].times-t_gps, me,                                 c='navy', lw=0.8, label='Waveform'          )
+        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                     c='navy', lw=0.5,                  alpha=0.4)
 
         data_output['strain'][det]['series_whiten']      = strains_dets[det]['w'].time_series
         data_output['waveform'][det]['series_whiten']    = me
@@ -621,13 +625,13 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
         if not(i==len(strains_dets.keys())-1):
             ax.get_xaxis().set_visible(False)
 
-        wf_ci_fl = open(outdir +'/whiten_waveform_{}.dat'.format(det),'w')
+        wf_ci_fl = open(outdir+'/whitened_waveform_{}.dat'.format(det),'w')
         wf_ci_fl.write('#\t time \t median \t lower \t higher\n')
         for i in range(len(strains_dets[det]['w'].times)):
             wf_ci_fl.write("%.10f \t %.10g \t %.10g \t %.10g \n" %(strains_dets[det]['w'].times[i], me[i], lo[i], hi[i]))
         wf_ci_fl.close()
 
-    plt.savefig(outdir +'/Reconstructed_waveform_whitened.pdf', bbox_inches='tight', dpi=100)
+    plt.savefig(outdir+'/Reconstructed_waveform_whitened.pdf', bbox_inches='tight', dpi=100)
     plt.close()
 
     if not(M_tot==None):
@@ -648,9 +652,9 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
             # Compute the t_peak of the median waveform, relative to the gps time
             if t_peak is None : t_peak = strains_dets[det]['s'].times[np.argmax(np.abs(me))]-t_gps
 
-            ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='k', lw=0.8, label='Data')
-            ax.plot(strains_dets[det]['s'].times-t_gps, me, c='royalblue', lw=0.8, label='Waveform')
-            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='royalblue', alpha=0.4, lw=0.5)
+            ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='k',         lw=0.8, label='Data'              )
+            ax.plot(strains_dets[det]['s'].times-t_gps, me,                                 c='royalblue', lw=0.8, label='Waveform'          )
+            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                     c='royalblue', lw=0.5,                  alpha=0.4)
 
             ax.set_xlim([t_peak-200*M_tot*MTSUN_SI, t_peak+200*M_tot*MTSUN_SI])
             ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
@@ -676,9 +680,9 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
             # Compute the t_peak of the median waveform, relative to the gps time
             if t_peak is None : t_peak = strains_dets[det]['s'].times[np.argmax(np.abs(me))]-t_gps
 
-            ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='k', lw=0.8, label='Data')
-            ax.plot(strains_dets[det]['w'].times-t_gps, me, c='royalblue', lw=0.8, label='Waveform')
-            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi, color='royalblue', alpha=0.4, lw=0.5)
+            ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='k',         lw=0.8, label='Data'               )
+            ax.plot(strains_dets[det]['w'].times-t_gps, me,                                 c='royalblue', lw=0.8, label='Waveform'           )
+            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                     c='royalblue', lw=0.5,                  alpha=0.4,)
 
             ax.set_xlim([t_peak-200*M_tot*MTSUN_SI, t_peak+200*M_tot*MTSUN_SI])
             ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
@@ -700,10 +704,10 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
 
         ax = fig.add_subplot(nsub_panels,1,i+1)
 
-        ax.loglog(strains_dets[det]['s'].freqs, np.abs(spd[det]), c='gray', lw=.1, label='Data', zorder=0)
-        ax.loglog(strains_dets[det]['s'].freqs, me, c='royalblue', lw=0.8, label='Waveform')
-        ax.fill_between(strains_dets[det]['s'].freqs, lo, hi, color='royalblue', alpha=0.4, lw=0.5)
-        ax.loglog(strains_dets[det]['n'].freqs, strains_dets[det]['n'].amp_spectrum*np.sqrt(seglen), c='navy', lw=1, label='ASD')
+        ax.loglog(strains_dets[det]['s'].freqs, np.abs(spd[det]),                                    c='gray',      lw=0.1, label='Data',    zorder=0 )
+        ax.loglog(strains_dets[det]['s'].freqs, me,                                                  c='royalblue', lw=0.8, label='Waveform'          )
+        ax.fill_between(strains_dets[det]['s'].freqs, lo, hi,                                        c='royalblue', lw=0.5,                  alpha=0.4)
+        ax.loglog(strains_dets[det]['n'].freqs, strains_dets[det]['n'].amp_spectrum*np.sqrt(seglen), c='navy',      lw=1.0, label='ASD'               )
 
         data_output['noise'][det]['freq']           = strains_dets[det]['n'].freqs
         data_output['noise'][det]['asd']            = strains_dets[det]['n'].amp_spectrum
@@ -730,7 +734,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
             wf_ci_fl.write("%.10f \t %.10g \t %.10g \t %.10g \n" %(strains_dets[det]['s'].freqs[i], me[i], lo[i], hi[i]))
         wf_ci_fl.close()
 
-    plt.savefig(outdir +'/Reconstructed_spectrum.pdf', bbox_inches='tight', dpi=100)
+    plt.savefig(outdir+'/Reconstructed_spectrum.pdf', bbox_inches='tight', dpi=100)
     plt.close()
 
     return data_output, snr_output
@@ -839,14 +843,14 @@ if __name__ == "__main__":
     parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the directory containing the output of the run.")
 
     # Optional options
-    parser.add_option('-n', '--nprocs',   dest='nprocs',          default=0,              type='int',                           help='Optional: Number of parallel threads. Dafault: 0 (serial)')
-    parser.add_option('-v', '--verbose',  dest='silence',         default=True,           action="store_false",                 help='Optional: Activate stream handler, use this if you are running on terminal. Dafault: False')
+    parser.add_option('-n', '--nprocs',   dest='nprocs',          default=0,              type='int',                           help='Optional: Number of parallel threads. Default: 0 (serial)')
+    parser.add_option('-v', '--verbose',  dest='silence',         default=True,           action="store_false",                 help='Optional: Flag to activate stream handler, use this if you are running on terminal. Default: False')
     parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
     parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=3000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 3000.")
-    parser.add_option('--N-samples-prior',dest='nprior',          default=None,           type='int',                           help="Optional: Number of prior samples. Default: Min( Npost, 10000 ).")
+    parser.add_option('--N-samples-prior',dest='nprior',          default=None,           type='int',                           help="Optional: Number of prior samples. Default: min(N_posterior_samples, 10000).")
     parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
     parser.add_option('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
-    parser.add_option('--cosmo',          dest='cosmo',           default='Planck18_arXiv_v2',     type='string',               help="Optional: Cosmology model for redshift computation. Default: Planck18_arXiv_v2")
+    parser.add_option('--cosmo',          dest='cosmo',           default='Planck18_arXiv_v2',     type='string',               help="Optional: Cosmology model for redshift computation. Default: 'Planck18_arXiv_v2'. Available options: ['MISSING']. ")
     parser.add_option('--seed',           dest='seed',            default=None,           type='int',                           help="Optional: Seed for pseudo-random number generator.")
     (opts,args) = parser.parse_args()
 
@@ -854,11 +858,11 @@ if __name__ == "__main__":
     else: raise ValueError("The 'outdir' option is required. Aborting.")
     if opts.seed is not None: np.random.seed(opts.seed)
 
-    ppdir       = os.path.abspath(outdir+'/postproc')
-    wf_dir      = os.path.abspath(os.path.join(ppdir, 'waveform'))
-    hist_dir    = os.path.abspath(os.path.join(ppdir, 'hist'))
-    corner_dir  = os.path.abspath(os.path.join(ppdir, 'corner'))
-    snr_dir  = os.path.abspath(os.path.join(ppdir, 'snr'))
+    ppdir      = os.path.abspath(outdir+'/postproc')
+    wf_dir     = os.path.abspath(os.path.join(ppdir, 'waveform'))
+    hist_dir   = os.path.abspath(os.path.join(ppdir, 'hist'))
+    corner_dir = os.path.abspath(os.path.join(ppdir, 'corner'))
+    snr_dir    = os.path.abspath(os.path.join(ppdir, 'snr'))
 
     ensure_dir(ppdir)
     ensure_dir(corner_dir)
@@ -951,7 +955,7 @@ if __name__ == "__main__":
 
     # produce waveform plots
     logger.info("Reconstructing waveforms...")
-    if pool is None :
+    if pool is None:
         data_dict, snr_dict = reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, N_samples = opts.N_samples_wf, M_tot = opts.M_tot)
     else:
         data_dict, snr_dict = reconstruct_waveform(wf_dir, posterior, container_inf, container_gw, N_samples = opts.N_samples_wf, M_tot = opts.M_tot, pool=pool)

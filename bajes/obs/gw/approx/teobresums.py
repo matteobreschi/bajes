@@ -115,10 +115,10 @@ def teobresums_wrapper(freqs, params):
                     'inclination':          params['iota'],
                     'initial_frequency':    params['f_min'],
                     'coalescence_angle':    params['phi_ref'],
-                    'use_geometric_units':  0,
-                    'output_hpc':           0,
-                    'interp_uniform_grid':  2,
-                    'output_multipoles':    0,
+                    'use_geometric_units':  "no",
+                    'output_hpc':           "no",
+                    'interp_uniform_grid':  "yes",
+                    'output_multipoles':    "no",
                     'use_mode_lm':          modes,
                     'srate':                params['srate'],
                     'srate_interp':         params['srate'],
@@ -147,6 +147,45 @@ def teobresums_wrapper(freqs, params):
     return hp , hc
 
 # Requires the teob eccentric branch
+def teobresums_ecc_wrapper(freqs, params):
+    # unwrap lm modes
+    if params['lmax'] == 0:
+        modes = [1]
+    else:
+        modes = l_to_k(params['lmax'])
+
+    # set TEOB dict
+    params_teob = { 'M':                    params['mtot'],
+                    'q':                    params['q'],
+                    'chi1':                 params['s1z'],
+                    'chi2':                 params['s2z'],
+                    'chi1z':                params['s1z'],
+                    'chi2z':                params['s2z'],
+                    'Lambda1':              params['lambda1'],
+                    'Lambda2':              params['lambda2'],
+                    'distance':             params['distance'],
+                    'inclination':          params['iota'],
+                    'initial_frequency':    params['f_min'],
+                    'coalescence_angle':    params['phi_ref'],
+                    'use_geometric_units':  0,
+                    'output_hpc':           0,
+                    'interp_uniform_grid':  1,
+                    'output_multipoles':    0,
+                    'use_mode_lm':          modes,
+                    'srate':                params['srate'],
+                    'srate_interp':         params['srate'],
+                    'domain':               0
+                    }
+
+    if params['eccentricity'] != 0:
+        params_teob['ecc'] = params['eccentricity']
+
+    # check for additional options
+    additional_opts(params_teob, params)
+
+    t , hp , hc     = teobresums(params_teob)
+    return hp , hc
+
 def teobresums_hyperb_wrapper(freqs, params):
 
     # unwrap lm modes
@@ -218,12 +257,14 @@ def teobresums_hyperb_wrapper(freqs, params):
         params_teob['nqc_coefs_flx'] = 0  # turn NQC off for flx
 
     t, hp, hc = teobresums(params_teob)
+    
     if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))): 
         logger.warning('Nans in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
         return [None], [None]
     if(np.any(np.isinf(hp)) or np.any(np.isinf(hc))):
         logger.warning('Infinities in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
         return [None], [None]
+
     return hp, hc
 
 def teobresums_spa_wrapper(freqs, params):
@@ -246,12 +287,12 @@ def teobresums_spa_wrapper(freqs, params):
                     'coalescence_angle':    params['phi_ref'],
                     'srate':                params['srate'],
                     'srate_interp':         params['srate'],
-                    'use_geometric_units':  0,
-                    'output_hpc':           0,
-                    'output_multipoles':    0,
+                    'use_geometric_units':  "no",
+                    'output_hpc':           "no",
+                    'output_multipoles':    "no",
                     'use_mode_lm':          modes,
                     'domain':               1,
-                    'interp_freqs':         1,
+                    'interp_freqs':         "yes",
                     'freqs':                freqs.tolist(),
                     'initial_frequency':    params['f_min']
                     }
@@ -278,12 +319,12 @@ def teobresums_spa_nrpmw_wrapper(freqs, params):
                     'coalescence_angle':    params['phi_ref'],
                     'srate':                params['srate'],
                     'srate_interp':         params['srate'],
-                    'use_geometric_units':  0,
-                    'output_hpc':           0,
-                    'output_multipoles':    0,
+                    'use_geometric_units':  "no",
+                    'output_hpc':           "no",
+                    'output_multipoles':    "no",
                     'use_mode_lm':          modes,
                     'domain':               1,
-                    'interp_freqs':         1,
+                    'interp_freqs':         "yes",
                     'freqs':                freqs.tolist(),
                     'initial_frequency':    params['f_min']
                     }

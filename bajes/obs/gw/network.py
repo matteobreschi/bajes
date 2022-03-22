@@ -10,48 +10,69 @@ class Network:
     ###
     #-----init-----
     def __init__(self, ifos, t_gps):
+        # list of ifo strings
         self.ifos        = ifos
+        # float of GPS time
         self.t_gps       = t_gps
+        # dictionaries of settings
+        self.noise_dict  = None
+        self.series_dict = None
+        ## dictionaries with ifos as keys
+        # ... containing respective Detector objs for ifos
         self.detectors   = { ifo : Detector(ifo, t_gps=t_gps) for ifo in ifos }
-        self.noise_ifos  = None
-        self.series_ifos = None
+        # ... containing noise data
+        self.noise       = None
+        # ... containing strain series data
+        self.series      = None
+        # ... containing projected strain series data with respect to the initialized waveform
+        self.proj_series = None
+        # Waveform obj
         self.wave        = None
 
     ###
     #-----noise-----
     def prep_noise(self, noise_dict):
-        self.noise_ifos = { ifo : Noise(*read_asd(noise_dict['event'], ifo), **noise_dict['settings']) for ifo in self.ifos }
+        self.noise_dict = noise_dict
+        self.noise      = { ifo : Noise(*read_asd(noise_dict['event'], ifo), **noise_dict['settings']) for ifo in self.ifos }
 
     ###
     #-----series-----
     def prep_series(self, series_dict):
         assert series_dict['settings']['t_gps'] == self.t_gps, f"t_gps in Network ({self.t_gps}) is different from the series input ({series_dict['settings']['t_gps']})!"
 
-        self.series_ifos = { ifo : None for ifo in self.ifos }
+        self.series_dict = series_dict
+        self.series      = { ifo : None for ifo in self.ifos }
         for ifo in self.ifos:
             times, strain = np.genfromtxt(series_dict[ifo]['data_path'], usecols=series_dict[ifo]['usecols'], unpack=series_dict[ifo]['unpack'])
-            self.series_ifos[ifo] = Series(series_dict['domain'], strain, **series_dict['settings'])
-            assert 1/(times[1]-times[0]) == self.series_ifos[ifo].srate, "Series settings do not match with time information from data file!"
-            if series_dict[ifo]['bandpassing'] is not None: self.series_ifos[ifo].bandpassing(**series_dict[ifo]['bandpassing'])
+            self.series[ifo] = Series(series_dict['domain'], strain, **series_dict['settings'])
+            assert 1/(times[1]-times[0]) == self.series[ifo].srate, "Series settings do not match with time information from data file!"
+        assert np.all(np.array([ self.series[self.ifos[i]].freqs == self.series[self.ifos[j]].freqs for i,j in zip(range(0,len(self.ifos) - 1), range(1,len(self.ifos))) ])), "Mismatch in series.freqs for the various ifos!"
+
+    def bandpassing(self):
+        assert self.series is not None, "Prepare noise and series before storing measurement!"
+        for ifo in self.ifos:
+            if self.series_dict[ifo]['bandpassing'] is not None:
+                self.series[ifo].bandpassing(**self.series_dict[ifo]['bandpassing'])
+
 
     ###
     #-----noise + series-----
     def whitening(self):
-        assert self.series_ifos is not None and self.noise_ifos is not None, "Prepare noise and series before whitening!"
+        assert None not in [self.noise, self.series], "Prepare noise and series before storing measurement!"
         for ifo in self.ifos:
-            self.series_ifos[ifo].whitening(self.noise_ifos[ifo])
+            self.series[ifo].whitening(self.noise[ifo])
 
     def store_measurement(self):
-        assert (self.series_ifos is not None and self.noise_ifos is not None), "Prepare noise and series before storing measurement!"
+        assert None not in [self.noise, self.series], "Prepare noise and series before storing measurement!"
         for ifo,det in self.detectors.items():
-            det.store_measurement(self.series_ifos[ifo], self.noise_ifos[ifo])
+            det.store_measurement(self.series[ifo], self.noise[ifo])
 
     ###
     #-----wave-----
-    def prep_wave(self, approx):
-        assert self.series_ifos is not None, "Prepare series before wave!"
-        assert np.all(np.array([ self.series_ifos[self.ifos[i]].freqs == self.series_ifos[self.ifos[j]].freqs for i,j in zip(range(0,len(self.ifos) - 1), range(1,len(self.ifos))) ])), "Mismatch in series.freqs for the various ifos!"
-        self.wave = Waveform(self.series_ifos[self.ifos[0]].freqs, self.series_ifos[self.ifos[0]].srate, self.series_ifos[self.ifos[0]].seglen, approx)
+    def prep_wave(self, approx, freqs=None, srate=None, seglen=None):
+        assert self.series is not None or None not in [freqs, srate, seglen], "Prepare series before wave or pass freqs, srate, and seglen kwargs!"
+        if self.series is None: self.wave = Waveform(freqs, srate, seglen, approx)
+        else:                   self.wave = Waveform(self.series[self.ifos[0]].freqs, self.series[self.ifos[0]].srate, self.series[self.ifos[0]].seglen, approx)
 
     def eval_wave(self, params):
         assert self.wave is not None, "Prepare wave before evaluating!"
@@ -68,7 +89,22 @@ class Network:
         return { ifo : det.project_tdwave(hphc, params, self.wave.domain) for ifo,det in self.detectors.items() }
 
     ###
-    #-----random stuff for GW likelihood-----
+    #-----noise + wave-----
+    def proj_wave_to_series(self, params, whiten=True):
+        assert self.wave is not None, "Prepare wave before projecting onto a series!"
+        if whiten: assert self.noise is not None, "Prepare noise, if whitening desired!"
+        proj_waves       = self.proj_tdwave(params)
+        self.proj_series = { ifo : None for ifo in self.ifos }
+        for ifo in self.ifos:
+            self.proj_series[ifo] = Series('time', proj_waves[ifo], seglen=self.wave.seglen, srate=self.wave.srate,
+                                           t_gps=self.t_gps, f_min=self.wave.f_min, f_max=self.wave.f_max)
+            if self.series_dict is not None and self.series_dict[ifo]['bandpassing'] is not None:
+                self.proj_series[ifo].bandpassing(**self.series_dict[ifo]['bandpassing'])
+            if whiten:
+                self.proj_series[ifo].whitening(self.noise[ifo])
+
+    ###
+    #-----GW likelihood methods-----
     def comp_logZ_noise(self):
         return np.sum(np.array([ -0.5 * det._dd for det in self.detectors.values() ]))
 
@@ -76,6 +112,7 @@ class Network:
         self.prep_noise(noise_dict)
         self.prep_series(series_dict)
         self.prep_wave(approx)
+        self.bandpassing()
         self.whitening()
         self.store_measurement()
         return self.comp_logZ_noise()

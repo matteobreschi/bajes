@@ -228,7 +228,7 @@ def _fix_overflow_peak(freq, model, alpha, beta, delta_z):
         fs      = np.array([freq[imin],freq[imax]])
         ms      = np.array([model[imin],model[imax]])
         # interpolate
-        model[iw] = np.interp(freq[iw], fs, np.abs(ms)) * np.exp(1j * np.interp(freq[iw], fs, np.angle(ms)))
+        model[iw] = np.interp(freq[iw], fs, np.abs(ms)) * np.exp(1j * np.interp(freq[iw], fs, np.unwrap(np.angle(ms))))
     return model
 
 def _wavelet_func_safe(freq, alpha, beta, eta, tau, delta_z = None):
@@ -277,9 +277,22 @@ def _wavelet_func_generic(freq, alpha, beta, eta, tau):
     return c2 * _wavelet_integral_extremes_erfcx(x2,b2)
 
 def _sanity_check(ax):
-    # fill nan/inf values with zeros
-    nans    = np.logical_or(np.isnan(ax),np.isinf(ax))
-    if any(nans): ax[nans] = 0.j
+    # fill nan/inf values with interpolation
+
+    # get indeces
+    nans        = np.logical_or(np.isnan(ax),np.isinf(ax))
+    notnans     = np.logical_not(nans)
+
+    # interp good values and fill with zeros outside
+    if any(nans):
+        x_ax        = np.arange(len(ax))
+        good_ax     = ax[notnans]
+        good_x      = x_ax[notnans]
+        bad_x       = x_ax[nans]
+        amp_interp  = np.interp(bad_x, good_x, np.abs(good_ax),                 left=0.j,   right=0.j)
+        phi_interp  = np.interp(bad_x, good_x, np.unwrap(np.angle(good_ax)),    left=0.j,   right=0.j)
+        ax[nans]    = amp_interp * np.exp( 1j * phi_interp )
+
     return ax
 
 def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
