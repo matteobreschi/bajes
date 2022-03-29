@@ -145,10 +145,10 @@ def __get_waveform_generator__(approx, seglen, srate):
         raise AttributeError("DevelopmentError: Unable to import {} method from {}".format(path_to_method[-1], wave_module))
 
     # get waveform generator and domain string
-    if wave_pars['type'] == 'fnc':
+    if this_wave['type'] == 'fnc':
         wave_func = getattr(wave_module, path_to_method[-1])
         wave_domn = this_wave['domain']
-    elif wave_pars['type'] == 'cls':
+    elif this_wave['type'] == 'cls':
         wave_obj  = getattr(wave_module, path_to_method[-1])
         wave_func = wave_obj(**wave_pars)
         wave_domn = this_wave['domain']
