@@ -229,7 +229,6 @@ def teobresums_hyperb_wrapper(freqs, params):
 
                     # Hyperbolic parameters
                     'ecc':                 0.0               ,
-                    'r0':                  r                 ,
                     'r_hyp':               r                 ,
                     'j_hyp':               params['angmom']  ,
                     'H_hyp':               params['energy']  ,
