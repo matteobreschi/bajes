@@ -156,7 +156,7 @@ def teobresums_hyperb_wrapper(freqs, params):
     # Auxiliary parameters
     a0 = (params['s1z'] * params['q'] + params['s2z'])/(1+params['q'])
     nu = params['q']/np.power(1+params['q'], 2.)
-    
+
     # Initial conditions
     r = 1500. # Asymptotic radius at which the evolution is started.
 
@@ -218,7 +218,7 @@ def teobresums_hyperb_wrapper(freqs, params):
         params_teob['nqc_coefs_flx'] = 0  # turn NQC off for flx
 
     t, hp, hc = teobresums(params_teob)
-    if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))): 
+    if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))):
         logger.warning('Nans in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
         return [None], [None]
     if(np.any(np.isinf(hp)) or np.any(np.isinf(hc))):

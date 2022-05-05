@@ -334,7 +334,7 @@ class Injection(object):
         for ifo in self.ifos:
 
             # write signal
-            if len(list(self.wave_strains[ifo].keys()))>0:
+            if len(list(self.wave_strains.keys()))>0:
                 injectionfile = open(outdir + '/{}_signal.txt'.format(ifo), 'w')
                 injectionfile.write('#time\t strain\n')
                 for tii,hii in zip(np.array(self.times[ifo][i],dtype=float), np.array(self.wave_strains[ifo][i],dtype=float)):
@@ -342,7 +342,7 @@ class Injection(object):
                 injectionfile.close()
 
             # write noie
-            if len(list(self.noise_strains[ifo].keys()))>0:
+            if len(list(self.noise_strains.keys()))>0:
                 injectionfile = open(outdir + '/{}_noise.txt'.format(ifo), 'w')
                 injectionfile.write('#time\t strain\n')
                 for tii,hii in zip(np.array(self.times[ifo][i],dtype=float),  np.array(self.noise_strains[ifo][i],dtype=float)):
