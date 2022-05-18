@@ -59,6 +59,7 @@ def get_design_sensitivity(ifo):
         filename = 'ET-0001A-18_ETD.txt'
     elif ifo=='CE': #TODO remove or rename this, since the `CE-T2000017-v5-40km.txt` is the official new main CE noise curve
         filename = 'LIGO-P1600143-v18-CE.txt'
+    # Please find the description of the 'CE-40', 'CE-40-lf', 'CE-20', 'CE-20-pm' can be found at bajes/pipe/data/gw/asd/design/README.md
     elif ifo in ['CE', 'CE-40']:
         filename = 'CE-T2000017-v5-40km.txt'
     elif ifo=='CE-40-lf'

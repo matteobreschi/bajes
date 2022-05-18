@@ -132,6 +132,8 @@ def get_detector_information(ifo):
         yarm_azimuth    = 3.7699007123
         xarm_tilt       = -6.195e-4
         yarm_tilt       = 1.25e-5
+    # The CE-North and CE-South detectors are --fiducial-- sites and configurations for the main US CE (in Idaho) and a secondary CE in Australia, respectively. 
+    # These were used for the CE Horizon Study: https://arxiv.org/abs/2109.09882
     elif ifo=='CE-North':
         latitude        = 0.764918
         longitude       = -1.9691740
