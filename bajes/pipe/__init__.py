@@ -706,10 +706,10 @@ def get_likelihood_and_prior(opts):
 
                 from .utils.binning import GWBinningLikelihood as GWLikelihood
 
-            elif opts.roq:
+            # elif opts.roq:
 
-                logger.error("ROQ approximation not yet implemented.")
-                raise AttributeError("ROQ approximation not yet implemented.")
+                # logger.error("ROQ approximation not yet implemented.")
+                # raise AttributeError("ROQ approximation not yet implemented.")
 
                 # from .utils.roq import ROQGWLikelihood as GWLikelihood
                 #
