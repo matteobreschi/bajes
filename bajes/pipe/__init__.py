@@ -250,13 +250,6 @@ def initialize_mthr_pool(nprocs):
 
 # container
 
-def is_picklable(obj):
-    try:
-        pickle.dumps(obj)
-    except pickle.PicklingError:
-        return False
-    return True
-
 def save_container(path, kwargs):
     """
         Save dictionary of objects in data container,
