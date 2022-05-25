@@ -342,7 +342,7 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
             model   = _wavelet_func_safe(freq, alpha, beta, eta, tsign*tau, delta_z = z_d)
     return model * np.exp(-1j*TWOPI*freq*tshift)
 
-def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=8):
+def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=4):
     """
         Frequency-domain representation of frequency-modulated wavelet;
 
