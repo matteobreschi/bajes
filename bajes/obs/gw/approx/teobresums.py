@@ -29,7 +29,7 @@ except Exception:
 from .... import MTSUN_SI
 from ..utils import lambda_2_kappa
 from .nrpm import NRPM
-from .nrpmw import NRPMw_attach
+from .nrpmw import nrpmw_attach_wrapper, nrpmw_attach_recal_wrapper
 
 def l_to_k(lmax, remove_ks = [], custom_modes=None):
 
@@ -292,7 +292,43 @@ def teobresums_spa_nrpmw_wrapper(freqs, params):
     f, re_hp, im_hp, re_hc, im_hc = teobresums(params_teob)
     hp_eob, hc_eob   = re_hp-1j*im_hp, re_hc-1j*im_hc
     # compute PM waveform
-    hp_pm, hc_pm = NRPMw_attach(freqs, params)
+    hp_pm, hc_pm = nrpmw_attach_wrapper(freqs, params)
+    return hp_eob+hp_pm , hc_eob+hc_pm
+
+def teobresums_spa_nrpmw_recal_wrapper(freqs, params):
+
+    #unwrap lm modes
+    modes = [1]
+    if params['lmax'] != 0:
+        warnings.warn("TEOBResumSPA_NRPMw model provides only (2,2) mode")
+
+    # set TEOB dict
+    params_teob = { 'M':                    params['mtot'],
+                    'q':                    params['q'],
+                    'chi1':                 params['s1z'],
+                    'chi2':                 params['s2z'],
+                    'LambdaAl2':            params['lambda1'],
+                    'LambdaBl2':            params['lambda2'],
+                    'distance':             params['distance'],
+                    'inclination':          params['iota'],
+                    'coalescence_angle':    params['phi_ref'],
+                    'srate':                params['srate'],
+                    'srate_interp':         params['srate'],
+                    'use_geometric_units':  "no",
+                    'output_hpc':           "no",
+                    'output_multipoles':    "no",
+                    'use_mode_lm':          modes,
+                    'domain':               1,
+                    'interp_freqs':         "yes",
+                    'freqs':                freqs.tolist(),
+                    'initial_frequency':    params['f_min']
+                    }
+
+    # compute EOB waveform
+    f, re_hp, im_hp, re_hc, im_hc = teobresums(params_teob)
+    hp_eob, hc_eob   = re_hp-1j*im_hp, re_hc-1j*im_hc
+    # compute PM waveform
+    hp_pm, hc_pm = nrpmw_attach_recal_wrapper(freqs, params)
     return hp_eob+hp_pm , hc_eob+hc_pm
 
 def teobresums_nrpm_wrapper(freqs, params):

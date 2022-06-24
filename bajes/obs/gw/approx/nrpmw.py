@@ -97,6 +97,15 @@ __recalib_names_attach__ = np.delete(__recalib_names__,[__recalib_names__.index(
                                                         __recalib_names__.index('a_m'),
                                                         __recalib_names__.index('df_m')])
 
+def __downsampling__(a, window):
+    pad_size = int(np.ceil(a.size/window)*window - a.size)
+    a_padded = np.append(np.zeros(pad_size), a)
+    return a_padded.reshape(-1, window).max(axis=1)
+
+def __upsampling__(ini_freqs, down_freqs, h):
+    amp = np.interp(ini_freqs, down_freqs, np.abs(h), left=0., right=0.)
+    phi = np.interp(ini_freqs, down_freqs, np.unwrap(np.angle(h)), left=0., right=0.)
+    return amp*np.exp(1j*phi)
 
 def __fit_func__(pars, key):
     # get coefficients and params
@@ -596,8 +605,33 @@ def NRPMw_attach(freqs, params, recalib=False):
     h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
     return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
 
+# NRPMw wrappers are the actual calls of the Waveform object
+# All wrappers include downsampling to 10Hz in order to improve efficiency
+# obs. PM signals from BNS remnants have broad spectral features so the accuracy is not affected
+
+def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
+
+    if attach:
+        nrpmw_func = NRPMw_attach
+    else:
+        nrpmw_func = NRPMw
+
+    # TODO: check for ROQ
+    if len(freqs)>int(10*params['seglen']):
+        fr      = __downsampling__(freqs, int(10*params['seglen']))
+        hp,hc   = nrpmw_func(fr, params, recalib=recalib)
+        return __upsampling__(freqs, fr, hp), __upsampling__(freqs, fr, hc)
+    else:
+        return nrpmw_func(freqs, params, recalib=recalib)
+
 def nrpmw_wrapper(freqs, params):
-    return NRPMw(freqs, params)
+    return _wrapper_nrpmw(freqs, params, attach=False, recalib=False)
+
+def nrpmw_attach_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=True, recalib=False)
+
+def nrpmw_attach_recal_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=True, recalib=True)
 
 def nrpmw_recal_wrapper(freqs, params):
-    return NRPMw(freqs, params, recalib=True)
+    return _wrapper_nrpmw(freqs, params, attach=False, recalib=True)
