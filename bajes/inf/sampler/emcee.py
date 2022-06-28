@@ -56,13 +56,13 @@ def _scaled_cond(a):
     return np.linalg.cond(c.astype(float))
 
 def initialize_proposals(like, priors, use_slice=False, use_gw=False):
-    
+
     props = {'eig': 25., 'dif': 25., 'str': 20., 'wlk': 15., 'kde': 10., 'pri': 5.}
     prop_kwargs  = {}
 
     if use_slice:
         props['slc'] = 30.
-    
+
     if use_gw:
         props['gwt'] = 20.
         prop_kwargs['like'] = like
@@ -200,19 +200,19 @@ class SamplerMCMC(SamplerBody):
                        nburn=10000, nout=2000,
                        proposals=None, proposals_kwargs={'use_slice': False, 'use_gw': False},
                        pool=None, **kwargs):
-        
+
         # initialize MCMC parameters
         self.nburn  = nburn
         self.nout   = nout
-    
+
         # warnings
         if nwalk < posterior.prior.ndim**2:
             logger.warning("Requested number of walkers < Ndim^2. This may generate problems in the exploration of the parameters space.")
-            
+
         # inilialize backend
         from emcee.backends import Backend
         backend = Backend()
-            
+
         # initialize proposals
         if proposals == None:
             logger.info("Initializing proposal methods ...")
@@ -240,7 +240,7 @@ class SamplerMCMC(SamplerBody):
         self.stop   = False
 
     def __restore__(self, pool, **kwargs):
-    
+
         # re-initialize pool
         if pool == None:
             self.sampler.pool   = pool
@@ -248,15 +248,15 @@ class SamplerMCMC(SamplerBody):
             self.sampler.pool   = pool
 
     def __update__(self):
-    
+
         # compute acceptance
         acc = (self.sampler.backend.accepted).sum()/self.sampler.nwalkers/self.sampler.backend.iteration
-        
+
         # compute logLs
         this_logL   = np.array(self.sampler.backend.get_last_sample().log_prob)
         logL_mean   = logsumexp(this_logL) - np.log(self.sampler.nwalkers)
         logL_max    = np.max(this_logL)
-        
+
         args    = { 'it' : self.sampler.backend.iteration,
                     'acc' : '{:.2f}%'.format(acc*100.),
                     'acl' : 'n/a',
@@ -269,17 +269,17 @@ class SamplerMCMC(SamplerBody):
         if not isinstance(self.neff, str):
             args['acl']     = self.acl
             args['stat']    = '{:.2f}%'.format(self.neff*100/self.nout)
-                
+
         return args
 
     def _stop_sampler(self):
-    
+
         # if it > nburn, compute acl every step
         if (self.sampler.backend.iteration > self.nburn):
-        
+
             acls        = self.sampler.backend.get_autocorr_time(discard=self.nburn, quiet=True, tol=2)
             acls_clean  = [ai for ai in acls if not np.isnan(ai)]
-            
+
             if len(acls_clean) == 0:
                 logger.warning("ACL was NaN for all parameters.")
                 self.acl    = np.inf
@@ -294,9 +294,9 @@ class SamplerMCMC(SamplerBody):
                 self.stop = True
 
     def __run__(self):
-    
+
         while not self.stop:
-            
+
             # make steps
             for results in self.sampler.sample(self._previous_state, iterations=self.ncheckpoint, tune=True):
                 pass
@@ -314,7 +314,7 @@ class SamplerMCMC(SamplerBody):
         self.store()
 
     def get_posterior(self):
-        
+
         try:
             acls = self.sampler.backend.get_autocorr_time(discard=self.nburn, quiet=True, tol=2)
             acl = int (np.max([ ai for ai in acls if (not np.isnan(ai) and not np.isinf(ai))]))
@@ -330,7 +330,7 @@ class SamplerMCMC(SamplerBody):
 
         self.posterior_samples  = np.array(self.sampler.backend.get_chain(flat=True, discard=self.nburn, thin=acl))
         logP                    = np.array(self.sampler.backend.get_log_prob(flat=True, discard=self.nburn, thin=acl))
-        
+
         logger.info("  - autocorr length : {}".format(acl))
 
         self.real_nout = self.posterior_samples.shape[0]
@@ -349,7 +349,7 @@ class SamplerMCMC(SamplerBody):
             post_file.write('{}\n'.format(logP[i]))
 
         post_file.close()
-        
+
     def make_plots(self):
 
         try:
@@ -358,22 +358,18 @@ class SamplerMCMC(SamplerBody):
             logger.warning("Impossible to produce standard plots. Cannot import matplotlib.")
 
         try:
-            
+
             chain_prob = np.array(self.backend.get_log_prob(flat=False, discard=0, thin=1))
-            
+
             fig = plt.figure()
             ax1 = fig.add_subplot(111)
             ax1.plot(chain_prob, lw=0.3)
             ax1.set_ylabel('lnP - lnZnoise')
             ax1.set_xlabel('iteration')
-            
+
             plt.savefig(self.outdir+'/chain_logP.png', dpi=200)
-            
+
             plt.close()
-        
+
         except Exception:
             pass
-
-
-
-

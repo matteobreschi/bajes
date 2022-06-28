@@ -49,9 +49,9 @@ def centering_tdwave(hp, hc, seglen, srate, alpha_tukey = 0.1):
     else:
         if len(h) < lenFin:
             # shorter waveform: add tail, fill with zeros
-            # tailing, if needed
-            if hp[0] != 0 or hc[0] != 0:
-                hp, hc  = tailing(hp, hc, srate, min(int(lenFin*alpha_tukey), lenFin-len(h)))
+            # # tailing, if needed
+            # if hp[0] != 0 or hc[0] != 0:
+            #     hp, hc  = tailing(hp, hc, srate, min(int(lenFin*alpha_tukey), lenFin-len(h)))
             # filling with zeros
             ldiff   = lenFin-len(hp)
             hp, hc  = np.append(np.zeros(ldiff), hp), np.append(np.zeros(ldiff), hc)
@@ -141,6 +141,11 @@ class Waveform(object):
             self.wave_func  = teobresums_spa_nrpmw_wrapper
             self.domain     = 'freq'
 
+        elif self.approx == 'TEOBResumSPA_NRPMw_recal':
+            from .approx.teobresums import teobresums_spa_nrpmw_recal_wrapper
+            self.wave_func  = teobresums_spa_nrpmw_recal_wrapper
+            self.domain     = 'freq'
+
         elif self.approx == 'HypTEOBResumS':
             from .approx.teobresums import teobresums_hyperb_wrapper
             self.wave_func  = teobresums_hyperb_wrapper
@@ -204,11 +209,21 @@ class Waveform(object):
             self.wave_func = mlgw_wrapper(self.seglen, self.srate)
             self.domain = 'time'
 
-        elif self.approx == 'MLGW-BNS':
-            # OBS: MLGW-BNS functions are class with a __call__ method,
+        elif self.approx == 'MLGW_BNS':
+            # OBS: MLGW_BNS functions are class with a __call__ method,
             # instead of standard methods, because it has to initilize the generator
             from .approx.mlgw import mlgw_bns_wrapper
             self.wave_func = mlgw_bns_wrapper(self.freqs, self.seglen, self.srate)
+            self.domain = 'freq'
+
+        elif self.approx == 'MLGW_BNS_NRPMw':
+            from .approx.mlgw import mlgw_bns_nrpmw_wrapper
+            self.wave_func = mlgw_bns_nrpmw_wrapper(self.freqs, self.seglen, self.srate)
+            self.domain = 'freq'
+
+        elif self.approx == 'MLGW_BNS_NRPMw_recal':
+            from .approx.mlgw import mlgw_bns_nrpmw_recal_wrapper
+            self.wave_func = mlgw_bns_nrpmw_recal_wrapper(self.freqs, self.seglen, self.srate)
             self.domain = 'freq'
 
         elif self.approx == 'MLTEOBNQC':

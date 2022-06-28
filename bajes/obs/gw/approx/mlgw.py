@@ -19,6 +19,10 @@ __bjs_pars__ = ['q', 'lambda1', 'lambda2', 's1z', 's2z',
                 'phi_ref', 'time_shift']
 
 def params_bajes_to_mlgwbns(pars):
+    # by convention all waveform are aligned at the center of the segment
+    # Then, frequency-domain waveform are genereted with the convetion time_shift=0 (according to LALSim)
+    # NOTE: In bajes/obs/gw/waveform.py we shift of seglen/2  every frequency-domain waveform
+    pars['time_shift'] = 0.
     return {ki : pars[kj] for ki,kj in zip(__bns_pars__, __bjs_pars__)}
 
 class mlgw_bns_wrapper():
@@ -37,6 +41,50 @@ class mlgw_bns_wrapper():
     def __call__(self, freqs, params):
         bns_params = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
         return self.model.predict(freqs, bns_params)
+
+class mlgw_bns_nrpmw_wrapper():
+
+    """
+        Class wrapper for MLGW-BNS-NRPMw waveform
+    """
+
+    def __init__(self, freqs, seglen, srate):
+
+        self.model = Model.default()
+        self.freqs = freqs
+        self.srate = srate
+        self.seglen = seglen
+
+        from .nrpmw import nrpmw_attach_wrapper
+        self.nrpmw_func = nrpmw_attach_wrapper
+
+    def __call__(self, freqs, params):
+        bns_params = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
+        hp_i, hc_i = self.model.predict(freqs, bns_params)
+        hp_p, hc_p = self.nrpmw_func(freqs, params)
+        return hp_i+hp_p, hc_i+hc_p
+
+class mlgw_bns_nrpmw_recal_wrapper():
+
+    """
+        Class wrapper for MLGW-BNS-NRPMw waveform with recalibration
+    """
+
+    def __init__(self, freqs, seglen, srate):
+
+        self.model = Model.default()
+        self.freqs = freqs
+        self.srate = srate
+        self.seglen = seglen
+
+        from .nrpmw import nrpmw_attach_recal_wrapper
+        self.nrpmw_func = nrpmw_attach_recal_wrapper
+
+    def __call__(self, freqs, params):
+        bns_params = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
+        hp_i, hc_i = self.model.predict(freqs, bns_params)
+        hp_p, hc_p = self.nrpmw_func(freqs, params)
+        return hp_i+hp_p, hc_i+hc_p
 
 class mlgw_wrapper(object):
 

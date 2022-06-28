@@ -14,7 +14,7 @@ from collections import namedtuple
 ModelTuple = namedtuple("ModelTuple", ("map_fn", "compute_log_prob_fn", "random"))
 
 def _init_proposal_methods(priors, props=None, **kwargs):
-    
+
     # set default proposal weights
     if props == None:
         logger.debug("Using default proposal settings")
@@ -76,10 +76,10 @@ class WalkProposal(object):
         The number of helper walkers to use. By default it will use all the
         walkers in the complement.
         """
-    
+
     def __init__(self, subset = 25, **kwargs):
         self.subset = subset
-    
+
     def get_proposal(self, s, c, p, model):
         try:
             c   = np.concatenate(c, axis=0)
@@ -106,10 +106,10 @@ class StretchProposal(object):
         :param a: (optional)
         The stretch scale parameter. (default: ``2.0``)
         """
-    
+
     def __init__(self, stretch=2.0, **kwargs):
         self.a = stretch
-    
+
     def get_proposal(self, s, c, p, model):
         c       = np.concatenate(c, axis=0)
         q_f     = list(model.map_fn(stretching, zip(s,repeat(c),repeat(self.a))))
@@ -133,9 +133,9 @@ class DEProposal(object):
         Move class for differential evolution proposal
         implemented following Nelson et al. (2013)
     """
-    
+
     def __init__(self, ndim, gamma=None, **kwargs):
-        
+
         self.g0 = gamma
         if self.g0 is None:
             self.g0 = 2.38 / np.sqrt(2*ndim)
@@ -181,10 +181,10 @@ class GWTargetProposal(object):
 
         self.names      = priors.names
         self.ndim       = len(self.names)
-        
+
         self.factor     = rnd
         self.ifos       = list(dets.keys())
-        
+
         self.inners     = None
         self.params     = None
 
@@ -207,15 +207,15 @@ class GWTargetProposal(object):
         self.proposal_list  = []
         self.proposal_prob  = []
         # list the parameters in names and get the proposals
-        
+
         if 'ra' in self.names and 'dec' in self.names and len(self.ifos) > 1:
             self.proposal_list.append(self.move_skyloc)
             self.proposal_prob.append(4.)
-    
+
         if 'distance' in self.names and 'cosi' in self.names:
             self.proposal_list.append(self.move_distiota)
             self.proposal_prob.append(2.)
-                    
+
 #        if 'distance' in self.names :
 #            self.proposal_list.append(self.gibbs_distance)
 #            self.proposal_prob.append(2.)
@@ -225,7 +225,7 @@ class GWTargetProposal(object):
         if 'psi' in self.names and 'phi_ref' in self.names:
             self.proposal_list.append(self.move_psiphi)
             self.proposal_prob.append(1.)
-        
+
         if 'psi' in self.names:
             self.proposal_list.append(self.move_psi)
             self.proposal_prob.append(1.)
@@ -236,7 +236,7 @@ class GWTargetProposal(object):
         self.where = {}
         for n,i in zip(self.names,range(self.ndim)):
             self.where[n] = i
-            
+
     def get_proposal(self, s, c, p, model):
 
         Ns = len(s)
@@ -247,27 +247,27 @@ class GWTargetProposal(object):
         return q, np.zeros(Ns, dtype=np.float64)
 
     def gibbs_distance(self, s, c):
-        
+
         p           = self.params(list_2_dict(s,self.names))
         dh, hh, dd  = self.inners(p)
-            
+
         dist_maxL   = hh * p['distance'] / dh
         u_maxL      = 1./dist_maxL
         u_std       = 1./ ( np.sqrt(hh) * p['distance'] )
         u_new       = np.random.normal( u_maxL, u_std )
-            
+
         q   = np.array(s)
         q[self.where['distance']] = 1./u_new
-        
+
         return q
 
     def move_psiphi(self, s, c):
-            
+
         # initialize current sample
         q = np.array(s)
-        
+
         alpha = np.random.uniform(0,3.*np.pi)
-        
+
         if np.random.randint(2)==1:
             q[self.where['psi']] = alpha - q[self.where['phi_ref']]
         else:
@@ -281,7 +281,7 @@ class GWTargetProposal(object):
         q = np.array(s)
 
         q[self.where['psi']] = (q[self.where['psi']] + np.pi/2)%np.pi
-        
+
         if 'phi_ref' in self.names:
             q[self.where['phi_ref']] = (q[self.where['phi_ref']] + np.pi)%(2*np.pi)
 
@@ -292,7 +292,7 @@ class GWTargetProposal(object):
         # move for distance - iota
         c_t         = np.transpose(np.concatenate(c))
         distiota_kde = gaussian_kde([ c_t[self.where['cosi']] , c_t[self.where['distance']] ])
-        
+
         # initialize current sample
         q = np.array(s)
         vec = np.concatenate(distiota_kde.resample(1))
@@ -316,7 +316,7 @@ class GWTargetProposal(object):
 
         q[self.where['ra']]             = move_in_bound_periodic(ra_new,0.,2*np.pi)
         q[self.where['dec']]            = move_in_bound_reflective(dec_new, -np.pi/2., np.pi/2)
-        
+
         if 'time_shift' in self.names:
             q[self.where['time_shift']] += tshift_new
 
@@ -377,28 +377,28 @@ class SliceProposal(object):
     def __init__(self, ndim, mu=1, threshold=1500, **kwargs):
 
         self.ndim   = ndim
-        
+
         # set properties for covariance method
         self.mu_cov         = mu
         self.mu_cov_list    = []
-        
+
         self.Nc_cov         = 0
         self.Ne_cov         = 0
-        
+
         self.iter_cov       = 0
-        
+
         # set properties for differential method
         self.mu_dif         = mu
         self.mu_dif_list    = []
-        
+
         self.Nc_dif         = 0
         self.Ne_dif         = 0
-        
+
         self.iter_dif       = 0
-        
+
         # set general properties
         self.threshold  = threshold
-        
+
     # cycle over covariance and differential slicing methods
     def get_proposal(self, s, c, p, model):
         if model.random.randint(2)==0:
@@ -414,7 +414,7 @@ class SliceProposal(object):
         u       = model.random.uniform(0,1,size=Np)
         L       = -u
         R       = L+1.
-        
+
         pl, bl  = model.compute_log_prob_fn(s-(L*eta.T).T)
         pr, br  = model.compute_log_prob_fn(s-(R*eta.T).T)
 
@@ -422,13 +422,13 @@ class SliceProposal(object):
                                     zip(repeat(self.slicing),
                                         repeat(model.compute_log_prob_fn),
                                         s, eta, logY, L, R, pl, pr)))
-                                        
+
         q,Ne,Nc = np.transpose(q_Ne_Nc)
         return np.array(q),Ne,Nc
-    
+
     # propose one new sample
     def slicing(self, func, si, ei, logY, L, R, pl, pr):
-        
+
         Ne = 0
         Nc = 0
 
@@ -457,7 +457,7 @@ class SliceProposal(object):
             else :
                 R = alpha
                 Nc +=1
-                    
+
         return qi, Ne, Nc
 
     # methods for covariance slice proposal
@@ -487,7 +487,7 @@ class SliceProposal(object):
         mean, cov = self.update_mean_and_cov(c)
 
         if self.iter_cov > self.threshold:
-            
+
             # if iteration > threshold
             # compute mu as the mean of the previous mus (last 10%) and propose new points
             self.mu_cov = np.median(self.mu_cov_list[len(self.mu_cov_list)*9//10:])
@@ -496,7 +496,7 @@ class SliceProposal(object):
             R           = L+1.
             alpha       = model.random.uniform(L,R)
             q           = np.array(s)-(alpha*eta.T).T
-        
+
         else:
 
             eta         = np.array([self.direction_vector_cov(mean, cov) for _ in range(Ns)])
@@ -505,9 +505,9 @@ class SliceProposal(object):
             self.Nc_cov += (Nc).sum()
 
             self.tune_mu_cov()
-    
+
         self.iter_cov +=1
-        
+
         return q, np.zeros(Ns, dtype=np.float64)
 
     # methods for differential slice proposal
@@ -531,7 +531,7 @@ class SliceProposal(object):
         q = np.empty((Ns, ndim), dtype=np.float64)
 
         if self.iter_dif > self.threshold:
-            
+
             # if iteration > threshold
             # compute mu as the mean of the previous mus (last 10%) and propose new points
             self.mu_dif = np.median(self.mu_dif_list[len(self.mu_dif_list)*9//10:])
@@ -570,19 +570,19 @@ class EigenProposal(object):
 
         self.ndim = ndim
         self.cov = cov
-        
+
         if self.cov is None:
             self.cov =  1e-3 * np.matrix([[np.random.randint(2) for i in range(self.ndim)] for j in range(self.ndim)])
 
         try:
             self.eigw , self.eigvec = np.linalg.eig(self.cov)
             self.eigw = np.real(self.eigw)
-        
+
         except Exception:
             self.cov =  1e-3 * np.diag(np.ones(self.ndim))
             self.eigw , self.eigvec = np.linalg.eig(self.cov)
             self.eigw = np.real(self.eigw)
-    
+
     def get_proposal(self, s, c, p, model):
         Ns      = len(s)
         ndim    = s.shape[1]
@@ -598,9 +598,9 @@ class PriorProposal(object):
     """
 
     def __init__(self, priors, ngrid=100, kind='linear', **kwargs):
-        
+
         from scipy.interpolate import interp1d
-        
+
         self.ndim    = priors.ndim
         self.inv_cdf = []
         for pi in priors.parameters:
