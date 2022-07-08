@@ -1,5 +1,8 @@
 ## Changelog
 
+# [v0.2.2] July 2022
+* Upload package to `PyPI`
+
 # [v0.2.2] January 2022
 * Introduce additional checks in `bajes_pipe.py`
 * Improve `bajes_postproc.py`

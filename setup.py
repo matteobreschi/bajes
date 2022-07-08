@@ -71,34 +71,36 @@ setup(# metadata
       version=VERSION,
       description='Bayesian Jenaer Software',
       long_description=open(os.path.join(dir_path, 'README.md')).read(),
-      long_description_content_type="text/x-rst",
+      long_description_content_type="text/markdown",
       author='Matteo Breschi, Rossella Gamba, Sebastiano Bernuzzi et al.',
       author_email='matteo.breschi@uni-jena.de',
       url='https://github.com/matteobreschi/bajes',
       license='MIT',
 
-      # list of packages and data
+      # list of packages, data and scripts
       packages=find_packages(),
+      include_package_data=True,
       package_dir={"bajes": "bajes"},
       package_data={"bajes": ["pipe/data/gw/asd/events/*/*.txt",
                               "pipe/data/gw/asd/design/*.txt",
                               "pipe/data/gw/spcal/events/*/*.txt",
                               "pipe/data/kn/filter/AT2017gfo/*.txt",
                               "obs/kn/fluxfactors/*.dat"]},
+      scripts =     ['bajes/pipe/scripts/bajes_core.py',
+                     'bajes/pipe/scripts/bajes_parallel_core.py',
+                     'bajes/pipe/scripts/bajes_pipe.py',
+                     'bajes/pipe/scripts/bajes_inject.py',
+                     'bajes/pipe/scripts/bajes_read_gwosc.py',
+                     'bajes/pipe/scripts/bajes_postproc.py'],
 
-      # make scripts executable
-      scripts   = ['bajes/pipe/scripts/bajes_core.py',
-                   'bajes/pipe/scripts/bajes_parallel_core.py',
-                   'bajes/pipe/scripts/bajes_pipe.py',
-                   'bajes/pipe/scripts/bajes_inject.py',
-                   'bajes/pipe/scripts/bajes_read_gwosc.py',
-                   'bajes/pipe/scripts/bajes_postproc.py'],
-
-      # set mandatory requirements
+      # set requirements and classifiers
       python_requires='>=3.7',
       install_requires=['numpy>=1.18.0',
                         'scipy>=1.4.0',
-                        'astropy>=4.0.0']
+                        'astropy>=4.0.0'],
+      classifiers=["License :: OSI Approved :: MIT License",
+                   "Operating System :: OS Independent",
+                   'Programming Language :: Python :: 3.7'],
       )
 
 if 'install' in sys.argv:

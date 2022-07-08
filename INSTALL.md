@@ -16,7 +16,11 @@ and the samplers,
 
 All these packages can be easily installed via `pip`.
 
-The *bajes* installation is performed with `setuptools` running the command,
+The *bajes* package is available on [`PyPI`](https://pypi.org/) and the installation can be performed using `pip` as
+
+    pip install bajes
+
+Alternatively, the source code can be found on [`GitHub`](https://github.com/matteobreschi/bajes) and the package can be installed with `setuptools` routines, 
 
     python setup.py install
 
@@ -26,14 +30,6 @@ The *bajes* installation is performed with `setuptools` running the command,
 
         sudo -E python setup.py install
 
-* *Note*, *bajes* is not currently listed in the [`PyPI`](https://pypi.org/), then the command `pip install bajes` is not available.
-    Alternatively, the package can be installed using `pip`, running the following command inside the *bajes* repository,
-
-        python -m pip install -U -e .
-
-    We recommand to use the option `-e` in order to inlcude the project repository to `sys.path` allowing the system to identify your current git commit.
-    We suggest to include also the `-U` option in order to upgrade all specified packages to the newest available version.
-
 Once *bajes* is installed, it is possible to perform Bayesian inference on arbitrary models (see [`inf_tutorial`](docs/inf_tutorial.ipynb))
 and to execute the provided pipeline with a configuration file (see [`conifg_example`](docs/conifg_example.ini)).
 
@@ -42,4 +38,5 @@ the user should install some further packages:
 * [`TEOBResumS`](https://bitbucket.org/eob_ihes/teobresums)
 * [`GWSurrogate`](https://pypi.org/project/gwsurrogate/)
 * [`MLGW`](https://pypi.org/project/mlgw/)
+* [`MLGW-BNS`](https://pypi.org/project/mlgw-bns/)
 * [`LALSuite`](https://lscsoft.docs.ligo.org/lalsuite/)
