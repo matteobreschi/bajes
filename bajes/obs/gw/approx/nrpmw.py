@@ -100,9 +100,14 @@ __recalib_names_attach__ = np.delete(__recalib_names__,[__recalib_names__.index(
 def __downsampling__(a, window):
     pad_size = int(np.ceil(a.size/window)*window - a.size)
     a_padded = np.append(np.zeros(pad_size), a)
-    return a_padded.reshape(-1, window).max(axis=1)
+    if(pad_size==window-1):
+        # note: in this case f_min is included, i.e. the first row is [0, 0, ..., f_min]
+        return a_padded.reshape(-1, window).max(axis=1)
+    else:
+        # note: manually include f_min to ensure good coverage of all the interested frequency range
+        return np.append(a.min(), a_padded.reshape(-1, window).max(axis=1))
 
-def __upsampling__(ini_freqs, down_freqs, h):
+def __linear_interp__(ini_freqs, down_freqs, h):
     amp = np.interp(ini_freqs, down_freqs, np.abs(h), left=0., right=0.)
     phi = np.interp(ini_freqs, down_freqs, np.unwrap(np.angle(h)), left=0., right=0.)
     return amp*np.exp(1j*phi)
@@ -430,7 +435,7 @@ def NRPMw(freqs, params, recalib=False):
     # if lambda1 or lambda2 = 0 , avoid PM segment
     if params['lambda1'] < 1 or params['lambda2'] < 1:
         h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
-        return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
+        return h22
 
     if params['NRPMw_t_coll'] > params['t_0'] :
 
@@ -509,19 +514,21 @@ def NRPMw(freqs, params, recalib=False):
 
     # compute hp,hc
     h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
-    return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
+    return h22
 
 def NRPMw_attach(freqs, params, recalib=False):
     """
         Compute NRPMw model given frequency axis (np.array) and parameters (dict)
     """
 
-    # if lambda1 or lambda2 = 0 , avoid PM segment
-    if params['lambda1'] < 1 or params['lambda2'] < 1:
-        return 0.j, 0.j
-
     # initialize data
     h22 = np.zeros(len(freqs), dtype=complex)
+
+    # if lambda1 or lambda2 = 0 , avoid PM segment
+    if params['lambda1'] < 1 or params['lambda2'] < 1:
+        return h22
+
+    # mass-scaled frequncy axis and quasiuniversal properties
     freqs  = freqs*MTSUN_SI*params['mtot']
     params = _nrpmw_fits(params, recalib=recalib, attach=True)
 
@@ -603,7 +610,7 @@ def NRPMw_attach(freqs, params, recalib=False):
 
     # compute hp,hc
     h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
-    return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
+    return h22
 
 # NRPMw wrappers are the actual calls of the Waveform object
 # All wrappers include downsampling to 10Hz in order to improve efficiency
@@ -617,15 +624,21 @@ def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
         nrpmw_func = NRPMw
 
     # TODO: check for ROQ
-    if len(freqs)>int(10*params['seglen']):
-        fr      = __downsampling__(freqs, int(10*params['seglen']))
-        hp,hc   = nrpmw_func(fr, params, recalib=recalib)
-        return __upsampling__(freqs, fr, hp), __upsampling__(freqs, fr, hc)
+    if len(freqs)>int(16*params['seglen']):
+        # introduce down-sampling to constant frequency binning of 16Hz
+        # then, linear interpolation to estimate model on initial freq axis
+        fr  = __downsampling__(freqs, int(16*params['seglen']))
+        hf  = nrpmw_func(fr, params, recalib=recalib)
+        hf  = __linear_interp__(freqs, fr, hf)
     else:
-        return nrpmw_func(freqs, params, recalib=recalib)
+        hf = nrpmw_func(freqs, params, recalib=recalib)
+    return hf*(0.5*(1.+params['cosi']**2.)), hf*(params['cosi']*EmIPIHALF)
 
 def nrpmw_wrapper(freqs, params):
     return _wrapper_nrpmw(freqs, params, attach=False, recalib=False)
+
+def nrpmw_wrapper_nodownsampling(freqs, params):
+    return NRPMw(freqs, params, recalib=False)*(0.5*(1.+params['cosi']**2.))
 
 def nrpmw_attach_wrapper(freqs, params):
     return _wrapper_nrpmw(freqs, params, attach=True, recalib=False)
