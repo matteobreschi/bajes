@@ -32,6 +32,8 @@ For more details, visit [`inf_tutorial`](docs/inf_tutorial.ipynb) or type `pytho
 
 ## Pipeline
 
+<img src="docs/pipe.png" height=240>
+
 The *bajes*  infrastructure allows the user to set up a pipeline for parameters 
 estimation of multi-messenger transients. 
 This can be easily done writing a configuration file,
@@ -79,4 +81,4 @@ and the gravitational-wave analysis packages,
 * [`lalsuite`](https://lscsoft.docs.ligo.org/lalsuite/) 
 * [`pycbc`](https://pycbc.org)
 
-We also acknowledge the LIGO-Virgo-KAGRA Collaboration for maitaining the [GWOSC archive](https://www.gw-openscience.org).
+We also acknowledge the LIGO-Virgo-KAGRA Collaboration for maitaining the [GWOSC](https://www.gw-openscience.org).
