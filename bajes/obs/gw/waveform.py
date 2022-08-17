@@ -93,9 +93,6 @@ __approx_dict__ = { ### TIME-DOMAIN
                     'NRPMw':                                {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_wrapper',
                                                              'type': 'fnc',
                                                              'domain': 'freq'},
-                    'NRPMw':                                {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_wrapper',
-                                                             'type': 'fnc',
-                                                             'domain': 'freq'},
                     'NRPMw_recal':                          {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_recal_wrapper',
                                                              'type': 'fnc',
                                                              'domain': 'freq'},
@@ -129,8 +126,8 @@ def __get_waveform_generator__(approx, seglen, srate):
         # if enters here LALSimTD or LALSimFD is in approx name
         lal_approx  = approx.split('-')
         if (lal_approx[0]!='LALSimTD') or (lal_approx[0]!='LALSimFD'):
-            logger.error("Wrong syntax for LAL approximant, please use: { LALSimTD or LALSimFD }-{ LAL approx name }\nThe full list of LAL approximants can be found at https://lscsoft.docs.ligo.org/lalsuite/")
-            raise AttributeError("Wrong syntax for LAL approximant, please use: { LALSimTD or LALSimFD }-{ LAL approx name }\nThe full list of LAL approximants can be found at https://lscsoft.docs.ligo.org/lalsuite/")
+            logger.error("Wrong syntax for LAL approximant, please use: [ LALSimTD or LALSimFD ]-[ LAL approx name ].\nThe full list of LAL approximants can be found at https://lscsoft.docs.ligo.org/lalsuite/")
+            raise AttributeError("Wrong syntax for LAL approximant, please use: [ LALSimTD or LALSimFD ]-[ LAL approx name ].\nThe full list of LAL approximants can be found at https://lscsoft.docs.ligo.org/lalsuite/")
 
         this_wave = __approx_dict__[lal_approx[0]]
         wave_pars = {'seglen': seglen, 'srate': srate, 'domain': this_wave['domain'], 'approx': lal_approx[1]}
@@ -193,11 +190,11 @@ def centering_tdwave(hp, hc, seglen, srate, alpha_tukey = 0.1):
     else:
         if len(h) < lenFin:
             # shorter waveform: add tail, fill with zeros
-            # tailing, if needed
-            if hp[0] != 0 or hc[0] != 0:
-                hp, hc  = tailing(hp, hc, srate, min(int(lenFin*alpha_tukey), lenFin-len(h)))
+            # # tailing, if needed
+            # if hp[0] != 0 or hc[0] != 0:
+            #     hp, hc  = tailing(hp, hc, srate, min(int(lenFin*alpha_tukey), lenFin-len(h)))
             # filling with zeros
-            ldiff   = lenFin-len(hp)
+            ldiff   = lenFin-len(h)
             hp, hc  = np.append(np.zeros(ldiff), hp), np.append(np.zeros(ldiff), hc)
             # centering
             imax    = np.argmax(np.abs(hp - 1j*hc))

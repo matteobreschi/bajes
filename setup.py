@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from setuptools import setup, find_packages
 import logging
 import shutil
@@ -5,32 +6,6 @@ import glob
 import re
 import sys
 import os
-
-__ascii_art__ = """
-                    ....
-              ....--::::-==-:.        .::..
-           ..---::.         :=:..    .:  :..
-        ...--.     ..... ..   :-::   .:   .:.
-       :::-.   .---:::::-::---  :=:.   :    :.
-     .-=.   .---..          .:+   =.. ..:    :.
-   .:=:    --:.               :=  .=..  .:    :.
-  :-=    -=:.                 .:=  + :  .:    :.
- :.=    --.   .:..:.           :+ --:    .:   :.
-..+. .--:.  .:.   .:  .        :.-:.     .:   ...
- .:--:..  .::   .:.            ...       .:   ...
-         . :  .:.                        .:   : .
-        ..: .. .                        .:    :.
-        ... ...                        .:    :..
-        .:   :.         .             .:   :
-        .:    :.        .....:.. ..  ..   ...
-         .:    :..      ...    .. .........
-          .:    :.        ............
-           .:.    .:.
-             .::     ..::.   ...
-               .:..       .... ..:.
-                  ......          .-.
-                        .:::.....::..
-"""
 
 # set logger
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -102,5 +77,7 @@ setup(# metadata
       )
 
 if 'install' in sys.argv:
-      logging.info("Bajes succesfully installed.")
-      logging.info(__ascii_art__)
+      import importlib
+      bajes = importlib.import_module('bajes')
+      logging.info("Bajes succesfully installed at the path(s): {}".format(bajes.__path__))
+      logging.info(bajes.__ascii_art__)

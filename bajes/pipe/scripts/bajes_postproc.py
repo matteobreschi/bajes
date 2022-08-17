@@ -547,7 +547,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
 
         ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='gray', lw=0.5, label='Data'              )
         ax.plot(strains_dets[det]['s'].times-t_gps, me,                                 c='navy', lw=0.8, label='Waveform'          )
-        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                     c='navy', lw=0.5,                  alpha=0.4)
+        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                 color='navy', lw=0.5,                  alpha=0.4)
 
         data_output['strain'][det]['time']        = strains_dets[det]['s'].times
         data_output['strain'][det]['series']      = strains_dets[det]['s'].time_series
@@ -585,7 +585,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
 
         ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='gray', lw=0.5, label='Data'              )
         ax.plot(strains_dets[det]['w'].times-t_gps, me,                                 c='navy', lw=0.8, label='Waveform'          )
-        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                     c='navy', lw=0.5,                  alpha=0.4)
+        ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                 color='navy', lw=0.5,                  alpha=0.4)
 
         data_output['strain'][det]['series_whiten']      = strains_dets[det]['w'].time_series
         data_output['waveform'][det]['series_whiten']    = me
@@ -628,7 +628,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
 
             ax.plot(strains_dets[det]['s'].times-t_gps, strains_dets[det]['s'].time_series, c='k',         lw=0.8, label='Data'              )
             ax.plot(strains_dets[det]['s'].times-t_gps, me,                                 c='royalblue', lw=0.8, label='Waveform'          )
-            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                     c='royalblue', lw=0.5,                  alpha=0.4)
+            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                 color='royalblue', lw=0.5,                  alpha=0.4)
 
             ax.set_xlim([t_peak-200*M_tot*MTSUN_SI, t_peak+200*M_tot*MTSUN_SI])
             ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
@@ -656,7 +656,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
 
             ax.plot(strains_dets[det]['w'].times-t_gps, strains_dets[det]['w'].time_series, c='k',         lw=0.8, label='Data'               )
             ax.plot(strains_dets[det]['w'].times-t_gps, me,                                 c='royalblue', lw=0.8, label='Waveform'           )
-            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                     c='royalblue', lw=0.5,                  alpha=0.4,)
+            ax.fill_between(strains_dets[det]['s'].times-t_gps, lo, hi,                 color='royalblue', lw=0.5,                  alpha=0.4,)
 
             ax.set_xlim([t_peak-200*M_tot*MTSUN_SI, t_peak+200*M_tot*MTSUN_SI])
             ax.set_xlabel('t - t$_{\mathrm{gps}}$ [s]')
@@ -680,7 +680,7 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
 
         ax.loglog(strains_dets[det]['s'].freqs, np.abs(spd[det]),                                    c='gray',      lw=0.1, label='Data',    zorder=0 )
         ax.loglog(strains_dets[det]['s'].freqs, me,                                                  c='royalblue', lw=0.8, label='Waveform'          )
-        ax.fill_between(strains_dets[det]['s'].freqs, lo, hi,                                        c='royalblue', lw=0.5,                  alpha=0.4)
+        ax.fill_between(strains_dets[det]['s'].freqs, lo, hi,                                    color='royalblue', lw=0.5,                  alpha=0.4)
         ax.loglog(strains_dets[det]['n'].freqs, strains_dets[det]['n'].amp_spectrum*np.sqrt(seglen), c='navy',      lw=1.0, label='ASD'               )
 
         data_output['noise'][det]['freq']           = strains_dets[det]['n'].freqs

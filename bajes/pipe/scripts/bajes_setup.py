@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+from __future__ import division, unicode_literals
+import sys
+import os
+import logging
+import numpy as np
+
+from bajes.pipe import set_logger, ensure_dir, parse_setup_options
+
+# Necessary to add cwd to path when script run
+# by SLURM (since it executes a copy)
+sys.path.append(os.getcwd())
+
+def init_inf(opts):
+
+    # all models have distance and time_shift,
+    # choose the smaller bounds
+    if len(opts.dist_min) == 1:
+        opts.dist_min       = opts.dist_min[0]
+    elif len(opts.dist_min) == 0:
+        opts.dist_min       = None
+    else:
+        opts.dist_min       = np.max(opts.dist_min)
+
+    if len(opts.dist_max) == 1:
+        opts.dist_max       = opts.dist_max[0]
+    elif len(opts.dist_max) == 0:
+        opts.dist_max       = None
+    else:
+        opts.dist_max       = np.min(opts.dist_max)
+
+    if not opts.marg_time_shift:
+
+        if len(opts.time_shift_min) == 1:
+            opts.time_shift_min = opts.time_shift_min[0]
+        elif len(opts.time_shift_min) == 0:
+            opts.time_shift_min = None
+        else:
+            opts.time_shift_min = np.max(opts.time_shift_min)
+
+        if len(opts.time_shift_max) == 1:
+            opts.time_shift_max = opts.time_shift_max[0]
+        elif len(opts.time_shift_max) == 0:
+            opts.time_shift_max = None
+        else:
+            opts.time_shift_max = np.min(opts.time_shift_max)
+
+    # get likelihood object and arguments
+    from bajes.pipe import get_likelihood_and_prior
+    store_likelihood_and_prior(opts)
+
+def save_opts(opts):
+
+    from bajes import __version__
+    output  = 'bajes\t= {}'.format(__version__) + '\n'
+    all     = opts.__dict__
+
+    for ki in all.keys():
+        output = output + ki + '\t= ' + str(all[ki]) + '\n'
+
+    file = open(opts.outdir+'/settings.txt', 'w')
+    file.write(output)
+    file.close()
+
+if __name__ == "__main__":
+
+    # parse input arguments
+    opts, args = parse_setup_options()
+
+    # make output directory and initialize logger
+    opts.outdir = os.path.abspath(opts.outdir)
+    ensure_dir(opts.outdir)
+
+    # setting logger
+    if opts.debug:
+        logger = set_logger(outdir=opts.outdir, label='bajes_setup', level='DEBUG', silence=opts.silence)
+        logger.debug("Using logger with debugging mode")
+    else:
+        logger = set_logger(outdir=opts.outdir, silence=opts.silence)
+    logger.info("Running bajes setup:")
+
+    # save input
+    save_opts(opts)
+
+    # initialize posterior
+    init_inf(opts)

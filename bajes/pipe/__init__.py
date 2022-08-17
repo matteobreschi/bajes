@@ -224,9 +224,9 @@ def close_pool_mpi(pool):
     'close processes before the end of the pool, with mpi4py'
     pool.close()
 
-def initialize_mpi_pool(fast_mpi=False):
+def initialize_mpi_pool(mpi=None, comm=None, fast_mpi=False):
     from .utils.mpi import MPIPool
-    pool = MPIPool(parallel_comms=fast_mpi)
+    pool = MPIPool(mpi=mpi, comm=comm, parallel_comms=fast_mpi)
     close_pool = close_pool_mpi
     return  pool, close_pool
 
@@ -250,26 +250,87 @@ def initialize_mthr_pool(nprocs):
 
 # pipeline/core methods
 
+# def parse_main_options():
+#
+#     from .. import __version__, __doc__
+#     from ..inf import __known_samplers__
+#     import optparse as op
+#
+#     usage   = "python -m bajes [options]\n"+"Version: bajes {}".format(__version__)
+#     parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
+#
+#     parser.add_option('-p', '--prior',  dest='prior',       type='string',  help='path to prior file (configuration file)')
+#     parser.add_option('-l', '--like',   dest='like',        type='string',  help='path to likelihood function (python file)')
+#
+#     # Choose the engine
+#     parser.add_option('-s', '--sampler', dest='engine',      default='dynesty', type='string',  help='sampler engine name, {}'.format(__known_samplers__))
+#
+#     # Parallelization option (only multiprocessing)
+#     parser.add_option('-n', '--nprocs',       dest='nprocs',    default=None,   type='int', help='number of parallel processes')
+#
+#     # output
+#     parser.add_option('-o', '--outdir', default='./',       type='string',  dest='outdir',  help='output directory')
+#
+#     # Nested sampling options
+#     parser.add_option('--nlive',        dest='nlive',       default=1024,   type='int',     help='[nest] number of live points. Default: 1024')
+#     parser.add_option('--tol',          dest='tolerance',   default=0.1,    type='float',   help='[nest] evidence tolerance. Default: 0.1')
+#     parser.add_option('--maxmcmc',      dest='maxmcmc',     default=4096,   type='int',     help='[nest] maximum number of mcmc iterations. Default: 4096')
+#     parser.add_option('--minmcmc',      dest='minmcmc',     default=32,     type='int',     help='[nest] minimum number of mcmc iterations. Default: 32')
+#     parser.add_option('--poolsize',     dest='poolsize',    default=2048,   type='int',     help='[nest] number of sample in the pool (cpnest). Default: 2048')
+#     parser.add_option('--nact',         dest='nact',        default=5,      type='int',     help='[nest] sub-chain safe factor (dynesty). Default: 5')
+#     parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='[nest] number of live points for batch (dynesty-dyn). Default: 512')
+#     parser.add_option('--dkl',          dest='dkl',         default=0.5,    type='float',   help='[nest] target KL divergence (ultranest). Default: 0.5')
+#     parser.add_option('--z-frac',       dest='z_frac',      default=None,   type='float',   help='[nest] remaining Z fraction (ultranest). Default: None')
+#
+#     # MCMC options
+#     parser.add_option('--nout',         dest='nout',        default=10000,  type='int',     help='[mcmc] number of posterior samples')
+#     parser.add_option('--nwalk',        dest='nwalk',       default=256,    type='int',     help='[mcmc] number of parallel walkers')
+#     parser.add_option('--nburn',        dest='nburn',       default=5000,    type='int',    help='[mcmc] numebr of burn-in iterations')
+#     parser.add_option('--ntemp',        dest='ntemps',      default=8,      type='int',     help='[mcmc] number of tempered ensambles (ptmcmc)')
+#     parser.add_option('--tmax',         dest='tmax',        default=None,   type='float',   help='[mcmc] maximum temperature scale, default inf (ptmcmc)')
+#
+#     # Others
+#     parser.add_option('--priorgrid',    dest='priorgrid',   default=1000,   type='int',             help='number of nodes for prior interpolators (if needed)')
+#     parser.add_option('--use-slice',    dest='use_slice',   default=False,  action="store_true",    help='use slice proposal (emcee or cpnest)')
+#     parser.add_option('--checkpoint',   dest='ncheck',      default=0,      type='int',             help='number of periodic checkpoints')
+#     parser.add_option('--seed',         dest='seed',        default=None,   type='int',             help='seed for the pseudo-random generator')
+#     parser.add_option('--mpi',         dest='mpi',        default=False,  action="store_true",      help='use MPI parallelization')
+#
+#     # logging
+#     parser.add_option('-v', '--verbose',          dest='silence',     default=True,  action="store_false",    help='activate stream handler, use this if you are running on terminal')
+#     parser.add_option('--debug',            dest='debug',       default=False,  action="store_true",    help='use debugging mode for logger')
+#
+#     (opts,args) = parser.parse_args()
+#     return opts,args
+
 def parse_main_options():
 
     from .. import __version__, __doc__
     from ..inf import __known_samplers__
     import optparse as op
 
-    usage   = "python -m bajes [options]\n"+"Version: bajes {}".format(__version__)
-    parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
+    usage   = "python -m bajes [options]"
+    parser=op.OptionParser(usage=usage, version=__version__, description=__doc__)
 
-    parser.add_option('-p', '--prior',  dest='prior',       type='string',  help='path to prior file (configuration file)')
-    parser.add_option('-l', '--like',   dest='like',        type='string',  help='path to likelihood function (python file)')
+    # Model
+    parser.add_option('-p', '--prior',  dest='prior',       defualt=None,   type='string',  help='path to prior file (configuration file)')
+    parser.add_option('-l', '--like',   dest='like',        defualt=None,   type='string',  help='path to likelihood function (python file)')
+    parser.add_option('-I', '--inf',    dest='inf',         defualt=None,   type='string',  help='path to pickle inference')
 
-    # Choose the engine
-    parser.add_option('-s', '--sampler', dest='engine',      default='dynesty', type='string',  help='sampler engine name, {}'.format(__known_samplers__))
+    # Generic run options
+    parser.add_option('--engine',            dest='engine',         default='dynesty', type='string',                        help='Sampler engine name, available options: {}.'.format(__known_samplers__))
+    parser.add_option('--priorgrid',         dest='priorgrid',      default=1000,      type='int',                           help='number of nodes for prior interpolators (if needed)')
+    parser.add_option('--use-slice',         dest='use_slice',      default=False,     action="store_true",                  help='use slice proposal (emcee or cpnest)')
+    parser.add_option('--use-gw',            dest='use_gw',         default=False,     action="store_true",                  help='use slice proposal (emcee or cpnest)')
+    parser.add_option('--checkpoint',        dest='ncheck',         default=0,         type='int',                           help='number of periodic checkpoints')
+    parser.add_option('--seed',              dest='seed',           default=None,      type='int',                           help='seed for the pseudo-random chain')
 
-    # Parallelization option (only multiprocessing)
-    parser.add_option('-n', '--nprocs',       dest='nprocs',    default=None,   type='int', help='number of parallel processes')
-
-    # output
-    parser.add_option('-o', '--outdir', default='./',       type='string',  dest='outdir',  help='output directory')
+    # I/O options
+    parser.add_option('-o', '--outdir',      dest='outdir',         default=None,      type='string',                        help='directory for output')
+    parser.add_option('--debug',             dest='debug',          default=False,                     action="store_true",  help='use debugging mode for logger')
+    parser.add_option('--verbose',           dest='silence',        default=True,                      action="store_false", help='activate stream handler, use this if you are running on terminal')
+    parser.add_option('--tracing',           dest='trace_memory',   default=False,                     action="store_true",  help='keep track of memory usage')
+    parser.add_option('--n-tracing',         dest='n_trace_memory', default=25,        type='int',                           help='number of iteration after each memory trace. Default: 25')
 
     # Nested sampling options
     parser.add_option('--nlive',        dest='nlive',       default=1024,   type='int',     help='[nest] number of live points. Default: 1024')
@@ -289,68 +350,32 @@ def parse_main_options():
     parser.add_option('--ntemp',        dest='ntemps',      default=8,      type='int',     help='[mcmc] number of tempered ensambles (ptmcmc)')
     parser.add_option('--tmax',         dest='tmax',        default=None,   type='float',   help='[mcmc] maximum temperature scale, default inf (ptmcmc)')
 
-    # Others
-    parser.add_option('--priorgrid',    dest='priorgrid',   default=1000,   type='int',             help='number of nodes for prior interpolators (if needed)')
-    parser.add_option('--use-slice',    dest='use_slice',   default=False,  action="store_true",    help='use slice proposal (emcee or cpnest)')
-    parser.add_option('--checkpoint',   dest='ncheck',      default=0,      type='int',             help='number of periodic checkpoints')
-    parser.add_option('--seed',         dest='seed',        default=None,   type='int',             help='seed for the pseudo-random generator')
-    parser.add_option('--mpi',         dest='mpi',        default=False,  action="store_true",      help='use MPI parallelization')
-
-    # logging
-    parser.add_option('-v', '--verbose',          dest='silence',     default=True,  action="store_false",    help='activate stream handler, use this if you are running on terminal')
-    parser.add_option('--debug',            dest='debug',       default=False,  action="store_true",    help='use debugging mode for logger')
+    # Parallelization options
+    parser.add_option('--nprocs',            dest='nprocs',         default=None,      type='int',                           help='number of processes in the pool')
+    parser.add_option('--mpi',               dest='mpi',            default=False,     action="store_true",                  help='use MPI parallelization')
+    parser.add_option('--mpi-per-node',      dest='mpi_per_node',   default=None,      type='int',                           help='number of MPI processes per node')
+    parser.add_option('--fast-mpi',          dest='fast_mpi',       default=False,                     action="store_true",  help='enable fast MPI communication')
 
     (opts,args) = parser.parse_args()
+
     return opts,args
 
-def parse_core_options():
+def parse_setup_options():
 
     from .. import __version__, __doc__
     from ..inf import __known_samplers__
     import optparse as op
 
-    usage   = "bajes_core.py [options]"+"Version: bajes {}".format(__version__)
-    parser=op.OptionParser(usage=usage, version=__version__, description="Description:\n"+__doc__)
+    usage   = "bajes_setup.py [options]"
+    parser=op.OptionParser(usage=usage, version=__version__, description="Initialize prior and likelihood in inf.pkl for parameter estimation.")
 
     # Generic run options
     parser.add_option('--tag',               dest='tags',           default=[],        type='string', action="append",       help="Tag for data messenger. Available options: ['gw', 'kn'].")
     parser.add_option('--t-gps',             dest='t_gps',                             type='float',                         help='GPS time: for GW, center value of time axis (if a local version of the data is provided, has to coincide with this value for the input time axis); for KN, initial value of time axis')
-    parser.add_option('--engine',            dest='engine',         default='dynesty', type='string',                        help='Sampler engine name, available options: {}.'.format(__known_samplers__))
     parser.add_option('--priorgrid',         dest='priorgrid',      default=1000,      type='int',                           help='number of nodes for prior interpolators (if needed)')
 
     # I/O options
     parser.add_option('-o', '--outdir',      dest='outdir',         default=None,      type='string',                        help='directory for output')
-    parser.add_option('--debug',             dest='debug',          default=False,                     action="store_true",  help='use debugging mode for logger')
-    parser.add_option('--verbose',           dest='silence',        default=True,                      action="store_false", help='activate stream handler, use this if you are running on terminal')
-    parser.add_option('--tracing',           dest='trace_memory',   default=False,                     action="store_true",  help='keep track of memory usage')
-
-    # Nested sampling options
-    parser.add_option('--nlive',             dest='nlive',          default=1024,      type='int',                           help='number of live points')
-    parser.add_option('--tol',               dest='tolerance',      default=0.1,       type='float',                         help='evidence tolerance')
-    parser.add_option('--maxmcmc',           dest='maxmcmc',        default=4096,      type='int',                           help='maximum number of mcmc iterations')
-    parser.add_option('--minmcmc',           dest='minmcmc',        default=32,        type='int',                           help='minimum number of mcmc iterations')
-    parser.add_option('--poolsize',          dest='poolsize',       default=2048,      type='int',                           help='number of sample in the pool (cpnest)')
-    parser.add_option('--nact',              dest='nact',           default=5,         type='int',                           help='sub-chain safe factor (dynesty)')
-    parser.add_option('--nbatch',            dest='nbatch',         default=512,       type='int',                           help='number of live points for batch (dynesty-dyn)')
-    parser.add_option('--dkl',               dest='dkl',            default=0.5,       type='float',                         help='target KL divergence (ultranest)')
-    parser.add_option('--z-frac',            dest='z_frac',         default=None,      type='float',                         help='remaining Z fraction (ultranest)')
-
-    # MCMC options
-    parser.add_option('--nout',              dest='nout',           default=4000,      type='int',                           help='number of posterior samples')
-    parser.add_option('--nwalk',             dest='nwalk',          default=256,       type='int',                           help='number of parallel walkers')
-    parser.add_option('--nburn',             dest='nburn',          default=15000,     type='int',                           help='numebr of burn-in iterations')
-    parser.add_option('--ntemp',             dest='ntemps',         default=8,         type='int',                           help='number of tempered ensambles (ptmcmc)')
-    parser.add_option('--tmax',              dest='tmax',           default=None,      type='float',                         help='maximum temperature scale, default inf (ptmcmc)')
-
-    # Parallelization options
-    parser.add_option('--nprocs',            dest='nprocs',         default=None,      type='int',                           help='number of processes in the pool')
-    parser.add_option('--mpi-per-node',      dest='mpi_per_node',   default=None,      type='int',                           help='number of MPI processes per node')
-    parser.add_option('--fast-mpi',          dest='fast_mpi',       default=False,                     action="store_true",  help='enable fast MPI communication')
-
-    # Other samplers options
-    parser.add_option('--use-slice',         dest='use_slice',      default=False,                     action="store_true",  help='use slice proposal (emcee or cpnest)')
-    parser.add_option('--checkpoint',        dest='ncheck',         default=0,         type='int',                           help='number of periodic checkpoints')
-    parser.add_option('--seed',              dest='seed',           default=None,      type='int',                           help='seed for the pseudo-random chain')
 
     # Fixed parameter options
     parser.add_option('--fix-name',          dest='fixed_names',    default=[],        type='string',  action="append",      help='names of fixed params')
@@ -479,6 +504,131 @@ def parse_core_options():
 
     return opts,args
 
+# initialization functions for run
+
+def read_model_from_paths(prior_path, like_path, priorgrid):
+
+    import importlib, sys
+
+    try:
+        import configparser
+    except ImportError:
+        import ConfigParser as configparser
+
+    from ..inf import Prior, Parameter, Likelihood, Sampler
+
+    # get likelihood module
+    logger.info("Importing likelihood module ...")
+    sys.path.append(os.path.dirname(like_path))
+    like_module = importlib.import_module(os.path.basename(like_path).split('.')[0])
+
+    # initialize likelihood
+    lk = Likelihood(func = like_module.log_like)
+
+    # parse prior
+    logger.info("Parsing prior options ...")
+    config = configparser.ConfigParser()
+    config.optionxform = str
+    config.sections()
+    config.read(prior_path)
+
+    # get parameters
+    names       = [ni[0] for ni in list(config.items()) if ni[0] != 'DEFAULT']
+    _checked    = ['min', 'max', 'periodic', 'prior', 'func', 'func_kwarg', 'interp_kwarg']
+    params      = []
+
+    for ni in names:
+
+        args = dict(config[ni])
+        list_args_keys = list(args.keys())
+
+        # check lower bound
+        if 'min' in list_args_keys:
+             args['min'] = float(args['min'])
+        else:
+            logger.error("Unable to set prior for {} parameter, unspecified lower bound.".format(ni))
+            raise AttributeError("Unable to set prior for {} parameter, unspecified lower bound.".format(ni))
+
+        # check upper bound
+        if 'max' in list_args_keys:
+             args['max'] = float(args['max'])
+        else:
+            logger.error("Unable to set prior for {} parameter, unspecified upper bound.".format(ni))
+            raise AttributeError("Unable to set prior for {} parameter, unspecified upper bound.".format(ni))
+
+        # check bounds
+        if 'periodic' in list_args_keys:
+            args['periodic'] = int(args['periodic'])
+
+        # check prior string/function
+        if 'prior' in list_args_keys:
+            logger.info("Setting {} with {} prior in range [{:.3g},{:.3g}]...".format(ni, args['prior'], args['min'], args['max']))
+            if args['prior'] == 'custom':
+                args['func'] = getattr(like_module, 'log_prior_{}'.format(ni))
+        else:
+            logger.info("Setting {} with uniform prior in range [{:.3g},{:.3g}] ...".format(ni, args['min'], args['max']))
+
+        # set number of grid point for prior interpolation, if needed
+        args['interp_kwarg'] = {'ngrid': priorgrid}
+
+        # check others
+        for ki in list_args_keys:
+            if ki not in _checked:
+                args[ki] = float(args[ki])
+
+        # append parameter to list
+        params.append(Parameter(name = ni , **args))
+
+    # initialize prior
+    logger.info("Initializing prior distribution ...")
+    pr = Prior(params)
+
+    return pr, lk
+
+def read_model_from_pickle(file):
+
+    # get inference pickle
+    file    = os.path.abspath(file)
+
+    # get data container information
+    from .utils import data_container
+    dc = data_container(file)
+    dc = dc.load()
+    return dc.prior, dc.like
+
+def init_model(opts):
+
+    # prior, likelihood and inference are None
+    if (opts.prior is None) and (opts.like is None) and (opts.inf is None):
+        # look for inf.pkl in outdir
+        if os.path.exists(opts.outdir+'/inf.pkl'):
+            pr, lk  = read_model_from_pickle(opts.outdir+'/inf.pkl')
+        # else error
+        else:
+            logger.error("Unable to initialize model. None is given.")
+            raise ValueError("Unable to initialize model. None is given.")
+
+    # if inference pickle is None
+    elif (opts.inf is None):
+        if (opts.prior is None):
+            logger.error("Unable to initialize model. Prior is not given.")
+            raise ValueError("Unable to initialize model. Prior is not given.")
+        if (opts.like is None):
+            logger.error("Unable to initialize model. Likelihood is not given.")
+            raise ValueError("Unable to initialize model. Likelihood is not given.")
+        # get prior and likelihood from input files
+        opts.prior  = os.path.abspath(opts.prior)
+        opts.like   = os.path.abspath(opts.like)
+
+        # define likelihood and prior
+        pr, lk      = read_model_from_paths(opts.prior, opts.like, opts.priorgrid)
+
+    else:
+
+        # get inference pickle
+        pr, lk      = read_model_from_pickle(opts.inf)
+
+    return pr, lk
 
 def init_sampler(posterior, pool, opts, proposals=None, rank=0):
 
@@ -600,12 +750,13 @@ def init_proposal(engine, post, use_slice=False, use_gw=False, maxmcmc=4096, min
 #
 #     return i, w
 
-def get_likelihood_and_prior(opts):
+# main setup
+
+def store_likelihood_and_prior(opts):
 
     # get likelihood objects
     likes = []
     priors = []
-    use_gw = False
 
     for ti in opts.tags:
 
@@ -644,20 +795,17 @@ def get_likelihood_and_prior(opts):
 
             else:
 
-                from .utils.model import GWLikelihood
+                from .log_like import GWLikelihood
 
             logger.info("Initializing GW likelihood ...")
 
             likes.append(GWLikelihood(**l_kwas))
             priors.append(pr)
 
-            # set use_gw flag for proposal
-            use_gw = True
-
         elif ti == 'kn':
 
             # select KN likelihood
-            from .utils.model import KNLikelihood
+            from .log_like import KNLikelihood
 
             # read arguments for likelihood
             l_kwas, pr = initialize_knlikelihood_kwargs(opts)
@@ -693,5 +841,3 @@ def get_likelihood_and_prior(opts):
     # save prior and likelihood in pickle
     cont_kwargs = {'prior': p_obj, 'like': l_obj}
     save_container(opts.outdir+'/inf.pkl', cont_kwargs)
-
-    return l_obj , p_obj, use_gw

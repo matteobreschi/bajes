@@ -6,8 +6,8 @@ logger = logging.getLogger(__name__)
 
 from scipy.special import i0e
 
-from .. import erase_init_wrapper
-from ...inf.likelihood import Likelihood
+from . import erase_init_wrapper
+from ..inf.likelihood import Likelihood
 
 try:
     from scipy.special import logsumexp
@@ -87,7 +87,7 @@ class GWLikelihood(Likelihood):
             mask            = datas[ifo].mask
 
         # initialize waveform generator
-        from ...obs.gw.waveform import Waveform
+        from ..obs.gw.waveform import Waveform
         self.wave   = erase_init_wrapper(Waveform(freqs[mask], srate , seglen, approx))
 
 #    def inner_prods(self, params):
@@ -147,7 +147,7 @@ class GWLikelihood(Likelihood):
         if not any(wave.plus):
             return -np.inf
 
-        if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))): 
+        if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))):
             logger.warning('Nans in the waveform, with the configuration: {}. Returning -inf in the likelihood.'.format(params))
             return -np.inf
         if(np.any(np.isinf(wave.plus)) or np.any(np.isinf(wave.cross))):
@@ -251,7 +251,7 @@ class KNLikelihood(Likelihood):
             raise ValueError("Unknown property {} for t_scale variable during KNLikelihood initialization.".format(t_scale))
 
         # initialize lightcurve model
-        from ...obs.kn.lightcurve import Lightcurve
+        from ..obs.kn.lightcurve import Lightcurve
         self.light  = Lightcurve(comps, t_axis, filters.lambdas, v_min, n_v)
 
     def log_like(self, x):

@@ -5,19 +5,21 @@ logger = logging.getLogger(__name__)
 
 def get_mpi_world():
 
-    global MPI
-
-    import mpi4py
-    mpi4py.rc.threads = False
-    mpi4py.rc.recv_mprobe = False
-
+    #global MPI
     try:
+
+        import mpi4py
+        mpi4py.rc.threads = False
+        mpi4py.rc.recv_mprobe = False
+
         from mpi4py import MPI as _MPI
+
     except ImportError:
         raise ImportError("Unable to initialize MPI pool, mpi4py is missing.")
 
-    MPI = _MPI
-    return MPI
+    # MPI = _MPI
+    # return MPI
+    return _MPI
 
 class MPIPool(object):
     """
@@ -44,10 +46,15 @@ class MPIPool(object):
     ----------
     PACHECO, P. S., 1996. Parallel Programming with MPI.
     """
-    def __init__(self, comm=None, master=0, parallel_comms=False):
+    def __init__(self, mpi=None, comm=None, master=0, parallel_comms=False):
 
         # get MPI world
-        MPI = get_mpi_world()
+        global MPI
+        if mpi is None:
+            MPI = get_mpi_world()
+        else:
+            MPI=mpi
+
         if comm == None:
             comm = MPI.COMM_WORLD
 
@@ -57,13 +64,12 @@ class MPIPool(object):
         # Master process must be in range [0,comm.size)
         assert 0 <= master < comm.size
 
-        self.comm       = comm
-        self.master     = master
-        self.rank       = self.comm.Get_rank()
-        self._processes = int(self.comm.size)
+        self.comm           = comm
+        self.master         = master
+        self.rank           = self.comm.Get_rank()
+        self._processes     = int(self.comm.size)
         self.parallel_comms = parallel_comms
-
-        self.workers    = set(range(comm.size))
+        self.workers        = set(range(comm.size))
         self.workers.discard(self.master)
 
         if self.rank == 0:

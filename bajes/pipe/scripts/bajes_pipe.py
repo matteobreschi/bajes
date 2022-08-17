@@ -15,7 +15,7 @@ from bajes.pipe import ensure_dir, execute_bash, set_logger
 class BajesPipeError(Exception):
     pass
 
-def write_executable(outdir, config, string1, string2, string3):
+def write_executable(outdir, config, string1, string2, string3, string4):
 
     # checking if executable is already in outdir
     # if yes, the process is aborted
@@ -188,7 +188,7 @@ def write_executable(outdir, config, string1, string2, string3):
 
         if int(config['pipe']['mpi']):
             execfile.write('export MPI_PER_NODE={}'.format(mpi_per_node)+'\n')
-            string2 += ' --mpi-per-node {}'.format(mpi_per_node)
+            string3 += ' --mpi-per-node {}'.format(mpi_per_node)
 
         # writing path to be exported for bajes
         execfile.write('\n')
@@ -206,13 +206,20 @@ def write_executable(outdir, config, string1, string2, string3):
 
         # writing main commands
         if string1:
+            # inject/gwosc
             execfile.write(srun_string  + string1 + '\n')
             execfile.write('\n')
         if string2:
-            execfile.write(srun_string_core + string2 + '\n')
+            # setup
+            execfile.write(srun_string + string2 + '\n')
             execfile.write('\n')
         if string3:
-            execfile.write(srun_string  + string3 + '\n')
+            # main
+            execfile.write(srun_string_core  + string3 + '\n')
+            execfile.write('\n')
+        if string3:
+            # postproc
+            execfile.write(srun_string  + string4 + '\n')
             execfile.write('\n')
 
     execfile.close()
@@ -322,12 +329,13 @@ def write_run_string(config, tags, outdir):
     list_keys_in_pipe       = np.transpose(list(config.items('pipe')))[0]
     list_keys_in_sampler    = np.transpose(list(config.items('sampler')))[0]
 
-    run_string = 'bajes_core.py '
+    run_string = 'python -m bajes '
     if 'mpi' in list_keys_in_pipe:
         if int(config['pipe']['mpi']):
-            run_string = 'bajes_parallel_core.py '
+            run_string  += '--mpi '
 
     run_string += '--outdir {} '.format(outdir+'/run/')
+    # run_string += '-I {} '.format(outdir+'/run/inf.pkl')
 
     if config['sampler']['engine'] == 'cpnest':
 
@@ -424,11 +432,30 @@ def write_run_string(config, tags, outdir):
         run_string += '--checkpoint {} '.format(config['sampler']['ncheck'])
 
     if 'slice' in list_keys_in_sampler:
-        if 'dynesty' in config['sampler']['engine'] or config['sampler']['engine'] == 'ptmcmc':
-            logger.warning("Unable to use slice proposal with requested sampler. Option not implemented or already existing.")
+        if 'dynesty' in config['sampler']['engine']:
+            logger.warning("Unable to use slice proposal with requested sampler ({}). Option not implemented.".format(config['sampler']['engine']))
+        if config['sampler']['engine'] == 'ptmcmc':
+            logger.warning("Redoundant use-slice flag with requested sampler ({}). Option included as default.".format(config['sampler']['engine']))
         else:
             if int(config['sampler']['slice']):
                 run_string += '--use-slice '
+
+    if 'gw' in tags:
+        run_string += '--use-gw '
+
+    return run_string
+
+def write_setup_string(config, tags, outdir):
+
+    """
+        Write command string to execute bajes_core.py
+        given a config file
+    """
+
+    list_keys_in_pipe       = np.transpose(list(config.items('pipe')))[0]
+    list_keys_in_sampler    = np.transpose(list(config.items('sampler')))[0]
+
+    run_string = 'bajes_setup.py '
 
     if 'gw' in tags:
 
@@ -633,7 +660,6 @@ def write_run_string(config, tags, outdir):
             logger.error("Missing path to magnitude data folder in config file. Please specify the mag-folder in [kn-data] section.")
             raise BajesPipeError("Missing path to magnitude data folder in config file. Please specify the mag-folder in [kn-data] section.")
 
-
         comps       = config['kn-prior']['comps'].split(',')
         mej_max     = config['kn-prior']['mej-max'].split(',')
         mej_min     = config['kn-prior']['mej-min'].split(',')
@@ -824,10 +850,11 @@ if __name__ == "__main__":
 
     # fill core and postproc command
     logger.info("... writing executable ...")
+    set_string      = write_setup_string(config, tags, outdir)
     run_string      = write_run_string(config, tags, outdir)
     pp_string       = write_postproc_string(config, tags, outdir)
 
     # write executable
-    execname        = write_executable(outdir, config, ini_string, run_string, pp_string)
+    execname        = write_executable(outdir, config, ini_string, set_string, run_string, pp_string)
 
     logger.info("... pipeline written in {}.".format(execname))
