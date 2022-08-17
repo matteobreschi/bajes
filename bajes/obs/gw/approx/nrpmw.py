@@ -97,6 +97,20 @@ __recalib_names_attach__ = np.delete(__recalib_names__,[__recalib_names__.index(
                                                         __recalib_names__.index('a_m'),
                                                         __recalib_names__.index('df_m')])
 
+def __downsampling__(a, window):
+    pad_size = int(np.ceil(a.size/window)*window - a.size)
+    a_padded = np.append(np.zeros(pad_size), a)
+    if(pad_size==window-1):
+        # note: in this case f_min is included, i.e. the first row is [0, 0, ..., f_min]
+        return a_padded.reshape(-1, window).max(axis=1)
+    else:
+        # note: manually include f_min to ensure good coverage of all the interested frequency range
+        return np.append(a.min(), a_padded.reshape(-1, window).max(axis=1))
+
+def __linear_interp__(ini_freqs, down_freqs, h):
+    amp = np.interp(ini_freqs, down_freqs, np.abs(h), left=0., right=0.)
+    phi = np.interp(ini_freqs, down_freqs, np.unwrap(np.angle(h)), left=0., right=0.)
+    return amp*np.exp(1j*phi)
 
 def __fit_func__(pars, key):
     # get coefficients and params
@@ -228,7 +242,7 @@ def _fix_overflow_peak(freq, model, alpha, beta, delta_z):
         fs      = np.array([freq[imin],freq[imax]])
         ms      = np.array([model[imin],model[imax]])
         # interpolate
-        model[iw] = np.interp(freq[iw], fs, np.abs(ms)) * np.exp(1j * np.interp(freq[iw], fs, np.unwrap(np.angle(ms))))
+        model[iw] = np.interp(freq[iw], fs, np.abs(ms)) * np.exp(1j * np.interp(freq[iw], fs, np.angle(ms)))
     return model
 
 def _wavelet_func_safe(freq, alpha, beta, eta, tau, delta_z = None):
@@ -277,22 +291,9 @@ def _wavelet_func_generic(freq, alpha, beta, eta, tau):
     return c2 * _wavelet_integral_extremes_erfcx(x2,b2)
 
 def _sanity_check(ax):
-    # fill nan/inf values with interpolation
-
-    # get indeces
-    nans        = np.logical_or(np.isnan(ax),np.isinf(ax))
-    notnans     = np.logical_not(nans)
-
-    # interp good values and fill with zeros outside
-    if any(nans):
-        x_ax        = np.arange(len(ax))
-        good_ax     = ax[notnans]
-        good_x      = x_ax[notnans]
-        bad_x       = x_ax[nans]
-        amp_interp  = np.interp(bad_x, good_x, np.abs(good_ax),                 left=0.j,   right=0.j)
-        phi_interp  = np.interp(bad_x, good_x, np.unwrap(np.angle(good_ax)),    left=0.j,   right=0.j)
-        ax[nans]    = amp_interp * np.exp( 1j * phi_interp )
-
+    # fill nan/inf values with zeros
+    nans    = np.logical_or(np.isnan(ax),np.isinf(ax))
+    if any(nans): ax[nans] = 0.j
     return ax
 
 def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
@@ -355,7 +356,7 @@ def _wavelet_func(freq, eta, alpha, beta, tau, tshift=0):
             model   = _wavelet_func_safe(freq, alpha, beta, eta, tsign*tau, delta_z = z_d)
     return model * np.exp(-1j*TWOPI*freq*tshift)
 
-def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=8):
+def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, Phi, nthr=4):
     """
         Frequency-domain representation of frequency-modulated wavelet;
 
@@ -434,7 +435,7 @@ def NRPMw(freqs, params, recalib=False):
     # if lambda1 or lambda2 = 0 , avoid PM segment
     if params['lambda1'] < 1 or params['lambda2'] < 1:
         h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
-        return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
+        return h22
 
     if params['NRPMw_t_coll'] > params['t_0'] :
 
@@ -513,19 +514,21 @@ def NRPMw(freqs, params, recalib=False):
 
     # compute hp,hc
     h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
-    return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
+    return h22
 
 def NRPMw_attach(freqs, params, recalib=False):
     """
         Compute NRPMw model given frequency axis (np.array) and parameters (dict)
     """
 
-    # if lambda1 or lambda2 = 0 , avoid PM segment
-    if params['lambda1'] < 1 or params['lambda2'] < 1:
-        return 0.j, 0.j
-
     # initialize data
     h22 = np.zeros(len(freqs), dtype=complex)
+
+    # if lambda1 or lambda2 = 0 , avoid PM segment
+    if params['lambda1'] < 1 or params['lambda2'] < 1:
+        return h22
+
+    # mass-scaled frequncy axis and quasiuniversal properties
     freqs  = freqs*MTSUN_SI*params['mtot']
     params = _nrpmw_fits(params, recalib=recalib, attach=True)
 
@@ -607,10 +610,41 @@ def NRPMw_attach(freqs, params, recalib=False):
 
     # compute hp,hc
     h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
-    return h22*(0.5*(1.+params['cosi']**2.)), h22*(params['cosi']*EmIPIHALF)
+    return h22
+
+# NRPMw wrappers are the actual calls of the Waveform object
+# All wrappers include downsampling to 10Hz in order to improve efficiency
+# obs. PM signals from BNS remnants have broad spectral features so the accuracy is not affected
+
+def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
+
+    if attach:
+        nrpmw_func = NRPMw_attach
+    else:
+        nrpmw_func = NRPMw
+
+    # TODO: check for ROQ
+    if len(freqs)>int(16*params['seglen']):
+        # introduce down-sampling to constant frequency binning of 16Hz
+        # then, linear interpolation to estimate model on initial freq axis
+        fr  = __downsampling__(freqs, int(16*params['seglen']))
+        hf  = nrpmw_func(fr, params, recalib=recalib)
+        hf  = __linear_interp__(freqs, fr, hf)
+    else:
+        hf = nrpmw_func(freqs, params, recalib=recalib)
+    return hf*(0.5*(1.+params['cosi']**2.)), hf*(params['cosi']*EmIPIHALF)
 
 def nrpmw_wrapper(freqs, params):
-    return NRPMw(freqs, params)
+    return _wrapper_nrpmw(freqs, params, attach=False, recalib=False)
+
+def nrpmw_wrapper_nodownsampling(freqs, params):
+    return NRPMw(freqs, params, recalib=False)*(0.5*(1.+params['cosi']**2.))
+
+def nrpmw_attach_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=True, recalib=False)
+
+def nrpmw_attach_recal_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=True, recalib=True)
 
 def nrpmw_recal_wrapper(freqs, params):
-    return NRPMw(freqs, params, recalib=True)
+    return _wrapper_nrpmw(freqs, params, attach=False, recalib=True)
