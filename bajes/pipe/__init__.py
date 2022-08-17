@@ -413,8 +413,10 @@ def parse_setup_options():
     # Waveform model
     parser.add_option('--approx',            dest='approx',         default=None,      type='string',                        help='Gravitational-wave approximant. Default: None')
     parser.add_option('--extra-option',      dest='extra_opt',      default=[],        type='string',  action="append",      help='Names of the additional parameters for the chosen approximant. Has to be passed once for each parameter. Default: []')
-    parser.add_option('--extra-option-val',  dest='extra_opt_val',  default=[],        type='int',     action="append",      help='Values of the additional parameters for the chosen approximant. Has to be passed once for each parameter and in the same order as the `--extra-option` option. Default: []')
+    parser.add_option('--extra-option-val',  dest='extra_opt_val',  default=[],        type='string',  action="append",      help='Values of the additional parameters for the chosen approximant. Has to be passed once for each parameter and in the same order as the `--extra-option` option. Default: []')
     parser.add_option('--lmax',              dest='lmax',           default=0,         type='int',                           help='Higher angular mode index to be considered for GW template. Default: 0')
+    parser.add_option('--Eprior',            dest='Eprior',         default=None,      type='str',                           help='Prior on the initial energy in hyperbolic TEOB models. Default: None. Available options: [Constrained, Unconstrained].')
+    parser.add_option('--nqc-TEOBHyp',       dest='nqc_TEOBHyp',    default=1,         type='int',                           help='Flag to activate/deactivate (1/0) NQCs in hyperbolic TEOB models. Default: 1.')
 
     # Prior flags
     parser.add_option('--data-flag',         dest='data_flag',      default=None,       type='string',                       help='Data flag. Available options: [???]. Default: None')

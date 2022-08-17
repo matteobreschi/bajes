@@ -31,13 +31,31 @@ from ..utils import lambda_2_kappa
 from .nrpm import NRPM
 from .nrpmw import NRPMw_attach
 
-def l_to_k(lmax, remove_ks = []):
-    all_l = np.arange(2, lmax+1)
-    modes = np.concatenate([[[li,mi] for mi in range(1,li+1)] for li in all_l])
+def l_to_k(lmax, remove_ks = [], custom_modes=None):
+
+    # Allow the user to select modes up to lmax only within a subset of specified modes
+    if(custom_modes is not None):
+        if(custom_modes=='Hyp'):
+            modes_default = [[2,2], [2,1], [3,3], [4,4], [4,3], [5,5]] #remove (l,m)=(3,2) from waveform, since not sane
+        else:
+            raise ValueError('The requested option for custom modes does not exist.')
+
+        modes = []
+        for mode_x in modes_default:
+            l_x, m_x = mode_x[0], mode_x[1]
+            if(l_x < lmax): modes.append(mode_x)
+
+    # Include all modes up to lmax
+    else:
+        all_l = np.arange(2, lmax+1)
+        modes = np.concatenate([[[li,mi] for mi in range(1,li+1)] for li in all_l])
+
     k_modes = [int(x[0]*(x[0]-1)/2 + x[1]-2) for x in modes]
+
     if not(remove_ks==[]):
         for k_exlc in remove_ks:
             k_modes.remove(k_exlc)
+
     return k_modes
 
 def additional_opts(params_teob, params):
@@ -91,8 +109,8 @@ def teobresums_wrapper(freqs, params):
                     'chi2':                 params['s2z'],
                     'chi1z':                params['s1z'],
                     'chi2z':                params['s2z'],
-                    'Lambda1':              params['lambda1'],
-                    'Lambda2':              params['lambda2'],
+                    'LambdaAl2':            params['lambda1'],
+                    'LambdaBl2':            params['lambda2'],
                     'distance':             params['distance'],
                     'inclination':          params['iota'],
                     'initial_frequency':    params['f_min'],
@@ -171,82 +189,82 @@ def teobresums_ecc_wrapper(freqs, params):
 def teobresums_hyperb_wrapper(freqs, params):
 
     # unwrap lm modes
-    if params['lmax'] == 0: modes = [1] # 22-only
-    else:                   modes = l_to_k(params['lmax'], remove_ks = [3]) #remove (l,m)=(3,2) from waveform, since not sane
+    if params['lmax'] == 0: k_modes = [1] # 22-only
+    else:                   k_modes = l_to_k(params['lmax'], custom_modes='Hyp') # Keep only modes we trust
 
+    # Auxiliary parameters
     a0 = (params['s1z'] * params['q'] + params['s2z'])/(1+params['q'])
     nu = params['q']/np.power(1+params['q'], 2.)
-    pphi_lso = EOB.pph_lso_spin_py(nu, a0)
-    # Asymptotic radius at which the evolution is started.
-    r        = 1500.
+    
+    # Initial conditions
+    r = 1500. # Asymptotic radius at which the evolution is started.
 
     # Restrict to regions far from direct capture
     # For the non-spinning case this is done through the prior,
     # while the spinning case has too much variability to impose the constraint through fixed pphi0 bounds.
     if(params['s1z']==0.0 and params['s2z']==0.0): pphi_lso_low_limit = 1.0
     else:                                          pphi_lso_low_limit = 1.15
+    pphi_lso = EOB.pph_lso_spin_py(nu, a0)
+    if (params['angmom'] < pphi_lso_low_limit*pphi_lso): return [None], [None]
 
-    if params['angmom'] >= pphi_lso_low_limit*pphi_lso:
+    # compute E_min and E_max
+    Emn, Emx = EnergyLimits(r, params['q'], params['angmom'], params['s1z'], params['s2z'])
 
-        # compute E_min and E_max
-        Emn, Emx = EnergyLimits(r, params['q'], params['angmom'], params['s1z'], params['s2z'])
-        if(params['energy'] >= Emn and params['energy'] <= Emx):
-        # Uncomment this line to use the UE0 prior (see arxiv:2106.05575)
-        # if params['energy'] >= Emn:
+    if (params['Eprior']):
+        if(   (params['Eprior']=='Constrained')   and ( (params['energy'] < Emn) or (params['energy'] > Emx) ) ):  return [None], [None]
+        elif( (params['Eprior']=='Unconstrained') and ( (params['energy'] < Emn)                             ) ):  return [None], [None]
 
-            # set TEOB dict
-            params_teob = {
-                            # Standard source parameters
-                            'M':                   params['mtot']    ,
-                            'q':                   params['q']       ,
-                            'chi1':                params['s1z']     ,
-                            'chi2':                params['s2z']     ,
-                            'Lambda1':             params['lambda1'] ,
-                            'Lambda2':             params['lambda2'] ,
-                            'distance':            params['distance'],
-                            'inclination':         params['iota']    ,
-                            'coalescence_angle':   params['phi_ref'] ,
+    # set TEOB dict
+    params_teob = {
+                    # Standard source parameters
+                    'M':                   params['mtot']    ,
+                    'q':                   params['q']       ,
+                    'chi1':                params['s1z']     ,
+                    'chi2':                params['s2z']     ,
+                    'Lambda1':             params['lambda1'] ,
+                    'Lambda2':             params['lambda2'] ,
+                    'distance':            params['distance'],
+                    'inclination':         params['iota']    ,
+                    'coalescence_angle':   params['phi_ref'] ,
 
-                            # Hyperbolic parameters
-                            'ecc':                 0.0               ,
-                            'r0':                  r                 ,
-                            'r_hyp':               r                 ,
-                            'j_hyp':               params['angmom']  ,
-                            'H_hyp':               params['energy']  ,
+                    # Hyperbolic parameters
+                    'ecc':                 0.0               ,
+                    'r_hyp':               r                 ,
+                    'j_hyp':               params['angmom']  ,
+                    'H_hyp':               params['energy']  ,
 
-                            # Waveform generation parameters
-                            'use_geometric_units': 0                 ,
-                            'output_hpc':          0                 ,
-                            'output_multipoles':   0                 ,
-                            'use_mode_lm':         modes             ,
-                            'domain':              0                 ,
-                            'arg_out':             0                 ,
-                            'initial_frequency':   params['f_min']   ,
-                            'srate':               params['srate']   ,
-                            'srate_interp':        params['srate']   ,
-                            'dt':                  0.5               ,
-                            'dt_interp':           0.5               ,
-                            'ode_tmax':            20e4              ,
-                            'interp_uniform_grid': 2                 ,
+                    # Waveform generation parameters
+                    'use_geometric_units': 0                 ,
+                    'output_hpc':          0                 ,
+                    'output_multipoles':   0                 ,
+                    'use_mode_lm':         k_modes           ,
+                    'domain':              0                 ,
+                    'arg_out':             0                 ,
+                    'initial_frequency':   params['f_min']   ,
+                    'srate':               params['srate']   ,
+                    'srate_interp':        params['srate']   ,
+                    'dt':                  0.5               ,
+                    'dt_interp':           0.5               ,
+                    'ode_tmax':            20e4              ,
+                    'interp_uniform_grid': 2                 ,
+            }
 
-                        # Uncomment if you want to disable NQC
-                        #   'nqc':                  2,  # set NQCs manually
-                        #   'nqc_coefs_hlm':        0,  # turn NQC off for hlm
-                        #   'nqc_coefs_flx':        0   # turn NQC off for flx
-                    }
+    # Turn NQCs off
+    if not(params['nqc-TEOBHyp']):
+        params_teob['nqc']           = 2  # set NQCs manually
+        params_teob['nqc_coefs_hlm'] = 0  # turn NQC off for hlm
+        params_teob['nqc_coefs_flx'] = 0  # turn NQC off for flx
 
-            t, hp, hc = teobresums(params_teob)
-            if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))):
-                logger.warning('Nans in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
-                return [None], [None]
-            if(np.any(np.isinf(hp)) or np.any(np.isinf(hc))):
-                logger.warning('Infinities in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
-                return [None], [None]
-            return hp, hc
-        else:
-            return [None], [None]
-    else:
+    t, hp, hc = teobresums(params_teob)
+    
+    if(np.any(np.isnan(hp)) or np.any(np.isnan(hc))): 
+        logger.warning('Nans in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
         return [None], [None]
+    if(np.any(np.isinf(hp)) or np.any(np.isinf(hc))):
+        logger.warning('Infinities in the waveform, with the configuration: {}. Returning None and skipping sample.'.format(params_teob))
+        return [None], [None]
+
+    return hp, hc
 
 def teobresums_spa_wrapper(freqs, params):
 
@@ -261,8 +279,8 @@ def teobresums_spa_wrapper(freqs, params):
                     'q':                    params['q'],
                     'chi1':                 params['s1z'],
                     'chi2':                 params['s2z'],
-                    'Lambda1':              params['lambda1'],
-                    'Lambda2':              params['lambda2'],
+                    'LambdaAl2':            params['lambda1'],
+                    'LambdaBl2':            params['lambda2'],
                     'distance':             params['distance'],
                     'inclination':          params['iota'],
                     'coalescence_angle':    params['phi_ref'],
@@ -293,8 +311,8 @@ def teobresums_spa_nrpmw_wrapper(freqs, params):
                     'q':                    params['q'],
                     'chi1':                 params['s1z'],
                     'chi2':                 params['s2z'],
-                    'Lambda1':              params['lambda1'],
-                    'Lambda2':              params['lambda2'],
+                    'LambdaAl2':            params['lambda1'],
+                    'LambdaBl2':            params['lambda2'],
                     'distance':             params['distance'],
                     'inclination':          params['iota'],
                     'coalescence_angle':    params['phi_ref'],

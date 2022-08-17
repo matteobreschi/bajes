@@ -358,8 +358,7 @@ def compute_wf_and_snr(p, dets, noises, w, marg_phi=False, marg_time=False):
     hphc   = w.compute_hphc(p)
 
     # compute SNR
-    phiref, tshift, snr, snr_per_det = extract_snr(list(dets.keys()), dets, hphc, p, w.domain,
-                                                   marg_phi=marg_phi, marg_time=marg_time)
+    phiref, tshift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det = extract_snr(list(dets.keys()), dets, hphc, p, w.domain, marg_phi=marg_phi, marg_time=marg_time)
 
     # If the likelihood was phase or time marginalised, apply the correct factor to the waveform.
     # In the unmarginalised case, tshift and phiref are zero, thus the lines below do not have any effect.
@@ -385,21 +384,24 @@ def compute_wf_and_snr(p, dets, noises, w, marg_phi=False, marg_time=False):
         h_strain.whitening(noises[det])
         ww[det]  = h_strain.time_series
 
-    return snr, snr_per_det, sp, wf, ww
+    return snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det, sp, wf, ww
 
 def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_samples=0, M_tot=None, pool=None):
 
-    # Initialise structures and get general information
-    SNRs         = []
-    nsub_panels  = len(container_gw.datas.keys())
-    strains_dets = {det: {} for det in container_gw.datas.keys()}
-    wfs          = {det: [] for det in container_gw.datas.keys()}
-    wfw          = {det: [] for det in container_gw.datas.keys()}
-    sps          = {det: [] for det in container_gw.datas.keys()}
-    spd          = {det: [] for det in container_gw.datas.keys()}
-    SNRs_per_det = {ifo: [] for ifo in container_inf.like.ifos}
-    data_output  = {}
-    snr_output   = {}
+    # get general information
+
+    nsub_panels      = len(container_gw.datas.keys())
+    strains_dets     = {det: {} for det in container_gw.datas.keys()}
+    wfs              = {det: [] for det in container_gw.datas.keys()}
+    wfw              = {det: [] for det in container_gw.datas.keys()}
+    sps              = {det: [] for det in container_gw.datas.keys()}
+    spd              = {det: [] for det in container_gw.datas.keys()}
+    SNRs_mf_per_det  = {ifo: [] for ifo in container_inf.like.ifos}
+    SNRs_opt_per_det = {ifo: [] for ifo in container_inf.like.ifos}
+    SNRs_mf          = []
+    SNRs_opt         = []
+    data_output      = {}
+    snr_output       = {}
 
     first_det                                 = list(container_gw.datas.keys())[0]
     data_first_det                            = container_gw.datas[first_det]
@@ -466,16 +468,20 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
             p      = {**params,**constants}
 
             # compute waveform and snr
-            snr, snr_per_det, _sp, _wf, _ww = compute_wf_and_snr(p,
-                                                                 {ifo: strains_dets[ifo]['d'] for ifo in container_inf.like.ifos},
-                                                                 {ifo: strains_dets[ifo]['n'] for ifo in container_inf.like.ifos},
-                                                                 w, marg_phi=container_inf.like.marg_phi_ref,
-                                                                 marg_time=container_inf.like.marg_time_shift)
+            snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det, _sp, _wf, _ww = compute_wf_and_snr(p,
+                                                                                                 {ifo: strains_dets[ifo]['d'] for ifo in container_inf.like.ifos},
+                                                                                                 {ifo: strains_dets[ifo]['n'] for ifo in container_inf.like.ifos},
+                                                                                                 w,
+                                                                                                 marg_phi=container_inf.like.marg_phi_ref,
+                                                                                                 marg_time=container_inf.like.marg_time_shift)
 
             # collect quantities
-            SNRs.append(snr)
+            SNRs_mf.append(snr_mf)
+            SNRs_opt.append(snr_opt)
+
             for det in strains_dets.keys():
-                SNRs_per_det[det].append(snr_per_det[det])
+                SNRs_mf_per_det[det].append(snr_mf_per_det[det])
+                SNRs_opt_per_det[det].append(snr_opt_per_det[det])
                 sps[det].append(_sp[det])
                 wfs[det].append(_wf[det])
                 wfw[det].append(_ww[det])
@@ -495,36 +501,56 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
                                     repeat(container_inf.like.marg_phi_ref),
                                     repeat(container_inf.like.marg_time_shift))))
 
+
         # unpack
-        SNRs = [r[0] for r in results]
+        SNRs_mf  = [r[0] for r in results]
+        SNRs_opt = [r[2] for r in results]
         for det in strains_dets.keys():
-            SNRs_per_det[det]   = [r[1][det] for r in results]
-            sps[det]            = [r[2][det] for r in results]
-            wfs[det]            = [r[3][det] for r in results]
-            wfw[det]            = [r[4][det] for r in results]
+            SNRs_mf_per_det[det]  = [r[1][det] for r in results]
+            SNRs_opt_per_det[det] = [r[3][det] for r in results]
+            sps[det]              = [r[4][det] for r in results]
+            wfs[det]              = [r[5][det] for r in results]
+            wfw[det]             = [r[6][det] for r in results]
 
         del results
 
     # print and plot recovered SNRs
-    snr_output['indices'] = samples_list
-    snr_output['network'] = SNRs
+    snr_output['indices']     = samples_list
+    snr_output['network_mf']  = SNRs_mf
+    snr_output['network_opt'] = SNRs_opt
     for ifo in container_inf.like.ifos:
-        snr_output[ifo] = SNRs_per_det[ifo]
-        logger.info("Recovered {} SNR = {:.3f} + {:.3f} - {:.3f}".format(ifo, *_stats(SNRs_per_det[ifo])))
-    logger.info("Recovered Network SNR = {:.3f} + {:.3f} - {:.3f}".format(*_stats(SNRs)))
+        snr_output[ifo+'_mf']  = SNRs_mf_per_det[ifo]
+        snr_output[ifo+'_opt'] = SNRs_opt_per_det[ifo]
+        logger.info(" > Recovered {} SNR  (mf) = {:.3f} + {:.3f} - {:.3f}".format(ifo, *_stats(SNRs_mf_per_det[ifo])))
+        logger.info(" > Recovered {} SNR (opt) = {:.3f} + {:.3f} - {:.3f}".format(ifo, *_stats(SNRs_opt_per_det[ifo])))
+    logger.info(" > Recovered Network SNR  (mf) = {:.3f} + {:.3f} - {:.3f}".format(*_stats(SNRs_mf)))
+    logger.info(" > Recovered Network SNR (opt) = {:.3f} + {:.3f} - {:.3f}".format(*_stats(SNRs_opt)))
 
-    snr_matrix = np.column_stack([SNRs]+[SNRs_per_det[ifo] for ifo in container_inf.like.ifos])
-    snr_labels = [r"${\rm Net.}$ ${\rm SNR}$"] + [r"${\rm " + ifo + r"}$ ${\rm SNR}$" for ifo in container_inf.like.ifos]
-    make_corner_plot(snr_matrix,  snr_labels, outdir +'/../snr/corner.pdf')
+    snr_matrix_mf = np.column_stack([SNRs_mf]+[SNRs_mf_per_det[ifo] for ifo in container_inf.like.ifos])
+    snr_labels_mf = [r"${\rm Net.}$ ${\rm SNR_{mf}}$"] + [r"${\rm " + ifo + r"}$ ${\rm SNR_{mf}}$" for ifo in container_inf.like.ifos]
+    make_corner_plot(snr_matrix_mf,  snr_labels_mf, outdir +'/../snr/corner_mf.pdf')
 
-    snr_fl = open(outdir +'/../snr/posterior.dat'.format(det),'w')
-    snr_fl.write('#\t index \t network' + ''.join([' \t ' + ifo for ifo in container_inf.like.ifos] + [' \n']))
-    for i in range(len(SNRs)):
-        snr_fl.write("{} {} ".format(samples_list[i], SNRs[i]))
+    snr_matrix_opt = np.column_stack([SNRs_opt]+[SNRs_opt_per_det[ifo] for ifo in container_inf.like.ifos])
+    snr_labels_opt = [r"${\rm Net.}$ ${\rm SNR_{opt}}$"] + [r"${\rm " + ifo + r"}$ ${\rm SNR_{opt}}$" for ifo in container_inf.like.ifos]
+    make_corner_plot(snr_matrix_opt,  snr_labels_opt, outdir +'/../snr/corner_opt.pdf')
+
+    snr_mf_fl = open(outdir +'/../snr/posterior_mf.dat'.format(det),'w')
+    snr_mf_fl.write('#\t index \t network SNR (mf)' + ''.join([' \t ' + ifo for ifo in container_inf.like.ifos] + [' \n']))
+    for i in range(len(SNRs_mf)):
+        snr_mf_fl.write("{} {} ".format(samples_list[i], SNRs_mf[i]))
         for ifo in container_inf.like.ifos:
-            snr_fl.write("\t {} ".format(SNRs_per_det[ifo][i]))
-        snr_fl.write("\n")
-    snr_fl.close()
+            snr_mf_fl.write("\t {} ".format(SNRs_mf_per_det[ifo][i]))
+        snr_mf_fl.write("\n")
+    snr_mf_fl.close()
+
+    snr_opt_fl = open(outdir +'/../snr/posterior_opt.dat'.format(det),'w')
+    snr_opt_fl.write('#\t index \t network SNR (opt)' + ''.join([' \t ' + ifo for ifo in container_inf.like.ifos] + [' \n']))
+    for i in range(len(SNRs_opt)):
+        snr_opt_fl.write("{} {} ".format(samples_list[i], SNRs_opt[i]))
+        for ifo in container_inf.like.ifos:
+            snr_opt_fl.write("\t {} ".format(SNRs_opt_per_det[ifo][i]))
+        snr_opt_fl.write("\n")
+    snr_opt_fl.close()
 
     # Plot the data
     fig = plt.figure(figsize=(8,6))
@@ -852,10 +878,15 @@ if __name__ == "__main__":
     logger.info("The contours of the corner plots represent 50%, 90% credible regions.")
 
     run_dir_output = os.path.join(outdir, 'run')
-    pkl_dir_output = os.path.join(run_dir_output, 'pkl')
+
     # extract posterior and prior object from pickle
-    if not(os.path.exists(run_dir_output)): posterior = np.genfromtxt( os.path.join(outdir, 'posterior.dat'),     names=True)
-    else:                                   posterior = np.genfromtxt( os.path.join(outdir, 'run/posterior.dat'), names=True)
+    if not(os.path.exists(run_dir_output)):
+        posterior = np.genfromtxt( os.path.join(outdir, 'posterior.dat'),     names=True)
+        pkl_dir_output = os.path.join(outdir, 'pkl')
+
+    else:
+        posterior = np.genfromtxt( os.path.join(outdir, 'run/posterior.dat'), names=True)
+        pkl_dir_output = os.path.join(run_dir_output, 'pkl')
 
     if os.path.exists(pkl_dir_output):
         dc        = data_container(os.path.join(pkl_dir_output, 'inf.pkl'))
