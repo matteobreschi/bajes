@@ -90,6 +90,9 @@ __approx_dict__ = { ### TIME-DOMAIN
                     'TEOBResumSPA_NRPMw':                   {'path': 'bajes.obs.gw.approx.teobresums.teobresums_spa_nrpmw_wrapper',
                                                              'type': 'fnc',
                                                              'domain': 'freq'},
+                    'TEOBResumSPA_NRPMw_recal':             {'path': 'bajes.obs.gw.approx.teobresums.teobresums_spa_nrpmw_recal_wrapper',
+                                                             'type': 'fnc',
+                                                             'domain': 'freq'},
                     'NRPMw':                                {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_wrapper',
                                                              'type': 'fnc',
                                                              'domain': 'freq'},
@@ -98,6 +101,12 @@ __approx_dict__ = { ### TIME-DOMAIN
                                                              'domain': 'freq'},
                     # classes
                     'MLGW-BNS':                             {'path': 'bajes.obs.gw.approx.mlgw.mlgw_bns_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'freq'},
+                    'MLGW-BNS_NRPMw':                       {'path': 'bajes.obs.gw.approx.mlgw.mlgw_bns_nrpmw_wrapper',
+                                                             'type': 'cls',
+                                                             'domain': 'freq'},
+                    'MLGW-BNS_NRPMw_recal':                 {'path': 'bajes.obs.gw.approx.mlgw.mlgw_bns_nrpmw_recal_wrapper',
                                                              'type': 'cls',
                                                              'domain': 'freq'},
                     'LALSimFD':                             {'path': 'bajes.obs.gw.approx.lal.lal_wrapper',
@@ -139,7 +148,7 @@ def __get_waveform_generator__(approx, seglen, srate):
 
     # this condition never occurs if the code is properly written
     if path_to_method[-1] not in dir(wave_module):
-        raise AttributeError("DevelopmentError: Unable to import {} method from {}".format(path_to_method[-1], wave_module))
+        raise AttributeError("Unable to import {} method from {}".format(path_to_method[-1], wave_module))
 
     # get waveform generator and domain string
     if this_wave['type'] == 'fnc':
@@ -151,7 +160,7 @@ def __get_waveform_generator__(approx, seglen, srate):
         wave_domn = this_wave['domain']
     else:
         # this condition never occurs if the __approx_dict__ is properly written
-        raise AttributeError("DevelopmentError: Unable to define method of type {} for waveform generator. Check bajes.obs.gw.waveform.__approx_dict__".format(wave_pars['type']))
+        raise AttributeError("Unable to define method of type {} for waveform generator. Check bajes.obs.gw.waveform.__approx_dict__".format(wave_pars['type']))
 
     return wave_func, wave_domn
 
@@ -189,6 +198,7 @@ def centering_tdwave(hp, hc, seglen, srate, alpha_tukey = 0.1):
         nlag = lenFin//2 - imax
     else:
         if len(h) < lenFin:
+            ### NOTE: as it is now, the tailing function can introduce wrong frequencies for eccentric, precessing and/or HOM waveforms
             # shorter waveform: add tail, fill with zeros
             # # tailing, if needed
             # if hp[0] != 0 or hc[0] != 0:
