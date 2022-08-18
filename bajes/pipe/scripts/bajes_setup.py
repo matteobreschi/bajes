@@ -47,7 +47,7 @@ def init_inf(opts):
 
     # get likelihood object and arguments
     from bajes.pipe import get_likelihood_and_prior
-    store_likelihood_and_prior(opts)
+    get_likelihood_and_prior(opts)
 
 def save_opts(opts):
 
@@ -58,7 +58,7 @@ def save_opts(opts):
     for ki in all.keys():
         output = output + ki + '\t= ' + str(all[ki]) + '\n'
 
-    file = open(opts.outdir+'/settings.txt', 'w')
+    file = open(os.path.abspath(opts.outdir+'/../settings.txt'), 'w')
     file.write(output)
     file.close()
 
@@ -73,7 +73,7 @@ if __name__ == "__main__":
 
     # setting logger
     if opts.debug:
-        logger = set_logger(outdir=opts.outdir, label='bajes_setup', level='DEBUG', silence=opts.silence)
+        logger = set_logger(outdir=opts.outdir, label='setup', level='DEBUG', silence=opts.silence)
         logger.debug("Using logger with debugging mode")
     else:
         logger = set_logger(outdir=opts.outdir, silence=opts.silence)

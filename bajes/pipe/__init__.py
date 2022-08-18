@@ -313,9 +313,9 @@ def parse_main_options():
     parser=op.OptionParser(usage=usage, version=__version__, description=__doc__)
 
     # Model
-    parser.add_option('-p', '--prior',  dest='prior',       defualt=None,   type='string',  help='path to prior file (configuration file)')
-    parser.add_option('-l', '--like',   dest='like',        defualt=None,   type='string',  help='path to likelihood function (python file)')
-    parser.add_option('-I', '--inf',    dest='inf',         defualt=None,   type='string',  help='path to pickle inference')
+    parser.add_option('-p', '--prior',  dest='prior',       default=None,   type='string',  help='path to prior file (configuration file)')
+    parser.add_option('-l', '--like',   dest='like',        default=None,   type='string',  help='path to likelihood function (python file)')
+    parser.add_option('-I', '--inf',    dest='inf',         default=None,   type='string',  help='path to pickle inference')
 
     # Generic run options
     parser.add_option('--engine',            dest='engine',         default='dynesty', type='string',                        help='Sampler engine name, available options: {}.'.format(__known_samplers__))
@@ -376,6 +376,8 @@ def parse_setup_options():
 
     # I/O options
     parser.add_option('-o', '--outdir',      dest='outdir',         default=None,      type='string',                        help='directory for output')
+    parser.add_option('--debug',             dest='debug',          default=False,                     action="store_true",  help='use debugging mode for logger')
+    parser.add_option('--verbose',           dest='silence',        default=True,                      action="store_false", help='activate stream handler, use this if you are running on terminal')
 
     # Fixed parameter options
     parser.add_option('--fix-name',          dest='fixed_names',    default=[],        type='string',  action="append",      help='names of fixed params')
@@ -754,7 +756,7 @@ def init_proposal(engine, post, use_slice=False, use_gw=False, maxmcmc=4096, min
 
 # main setup
 
-def store_likelihood_and_prior(opts):
+def get_likelihood_and_prior(opts):
 
     # get likelihood objects
     likes = []

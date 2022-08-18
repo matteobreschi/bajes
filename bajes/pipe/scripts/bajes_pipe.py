@@ -58,8 +58,7 @@ def write_executable(outdir, config, string1, string2, string3, string4):
         srun_string_core = srun_string
 
         # set mpi flag if it is missing
-        if 'mpi' not in list_keys_in_pipe:
-            config['pipe']['mpi'] = 0
+        if 'mpi' not in list_keys_in_pipe: config['pipe']['mpi'] = '0'
 
         # set n-nodes if mpi is on
         if int(config['pipe']['mpi']):
@@ -335,7 +334,7 @@ def write_run_string(config, tags, outdir):
             run_string  += '--mpi '
 
     run_string += '--outdir {} '.format(outdir+'/run/')
-    # run_string += '-I {} '.format(outdir+'/run/inf.pkl')
+    run_string += '-I {} '.format(outdir+'/pkl/inf.pkl')
 
     if config['sampler']['engine'] == 'cpnest':
 
@@ -456,6 +455,7 @@ def write_setup_string(config, tags, outdir):
     list_keys_in_sampler    = np.transpose(list(config.items('sampler')))[0]
 
     run_string = 'bajes_setup.py '
+    run_string += '--outdir {} '.format(outdir+'/pkl')
 
     if 'gw' in tags:
 
@@ -749,8 +749,10 @@ def write_postproc_string(config, tags, outdir):
         pp_string += '--tidal-flag {} '.format(config['gw-prior']['tidal-flag'])
 
         list_keys_in_pipe = np.transpose(list(config.items('pipe')))[0]
-        if 'mpi' not in list_keys_in_pipe: config['pipe']['mpi'] = 0
-        if config['pipe']['mpi']:
+        if not('mpi' in list_keys_in_pipe): config['pipe']['mpi'] = '0'
+        if not('nnodes' in list_keys_in_pipe): config['pipe']['nnodes'] = '1'
+
+        if int(config['pipe']['mpi']):
             pp_string += ' -n {} '.format(int(config['pipe']['nprocs'])/int(config['pipe']['nnodes']))
         else:
             pp_string += ' -n {} '.format(config['pipe']['nprocs'])

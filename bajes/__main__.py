@@ -9,7 +9,7 @@ if __name__ == "__main__":
     sys.path.append(os.getcwd())
 
     # parse options
-    from .pipe import parse_main_options, set_logger
+    from .pipe import parse_main_options, set_logger, ensure_dir
     opts, args = parse_main_options()
 
     # start memory tracing, if requested
@@ -118,9 +118,9 @@ if __name__ == "__main__":
             logger = set_logger(outdir=opts.outdir, silence=opts.silence)
 
         # initialize multi-threading pool (if needed)
-        if (engine != 'cpnest' and nprocs>1):
+        if (opts.engine != 'cpnest' and opts.nprocs>1):
             from .pipe import initialize_mthr_pool
-            pool, close_pool   = initialize_mthr_pool(nprocs)
+            pool, close_pool   = initialize_mthr_pool(opts.nprocs)
         else:
             pool = None
             close_pool = None

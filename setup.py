@@ -63,6 +63,7 @@ setup(# metadata
 
       # make scripts executable
       scripts   = ['bajes/pipe/scripts/bajes_pipe.py',
+                   'bajes/pipe/scripts/bajes_setup.py',
                    'bajes/pipe/scripts/bajes_inject.py',
                    'bajes/pipe/scripts/bajes_read_gwosc.py',
                    'bajes/pipe/scripts/bajes_postproc.py'],
