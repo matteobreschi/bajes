@@ -1,5 +1,9 @@
 ## Changelog
 
+# [v0.3] August 2022
+* Unify pipeline core with `__main__` routine
+* Improve `Waveform` object and introduce `approx_dict`
+
 # [v0.2.2] January 2022
 * Introduce additional checks in `bajes_pipe.py`
 * Improve `bajes_postproc.py`
@@ -32,7 +36,7 @@
 
 # [v0.0.6] September 2020
 * Introduce `knmodule` and KN pipeline
-* Include parametrized EOS and TOV solver in `gwmodule` 
+* Include parametrized EOS and TOV solver in `gwmodule`
 
 # [v0.0.5] July 2020
 * Add `CHANGELOG.md`
