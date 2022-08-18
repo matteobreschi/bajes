@@ -322,7 +322,7 @@ def write_gwosc_string(config, ifos, outdir):
 
 def write_run_string(config, tags, outdir):
     """
-        Write command string to execute bajes_core.py
+        Write command string to execute bajes main
         given a config file
     """
 
@@ -448,7 +448,7 @@ def write_run_string(config, tags, outdir):
 def write_setup_string(config, tags, outdir):
 
     """
-        Write command string to execute bajes_core.py
+        Write command string to execute bajes_setup.py
         given a config file
     """
 
