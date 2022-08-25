@@ -613,9 +613,6 @@ def NRPMw_attach(freqs, params, recalib=False):
     return h22
 
 # NRPMw wrappers are the actual calls of the Waveform object
-# All wrappers include downsampling to 10Hz in order to improve efficiency
-# obs. PM signals from BNS remnants have broad spectral features so the accuracy is not affected
-
 def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
 
     if attach:
@@ -623,11 +620,13 @@ def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
     else:
         nrpmw_func = NRPMw
 
+    # introduce down-sampling to constant frequency binning of 16Hz
+    # then, linear interpolation to estimate model on initial freq axis
+    # obs. PM signals from BNS remnants have broad spectral features so the accuracy is not affected
     # TODO: check for ROQ
-    if len(freqs)>int(16*params['seglen']):
-        # introduce down-sampling to constant frequency binning of 16Hz
-        # then, linear interpolation to estimate model on initial freq axis
-        fr  = __downsampling__(freqs, int(16*params['seglen']))
+    new_df = int(16*params['seglen'])
+    if (len(freqs)>new_df) and (new_df>0):
+        fr  = __downsampling__(freqs, new_df)
         hf  = nrpmw_func(fr, params, recalib=recalib)
         hf  = __linear_interp__(freqs, fr, hf)
     else:
