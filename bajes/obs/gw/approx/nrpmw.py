@@ -620,11 +620,14 @@ def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
     else:
         nrpmw_func = NRPMw
 
-    # Since the maximum length of the post-merger signal is ~60ms, it is useless to compute it with the typical frequency spacing (df = 1/T, with T~[1-100] s, where T is identified as 'seglen' below) used in GW data analysis of inspiral signals. Hence, we down-sample the frequency axis, imposing a uniform spacing of 16Hz (i.e. df = 16 Hz = 1/62.5ms).
-    # Then, we use linear interpolation to output the model on the initial requested frequency axis.
+    # Since the maximum length of the post-merger signal is ~60ms, it is useless to compute it with the typical frequency spacing (df = 1/T, with T~[1-100] s, where T, the duration of the signal, is identified as 'seglen' below) used in GW data analysis of inspiral signals. Hence, we down-sample the frequency axis, imposing a uniform spacing of 16Hz (i.e. df = 16 Hz = 1/62.5ms). Then, we use linear interpolation to output the model on the initial requested frequency axis.
     # This has been tested and does not cause a loss of accuracy, since PM signals from BNS remnants have broad spectral features (consistent with the maximum duration discussed above).
     
-    decimate_factor = int(16*params['seglen'])
+    df_requested    = 1./params['seglen']
+    df_downsampled  = 16.
+    decimate_factor = int(df_downsampled/df_requested)
+
+    # Skip downsampling if: i) there would be less than two frequency points after decimating or ii) the requested seglen is smaller than the maximum lenghts of a PM signal (i.e. 60ms = 1/16 s, in which case decimate_factor=0, since `int` returns the closest smaller integer).
     if (len(freqs)>decimate_factor) and (decimate_factor>0):
         fr  = __downsampling__(freqs, decimate_factor)
         hf  = nrpmw_func(fr, params, recalib=recalib)
