@@ -620,13 +620,13 @@ def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
     else:
         nrpmw_func = NRPMw
 
-    # introduce down-sampling to constant frequency binning of 16Hz
-    # then, linear interpolation to estimate model on initial freq axis
-    # obs. PM signals from BNS remnants have broad spectral features so the accuracy is not affected
-    # TODO: check for ROQ
-    new_df = int(16*params['seglen'])
-    if (len(freqs)>new_df) and (new_df>0):
-        fr  = __downsampling__(freqs, new_df)
+    # Since the maximum length of the post-merger signal is ~60ms, it is useless to compute it with the typical frequency spacing (df = 1/T, with T~[1-100] s, where T is identified as 'seglen' below) used in GW data analysis of inspiral signals. Hence, we down-sample the frequency axis, imposing a uniform spacing of 16Hz (i.e. df = 16 Hz = 1/62.5ms).
+    # Then, we use linear interpolation to output the model on the initial requested frequency axis.
+    # This has been tested and does not cause a loss of accuracy, since PM signals from BNS remnants have broad spectral features (consistent with the maximum duration discussed above).
+    
+    decimate_factor = int(16*params['seglen'])
+    if (len(freqs)>decimate_factor) and (decimate_factor>0):
+        fr  = __downsampling__(freqs, decimate_factor)
         hf  = nrpmw_func(fr, params, recalib=recalib)
         hf  = __linear_interp__(freqs, fr, hf)
     else:
