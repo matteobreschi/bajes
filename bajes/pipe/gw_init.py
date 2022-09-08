@@ -796,7 +796,10 @@ def initialize_gwprior(ifos,
 
     logger.info("Setting constant properties ...")
     for ci in const:
-        logger.info(" - {} fixed to {}".format(ci.name , ci.value))
+        if ((ci=='phi_ref') and marg_phi_ref) or ((ci=='time_shift') and marg_time_shift):
+            logger.info(" - {} fixed to {} (marginalized)".format(ci.name , ci.value))
+        else:
+            logger.info(" - {} fixed to {}".format(ci.name , ci.value))
 
     logger.info("Initializing prior ...")
 
