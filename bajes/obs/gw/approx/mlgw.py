@@ -13,17 +13,18 @@ except ImportError:
 
 __bns_pars__ = ['mass_ratio', 'lambda_1', 'lambda_2', 'chi_1', 'chi_2',
                 'distance_mpc', 'inclination', 'total_mass',
-                'reference_phase', 'time_shift']
+                'reference_phase']
 __bjs_pars__ = ['q', 'lambda1', 'lambda2', 's1z', 's2z',
                 'distance', 'iota', 'mtot',
-                'phi_ref', 'time_shift']
+                'phi_ref']
 
 def params_bajes_to_mlgwbns(pars):
     # by convention all waveform are aligned at the center of the segment
     # Then, frequency-domain waveform are genereted with the convetion time_shift=0 (according to LALSim)
     # NOTE: In bajes/obs/gw/waveform.py we shift of seglen/2  every frequency-domain waveform
-    pars['time_shift'] = 0.
-    return {ki : pars[kj] for ki,kj in zip(__bns_pars__, __bjs_pars__)}
+    out = {ki : pars[kj] for ki,kj in zip(__bns_pars__, __bjs_pars__)}
+    out['time_shift'] = 0.
+    return out
 
 def split_freq_axis(freqs, f_max, fcut):
     # TO DO : check efficiency of this step
