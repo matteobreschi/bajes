@@ -18,7 +18,8 @@ def _check_mpi(logger, is_mpi):
         if size > 1 :
             multi_task = True
     except Exception:
-        pass
+        logger.error("Unable to import mpi4py and initialize MPI common world.")
+        raise BajesMPIError("Unable to import mpi4py and initialize MPI common world.")
 
     if is_mpi != multi_task:
 
