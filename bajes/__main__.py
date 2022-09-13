@@ -3,7 +3,7 @@ from __future__ import division, unicode_literals, absolute_import
 class BajesMPIError(Exception):
     pass
 
-def _check_mpi(is_mpi):
+def _check_mpi(logger, is_mpi):
 
     multi_task  = False
     is_mpi      = bool(is_mpi)
@@ -171,7 +171,7 @@ def main():
                 }
 
     # check MPI
-    kwargs['rank'], size = _check_mpi(opts.mpi)
+    kwargs['rank'], size = _check_mpi(logger, opts.mpi)
 
     # check for cpnest
     if opts.engine == 'cpnest':
