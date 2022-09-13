@@ -313,24 +313,24 @@ def parse_main_options():
     parser=op.OptionParser(usage=usage, version=__version__, description=__doc__)
 
     # Model
-    parser.add_option('-p', '--prior',  dest='prior',       default=None,   type='string',  help='path to prior file (configuration file)')
-    parser.add_option('-l', '--like',   dest='like',        default=None,   type='string',  help='path to likelihood function (python file)')
-    parser.add_option('-I', '--inf',    dest='inf',         default=None,   type='string',  help='path to pickle inference')
+    parser.add_option('-p', '--prior',  dest='prior',       default=None,       type='string',  help='path to prior file (configuration file)')
+    parser.add_option('-l', '--like',   dest='like',        default=None,       type='string',  help='path to likelihood function (python file)')
+    parser.add_option('-I', '--inf',    dest='inf',         default=None,       type='string',  help='path to pickle inference')
 
     # Generic run options
-    parser.add_option('--engine',            dest='engine',         default='dynesty', type='string',                        help='Sampler engine name, available options: {}.'.format(__known_samplers__))
-    parser.add_option('--priorgrid',         dest='priorgrid',      default=1000,      type='int',                           help='number of nodes for prior interpolators (if needed)')
-    parser.add_option('--use-slice',         dest='use_slice',      default=False,     action="store_true",                  help='use slice proposal (emcee or cpnest)')
-    parser.add_option('--use-gw',            dest='use_gw',         default=False,     action="store_true",                  help='use slice proposal (emcee or cpnest)')
-    parser.add_option('--checkpoint',        dest='ncheck',         default=0,         type='int',                           help='number of periodic checkpoints')
-    parser.add_option('--seed',              dest='seed',           default=None,      type='int',                           help='seed for the pseudo-random chain')
+    parser.add_option('--engine',       dest='engine',      default='dynesty',  type='string',                        help='sampler engine name, available options: {}. Default: dynesty'.format(__known_samplers__))
+    parser.add_option('--priorgrid',    dest='priorgrid',   default=1000,       type='int',                           help='number of nodes for prior interpolators (if needed)')
+    parser.add_option('--checkpoint',   dest='ncheck',      default=0,          type='int',                           help='number of periodic checkpoints')
+    parser.add_option('--seed',         dest='seed',        default=None,       type='int',                           help='seed for the pseudo-random chain')
+    parser.add_option('--use-slice',    dest='use_slice',   default=False,                     action="store_true",  help='use slice proposal (emcee, ptmcmc, cpnest)')
+    parser.add_option('--use-gw',       dest='use_gw',      default=False,                     action="store_true",  help='use slice proposal (emcee, ptmcmc, cpnest)')
 
     # I/O options
-    parser.add_option('-o', '--outdir',      dest='outdir',         default=None,      type='string',                        help='directory for output')
-    parser.add_option('--debug',             dest='debug',          default=False,                     action="store_true",  help='use debugging mode for logger')
-    parser.add_option('--verbose',           dest='silence',        default=True,                      action="store_false", help='activate stream handler, use this if you are running on terminal')
-    parser.add_option('--tracing',           dest='trace_memory',   default=False,                     action="store_true",  help='keep track of memory usage')
-    parser.add_option('--n-tracing',         dest='n_trace_memory', default=25,        type='int',                           help='number of iteration after each memory trace. Default: 25')
+    parser.add_option('-o', '--outdir', dest='outdir',         default=None,      type='string',                        help='directory for output')
+    parser.add_option('--debug',        dest='debug',          default=False,                     action="store_true",  help='use debugging mode for logger')
+    parser.add_option('--verbose',      dest='silence',        default=True,                      action="store_false", help='activate stream handler, use this if you are running on terminal')
+    parser.add_option('--tracing',      dest='trace_memory',   default=False,                     action="store_true",  help='keep track of memory usage')
+    parser.add_option('--n-tracing',    dest='n_trace_memory', default=25,        type='int',                           help='number of iteration after each memory trace. Default: 25')
 
     # Nested sampling options
     parser.add_option('--nlive',        dest='nlive',       default=1024,   type='int',     help='[nest] number of live points. Default: 1024')
@@ -346,15 +346,15 @@ def parse_main_options():
     # MCMC options
     parser.add_option('--nout',         dest='nout',        default=10000,  type='int',     help='[mcmc] number of posterior samples')
     parser.add_option('--nwalk',        dest='nwalk',       default=256,    type='int',     help='[mcmc] number of parallel walkers')
-    parser.add_option('--nburn',        dest='nburn',       default=5000,    type='int',    help='[mcmc] numebr of burn-in iterations')
+    parser.add_option('--nburn',        dest='nburn',       default=5000,   type='int',     help='[mcmc] numebr of burn-in iterations')
     parser.add_option('--ntemp',        dest='ntemps',      default=8,      type='int',     help='[mcmc] number of tempered ensambles (ptmcmc)')
-    parser.add_option('--tmax',         dest='tmax',        default=None,   type='float',   help='[mcmc] maximum temperature scale, default inf (ptmcmc)')
+    parser.add_option('--tmax',         dest='tmax',        default=None,   type='float',   help='[mcmc] maximum temperature scale (ptmcmc). Default: Inf')
 
     # Parallelization options
-    parser.add_option('--nprocs',            dest='nprocs',         default=None,      type='int',                           help='number of processes in the pool')
-    parser.add_option('--mpi',               dest='mpi',            default=False,     action="store_true",                  help='use MPI parallelization')
-    parser.add_option('--mpi-per-node',      dest='mpi_per_node',   default=None,      type='int',                           help='number of MPI processes per node')
-    parser.add_option('--fast-mpi',          dest='fast_mpi',       default=False,                     action="store_true",  help='enable fast MPI communication')
+    parser.add_option('--nprocs',       dest='nprocs',         default=0.,         type='int',                           help='number of processes in the pool')
+    parser.add_option('--mpi',          dest='mpi',            default=False,                  action="store_true",      help='use MPI parallelization')
+    parser.add_option('--mpi-per-node', dest='mpi_per_node',   default=0.,         type='int',                           help='number of MPI processes per node')
+    parser.add_option('--fast-mpi',     dest='fast_mpi',       default=False,                  action="store_true",      help='enable fast MPI communication (under development)')
 
     (opts,args) = parser.parse_args()
 

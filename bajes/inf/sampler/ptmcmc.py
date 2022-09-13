@@ -189,7 +189,7 @@ class _PTMCMC(object):
                  random=None, pool=None):
 
         if random is None:
-            self._random = np.random.mtrand.RandomState()
+            self._random = np.random
         else:
             self._random = random
 
@@ -319,7 +319,7 @@ class _PTMCMC(object):
 
             # compute acceptance
             logger.debug("Compute acceptance...")
-            accepts = logf + qslogpost - logpost[:, jupdate::2] > np.log(self._random.uniform(low=0.0, high=1.0,size=(self.ntemps,self.nwalkers//2)))
+            accepts = logf + qslogpost - logpost[:, jupdate::2] > np.log(self._random.uniform(low=0.0, high=1.0, size=(self.ntemps,self.nwalkers//2)))
             accepts = accepts.flatten()
 
             # update samples
@@ -738,8 +738,7 @@ class SamplerPTMCMC(SamplerBody):
             self.sampler.mapf = self.sampler.pool.map
 
         # re-initialize seed
-        np.random.seed(self.seed)
-        self.sampler._random = np.random.mtrand.RandomState()
+        self.sampler._random = np.random
 
     def __run__(self):
 

@@ -68,11 +68,16 @@ def run_main(opts, pool=None, close_pool=None):
 
 def run_main_mpi(opts, Pool):
 
+    # initialize random seed
+    # note that this step is common to all processes
+    import numpy
+    numpy.random.seed(opts.seed+Pool.rank)
+
     # open pool
+    # after this point all working processes are gathered
     with Pool as pool:
 
-        # if not master,
-        # wait for a command from master
+        # if not master, wait for a command from master
         if not pool.is_master():
             pool.wait()
             sys.exit(0)
@@ -83,6 +88,8 @@ def run_main_mpi(opts, Pool):
 
         # initialize likelihood, prior and sampler
         pr, lk      = init_model(opts)
+
+        # initialize sampler
         inference   = init_sampler([pr, lk], pool, opts)
 
         # running sampler
@@ -117,6 +124,11 @@ def run_main_mpi_ultranest(opts, rank, size):
         if opts.debug:  logger.debug("Using logger with debugging mode")
         print_header(opts.engine, opts.nprocs)
         logger.info("> MPI world initisalized")
+
+    # initialize random seed
+    # note that this step is common to all processes
+    import numpy
+    numpy.random.seed(opts.seed+rank)
 
     # initialize likelihood, prior and sampler
     pr, lk      = init_model(opts)
