@@ -259,7 +259,6 @@ class KNLikelihood(Likelihood):
 
         # compute lightcurve
         mags    = self.light.compute_mag(params)
-
         logL = 0.
 
         if 'LC_calib_sigma' in params.keys():
