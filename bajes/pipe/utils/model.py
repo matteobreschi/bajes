@@ -147,7 +147,7 @@ class GWLikelihood(Likelihood):
         if not any(wave.plus):
             return -np.inf
 
-        if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))): 
+        if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))):
             logger.warning('Nans in the waveform, with the configuration: {}. Returning -inf in the likelihood.'.format(params))
             return -np.inf
         if(np.any(np.isinf(wave.plus)) or np.any(np.isinf(wave.cross))):
@@ -224,7 +224,8 @@ class KNLikelihood(Likelihood):
         self.filters = filters
 
         # compute data normalization
-        self.logZ_noise = -0.5*sum([np.power(self.filters.magnitudes[bi]/self.filters.mag_stdev[bi],2.) for bi in self.filters.bands()])
+        self.logZ_noise = -0.5*sum([np.power(self.filters.magnitudes[bi]/self.filters.mag_stdev[bi],2.).sum() for bi in self.filters.bands()])
+        self.logNorm    = -0.5*sum([np.log(2*np.pi*self.filters.mag_stdev[bi]**2).sum() for bi in self.filters.bands()])
 
         # initilize time axis for lightcurve model
         if t_start > 86400:
@@ -254,16 +255,27 @@ class KNLikelihood(Likelihood):
         from ...obs.kn.lightcurve import Lightcurve
         self.light  = Lightcurve(comps, t_axis, filters.lambdas, v_min, n_v)
 
-    def log_like(self, x):
+    def log_like(self, params):
 
         # compute lightcurve
         mags    = self.light.compute_mag(params)
 
         logL = 0.
 
-        for bi in self.filters.bands():
-            interp_mag  = np.interp(self.filters.times[bi], self.light.times+params['t_gps'], mags[bi])
-            residuals   = ((self.filters.magnitudes[bi]-interp_mag)/self.filters.mag_stdev[bi])**2.
-            logL       += -0.5*(residuals).sum()
+        if 'LC_calib_sigma' in params.keys():
+
+            for bi in self.filters.bands():
+                interp_mag  = np.interp(self.filters.times[bi], self.light.times+params['t_gps'], mags[bi])
+                sigma2      = self.filters.mag_stdev[bi]**2. + params['LC_calib_sigma']**2.
+                residuals   = (((self.filters.magnitudes[bi]-interp_mag))**2.)/sigma2
+                # check necessity of normalization (dependent on LC_calib_sigma)
+                logL       += -0.5*(residuals + np.log(2*np.pi*sigma2)).sum()
+
+        else:
+
+            for bi in self.filters.bands():
+                interp_mag  = np.interp(self.filters.times[bi], self.light.times+params['t_gps'], mags[bi])
+                residuals   = ((self.filters.magnitudes[bi]-interp_mag)/self.filters.mag_stdev[bi])**2.
+                logL       += -0.5*(residuals).sum() + self.logNorm
 
         return logL

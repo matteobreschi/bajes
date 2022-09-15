@@ -663,6 +663,7 @@ def get_likelihood_and_prior(opts):
 
             # read arguments for likelihood
             l_kwas, pr = initialize_knlikelihood_kwargs(opts)
+            l_kwas['priors'] = pr
             logger.info("Initializing KN likelihood ...")
             likes.append(KNLikelihood(**l_kwas))
             priors.append(pr)

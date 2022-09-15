@@ -27,7 +27,7 @@ def initialize_knlikelihood_kwargs(opts):
 
     # initialize wavelength dictionary for photometric bands
     lambdas = {}
-    if len(opts.lambdas == 0):
+    if len(opts.lambdas) == 0:
 
         # if lambdas are not given use the standard ones
         from ..obs.kn import __photometric_bands__ as ph_bands
@@ -58,7 +58,7 @@ def initialize_knlikelihood_kwargs(opts):
     l_kwargs['t_scale']     = opts.t_scale
 
     # set intrinsic parameters bounds
-    mej_bounds  = [[mmin, mmax] for mmin, mmax in zip(opts.mej_min, opts.meh_max)]
+    mej_bounds  = [[mmin, mmax] for mmin, mmax in zip(opts.mej_min, opts.mej_max)]
     vel_bounds  = [[vmin, vmax] for vmin, vmax in zip(opts.vel_min, opts.vel_max)]
     opac_bounds = [[omin, omax] for omin, omax in zip(opts.opac_min, opts.opac_max)]
 
@@ -86,7 +86,8 @@ def initialize_knprior(comps, mej_bounds, vel_bounds, opac_bounds, t_gps,
                        heating_sampling=False, heating_alpha=1.3, heating_time=1.3, heating_sigma=0.11,
                        time_shift_bounds=None,
                        fixed_names=[], fixed_values=[],
-                       prior_grid=2000, kind='linear'):
+                       prior_grid=2000, kind='linear',
+                       use_calib_sigma=True):
 
     from ..inf.prior import Prior, Parameter, Variable, Constant
 
@@ -189,6 +190,10 @@ def initialize_knprior(comps, mej_bounds, vel_bounds, opac_bounds, t_gps,
 
     # setting inclination
     dict['cosi']   =  Parameter(name='cosi', min=-1., max=+1.)
+
+    # include theoretical error
+    if use_calib_sigma:
+        dict['LC_calib_sigma']   = Parameter(name='LC_calib_sigma', min = 0., max = 25.)
 
     # set fixed parameters
     if len(fixed_names) != 0 :
