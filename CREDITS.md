@@ -1,6 +1,6 @@
 # Credits
 
-*bajes* has been developed at Friedrich-Schiller-Universität Jena 
+*bajes* has been developed at Friedrich-Schiller-Universität Jena
 with the contribution of Matteo Breschi, Rossella Gamba, Ssohrab Borhanian, Gregorio Carullo, Emil Donkersloot and Sebastiano Bernuzzi.
 
 If you use this software, please include the following [citation](https://arxiv.org/abs/2102.00017):
@@ -31,11 +31,16 @@ The posterior samples computed with the *bajes* pipeline of the gravitational-wa
           doi       = {10.5281/zenodo.4476594},
           url       = {https://doi.org/10.5281/zenodo.4476594}}
 
+## Samplers
+
 In order to perform the sampling, *bajes* relies on external libraries,
+* `emcee`, the mcmc hammer, [github](https://github.com/dfm/emcee), [documentation](https://emcee.readthedocs.io/), [arxiv](https://arxiv.org/abs/1202.3665)
+* `ptmcmc` is based on `ptemcee`, [github](https://github.com/willvousden/ptemcee), [documentation](https://ptemcee.readthedocs.io/en/stable/), [arxiv](https://arxiv.org/abs/1501.05823)
 * `cpnest`, parallel nested sapling, [github](https://github.com/johnveitch/cpnest), [documentation](https://johnveitch.github.io/cpnest/)
-* `dynesty`, dynamic nested sampling, [github](https://github.com/joshspeagle/dynesty), [documentation](https://dynesty.readthedocs.io/)
-* `emcee`, the mcmc hammer, [github](https://github.com/dfm/emcee), [documentation](https://emcee.readthedocs.io/)
-* `ultranest`, advanced nested sampling, [github](https://github.com/JohannesBuchner/UltraNest), [documentation](https://johannesbuchner.github.io/UltraNest/)
+* `dynesty`, dynamic nested sampling, [github](https://github.com/joshspeagle/dynesty), [documentation](https://dynesty.readthedocs.io/), [arxiv](https://arxiv.org/abs/1904.02180)
+* `ultranest`, advanced nested sampling, [github](https://github.com/JohannesBuchner/UltraNest), [documentation](https://johannesbuchner.github.io/UltraNest/), [arxiv](https://arxiv.org/abs/2101.09604)
+
+## Gravitational-wave pipeline
 
 If you use one of the following gravitational-wave approximants, please provide the related citation,
 * `TEOBResumS`: A. Nagar et al., [arxiv](https://arxiv.org/abs/1806.01772)
@@ -45,7 +50,9 @@ If you use one of the following gravitational-wave approximants, please provide 
 * `TEOBResumSPA`: R. Gamba et al., [arxiv](https://arxiv.org/abs/2012.00027)
 * `HypTEOBResumS`: A. Nagar et al., [arxiv](https://arxiv.org/abs/2009.12857)
 * `NRPM`: M. Breschi et al., [arxiv](https://arxiv.org/abs/1908.11418)
-* `MLGW`: S. Schmidt and W. Del Pozzo, [arxiv](https://arxiv.org/abs/2011.01958)
+* `NRPMw`: M. Breschi et al., [arxiv](https://arxiv.org/abs/2205.09112)
+* `MLGW`: S. Schmidt et al., [arxiv](https://arxiv.org/abs/2011.01958)
+* `MLGW_BNS`: J. Tissino et al., (in preparation)
 * `NRSur7dq4`: V. Varma et al., [arxiv](https://arxiv.org/abs/1905.09300)
 * `NRHybSur3dq8`: V. Varma et al., [arxiv](https://arxiv.org/abs/1812.07865)
 * `NRHybSur3dq8Tidal`: K. Barkett et al., [arxiv](https://arxiv.org/abs/1911.10440)
