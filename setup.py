@@ -46,7 +46,7 @@ setup(# metadata
       version=VERSION,
       description='Bayesian Jenaer Software',
       long_description=open(os.path.join(dir_path, 'README.md')).read(),
-      long_description_content_type="text/x-rst",
+      long_description_content_type="text/markdown",
       author='Matteo Breschi, Rossella Gamba, Sebastiano Bernuzzi et al.',
       author_email='matteo.breschi@uni-jena.de',
       url='https://github.com/matteobreschi/bajes',
@@ -73,6 +73,11 @@ setup(# metadata
       install_requires=['numpy>=1.18.0',
                         'scipy>=1.4.0',
                         'astropy>=4.0.0']
+
+      # classifiers
+      classifiers=["License :: OSI Approved :: MIT License",
+                   "Operating System :: OS Independent",
+                   'Programming Language :: Python :: 3.7'],
       )
 
 if 'install' in sys.argv:
