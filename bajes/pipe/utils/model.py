@@ -259,7 +259,7 @@ class KNLikelihood(Likelihood):
 
         # compute lightcurve
         mags    = self.light.compute_mag(params)
-        logL = 0.
+        logL    = 0.
 
         if 'LC_calib_sigma' in params.keys():
 
@@ -267,7 +267,6 @@ class KNLikelihood(Likelihood):
                 interp_mag  = np.interp(self.filters.times[bi], self.light.times+params['t_gps'], mags[bi])
                 sigma2      = self.filters.mag_stdev[bi]**2. + params['LC_calib_sigma']**2.
                 residuals   = (((self.filters.magnitudes[bi]-interp_mag))**2.)/sigma2
-                # check necessity of normalization (dependent on LC_calib_sigma)
                 logL       += -0.5*(residuals + np.log(2*np.pi*sigma2)).sum()
 
         else:
@@ -275,6 +274,6 @@ class KNLikelihood(Likelihood):
             for bi in self.filters.bands():
                 interp_mag  = np.interp(self.filters.times[bi], self.light.times+params['t_gps'], mags[bi])
                 residuals   = ((self.filters.magnitudes[bi]-interp_mag)/self.filters.mag_stdev[bi])**2.
-                logL       += -0.5*(residuals).sum() + self.logNorm
+                logL       += -0.5*residuals.sum() + self.logNorm
 
         return logL
