@@ -230,11 +230,11 @@ def write_executable(outdir, config, string1, string2, string3, string4):
 
 def write_inject_string(config, ifos, outdir):
     """
-        Write command string to execute bajes_inject.py
+        Write command string to execute bajes_inject
         given a config file
     """
 
-    injection_string = 'bajes_inject.py --outdir {} '.format(outdir+'/injection/')
+    injection_string = 'bajes_inject --outdir {} '.format(outdir+'/injection/')
 
     try:
         injpath = os.path.abspath(config['gw-data']['inj-strain'])
@@ -293,11 +293,11 @@ def write_inject_string(config, ifos, outdir):
 
 def write_gwosc_string(config, ifos, outdir):
     """
-        Write command string to execute bajes_read_gwosc.py
+        Write command string to execute bajes_read_gwosc
         given a config file
     """
 
-    read_string = 'bajes_read_gwosc.py --outdir {} '.format(outdir)
+    read_string = 'bajes_read_gwosc --outdir {} '.format(outdir)
 
     try:
         read_string += '--event {} '.format(config['gw-data']['event'])
@@ -447,14 +447,14 @@ def write_run_string(config, tags, outdir):
 def write_setup_string(config, tags, outdir):
 
     """
-        Write command string to execute bajes_setup.py
+        Write command string to execute bajes_setup
         given a config file
     """
 
     list_keys_in_pipe       = np.transpose(list(config.items('pipe')))[0]
     list_keys_in_sampler    = np.transpose(list(config.items('sampler')))[0]
 
-    run_string = 'bajes_setup.py '
+    run_string = 'bajes_setup '
     run_string += '--outdir {} '.format(outdir+'/pkl')
 
     if 'gw' in tags:
@@ -738,11 +738,11 @@ def write_setup_string(config, tags, outdir):
 
 def write_postproc_string(config, tags, outdir):
     """
-        Write command string to execute bajes_postproc.py
+        Write command string to execute bajes_postproc
         given a config file
     """
 
-    pp_string = 'bajes_postproc.py  --outdir {} '.format(outdir)
+    pp_string = 'bajes_postproc  --outdir {} '.format(outdir)
 
     if 'gw' in tags:
         pp_string += '--spin-flag {} '.format(config['gw-prior']['spin-flag'])
