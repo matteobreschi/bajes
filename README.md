@@ -1,4 +1,4 @@
-![](https://raw.githubusercontent.com/matteobreschi/bajes/stable/v0.2.2/docs/bajes.png)
+![](https://raw.githubusercontent.com/matteobreschi/bajes/release/v0.2.2/docs/bajes.png)
 
 *bajes* [baɪɛs] is a Python software for Bayesian inference developed at Friedrich-Schiller-Universtät Jena
 and specialized in the analysis of gravitational-wave and multi-messenger transients.
@@ -11,14 +11,14 @@ with minimal dependencies on external libraries.
 and it is built on modules that can be easily installed via `pip`.
 The mandatory dependencies are `numpy`, `scipy` and `astropy`.
 However, the user might need to download some further packages.
-See [`INSTALL`](https://github.com/matteobreschi/bajes/tree/stable/v0.2.2/INSTALL.md) for more information.
+See [`INSTALL`](https://github.com/matteobreschi/bajes/tree/release/v0.2.2/INSTALL.md) for more information.
 
 ## Modules
 
 *bajes* provides an homonymous Python module that includes:
 * `bajes.inf`: implementation of the statistical objects and Bayesian workflow,
 * `bajes.obs`: tools and methods for data analysis of multi-messenger signals.
-For more details, visit [`gw_tutorial`](https://github.com/matteobreschi/bajes/tree/stable/v0.2.2/docs/gw_tutorial.ipynb).
+For more details, visit [`gw_tutorial`](https://github.com/matteobreschi/bajes/tree/release/v0.2.2/docs/gw_tutorial.ipynb).
 
 ## Inference
 
@@ -28,12 +28,12 @@ Bayesian analysis for an arbitrary model. Providing a prior file and a likelihoo
     python -m bajes -p prior.ini -l like.py -o /path/to/outdir/
 
 will run a parameter estimation job, inferring the properties of the input model.
-For more details, visit [`inf_tutorial`](https://github.com/matteobreschi/bajes/tree/stable/v0.2.2/docs/inf_tutorial.ipynb)
+For more details, visit [`inf_tutorial`](https://github.com/matteobreschi/bajes/tree/release/v0.2.2/docs/inf_tutorial.ipynb)
 or type `python -m bajes --help`.
 
 ## Pipeline
 
-![](https://raw.githubusercontent.com/matteobreschi/bajes/stable/v0.2.2/docs/pipe.png)
+![](https://raw.githubusercontent.com/matteobreschi/bajes/release/v0.2.2/docs/pipe.png)
 
 The *bajes*  infrastructure allows the user to set up a pipeline for parameters
 estimation of multi-messenger transients.
@@ -45,12 +45,12 @@ Subsequently,  the following command,
 
 will generates the requested output directory, if it does not exists, and
 the pipeline will be written into a bash executable (`/path/to/outdir/jobname.sub`).
-For more details, visit [`conifg_example`](https://github.com/matteobreschi/bajes/tree/stable/v0.2.2/docs/config_example.ini).
+For more details, visit [`conifg_example`](https://github.com/matteobreschi/bajes/tree/release/v0.2.2/docs/config_example.ini).
 
 ## Credits
 
 *bajes* is developed at the Friedrich-Schiller-Universität Jena,
-visit [`CREDITS`](https://github.com/matteobreschi/bajes/tree/stable/v0.2.2/CREDITS.md) for more details.
+visit [`CREDITS`](https://github.com/matteobreschi/bajes/tree/release/v0.2.2/CREDITS.md) for more details.
 
 If you find *bajes* useful in your research, please include the following [citation](https://arxiv.org/abs/2102.00017) in your publication,
 
