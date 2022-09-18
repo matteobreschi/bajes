@@ -50,7 +50,7 @@ def t_fs_v(kappa,v,m_v,omega):
     return np.sqrt(1.5*kappa*m_v/(omega*v*v*units_c*units_c))  #[s]
 
 def GK_expansion_model(args):
-    
+
     Omega,m_ej,v_rms,v_min,n_v,kappa = args
     v_max  = 3.*v_rms
     vel    = np.linspace(v_min,v_max,n_v)

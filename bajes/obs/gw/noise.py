@@ -58,7 +58,17 @@ def get_design_sensitivity(ifo):
     elif 'ET' in ifo:
         filename = 'ET-0001A-18_ETD.txt'
     elif ifo=='CE':
+        #TODO remove or rename this, since the `CE-T2000017-v5-40km.txt` is the official new main CE noise curve
         filename = 'LIGO-P1600143-v18-CE.txt'
+    # Please find the description of the 'CE-40', 'CE-40-lf', 'CE-20', 'CE-20-pm' can be found at bajes/pipe/data/gw/asd/design/README.md
+    elif ifo in ['CE-South-lf', 'CE-North-lf']:
+        filename = 'CE-T2000017-v5-40km_lf.txt'
+    elif ifo in ['CE-South-40', 'CE-North-40']:
+        filename = 'CE-T2000017-v5-40km.txt'
+    elif ifo in ['CE-South-pm', 'CE-North-pm']:
+        filename = 'CE-T2000017-v5-20km_pm.txt'
+    elif ifo in ['CE-South-20', 'CE-North-20']:
+        filename = 'CE-T2000017-v5-20km.txt'
     else:
         raise AttributeError("Design ASD not available for requested detector. Design ASD is available for the following IFOs: H1, L1, V1, K1, I1, ET, CE.")
     asd_path = os.path.join(main_path , filename)

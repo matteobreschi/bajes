@@ -613,9 +613,6 @@ def NRPMw_attach(freqs, params, recalib=False):
     return h22
 
 # NRPMw wrappers are the actual calls of the Waveform object
-# All wrappers include downsampling to 10Hz in order to improve efficiency
-# obs. PM signals from BNS remnants have broad spectral features so the accuracy is not affected
-
 def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
 
     if attach:
@@ -623,11 +620,22 @@ def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
     else:
         nrpmw_func = NRPMw
 
-    # TODO: check for ROQ
-    if len(freqs)>int(16*params['seglen']):
-        # introduce down-sampling to constant frequency binning of 16Hz
-        # then, linear interpolation to estimate model on initial freq axis
-        fr  = __downsampling__(freqs, int(16*params['seglen']))
+    # Since the maximum length of the post-merger signal is ~60ms, it is useless to compute it with the typical frequency spacing
+    # (df = 1/T, with T~[1-100] s, where T, the duration of the signal, is identified as 'seglen' below) used in GW analysis of inspiral signals.
+    # Hence, we down-sample the frequency axis, imposing a uniform spacing of 16Hz (i.e. df = 16 Hz = 1/62.5ms).
+    # Then, we use linear interpolation to output the model on the initial requested frequency axis.
+    # This has been tested and does not cause a loss of accuracy, since PM signals from BNS remnants have broad spectral features
+    # (consistent with the maximum duration discussed above).
+    df_requested    = 1./params['seglen']
+    df_downsampled  = 16.
+    decimate_factor = int(df_downsampled/df_requested)
+
+    # Skip downsampling if:
+    # i)  there would be less than two frequency points after decimating
+    # ii) the requested seglen is smaller than the maximum lenghts of a PM signal
+    #     (i.e. 60ms = 1/16 s, in which case decimate_factor=0, since `int` returns the closest smaller integer).
+    if (len(freqs)>decimate_factor) and (decimate_factor>0):
+        fr  = __downsampling__(freqs, decimate_factor)
         hf  = nrpmw_func(fr, params, recalib=recalib)
         hf  = __linear_interp__(freqs, fr, hf)
     else:
@@ -638,7 +646,8 @@ def nrpmw_wrapper(freqs, params):
     return _wrapper_nrpmw(freqs, params, attach=False, recalib=False)
 
 def nrpmw_wrapper_nodownsampling(freqs, params):
-    return NRPMw(freqs, params, recalib=False)*(0.5*(1.+params['cosi']**2.))
+    hf = NRPMw(freqs, params, recalib=False)
+    return hf*(0.5*(1.+params['cosi']**2.)), hf*(params['cosi']*EmIPIHALF)
 
 def nrpmw_attach_wrapper(freqs, params):
     return _wrapper_nrpmw(freqs, params, attach=True, recalib=False)

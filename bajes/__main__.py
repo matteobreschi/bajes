@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 from __future__ import division, unicode_literals, absolute_import
 
-if __name__ == "__main__":
+import os, sys
 
-    # Necessary to add cwd to path when script run
-    # by SLURM (since it executes a copy)
-    import os, sys
-    sys.path.append(os.getcwd())
+# Necessary to add cwd to path when script run
+# by SLURM (since it executes a copy)
+sys.path.append(os.getcwd())
+
+if __name__ == "__main__":
 
     # parse options
     from .pipe import parse_main_options, set_logger, ensure_dir

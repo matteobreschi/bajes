@@ -739,7 +739,7 @@ def initialize_gwprior(ifos,
                                                 prior='normal', mu = 0., sigma = __ERRS__[ni])
 
     # include NRPMw recalibration parameters
-    if approx == 'TEOBResumSPA_NRPMw_recal':
+    if approx == 'TEOBResumSPA_NRPMw_recal' or approx == 'MLGW_BNS_NRPMw_recal':
         from ..obs.gw.approx.nrpmw import __recalib_names_attach__, __ERRS__, __BNDS__
         for ni in __recalib_names_attach__:
             dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,

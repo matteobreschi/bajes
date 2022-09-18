@@ -24,4 +24,4 @@ __known_events_metadata__ = {'GW150914':    {'t_gps': 1126259462.4, 'ifos': 'H1,
                              'GW170823':    {'t_gps': 1187529256.5, 'ifos': 'H1,L1'}}
 
 from .waveform import __approx_dict__
-__known_approxs__          = list(__approx_dict__.keys())
+__known_approxs__   = list(__approx_dict__.keys())

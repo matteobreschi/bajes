@@ -36,7 +36,9 @@ def l_to_k(lmax, remove_ks = [], custom_modes=None):
     # Allow the user to select modes up to lmax only within a subset of specified modes
     if(custom_modes is not None):
         if(custom_modes=='Hyp'):
-            modes_default = [[2,2], [2,1], [3,3], [4,4], [4,3], [5,5]] #remove (l,m)=(3,2) from waveform, since not sane
+            #remove (l,m)=(3,2) from waveform, since not sane
+            # trying to remove (5,5) for debugging
+            modes_default = [[2,2], [2,1], [3,3], [4,4], [4,3]]
         else:
             raise ValueError('The requested option for custom modes does not exist.')
 
