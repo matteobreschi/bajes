@@ -1,4 +1,4 @@
-<img src="https://github.com/matteobreschi/bajes/tree/stable/v0.2.2/docs/bajes.png" height=140>
+![](https://raw.githubusercontent.com/matteobreschi/bajes/stable/v0.2.2/docs/bajes.png)
 
 *bajes* [baɪɛs] is a Python software for Bayesian inference developed at Friedrich-Schiller-Universtät Jena
 and specialized in the analysis of gravitational-wave and multi-messenger transients.
@@ -33,7 +33,7 @@ or type `python -m bajes --help`.
 
 ## Pipeline
 
-<img src="https://github.com/matteobreschi/bajes/tree/stable/v0.2.2/docs/pipe.png" height=240>
+![](https://raw.githubusercontent.com/matteobreschi/bajes/stable/v0.2.2/docs/pipe.png)
 
 The *bajes*  infrastructure allows the user to set up a pipeline for parameters
 estimation of multi-messenger transients.
