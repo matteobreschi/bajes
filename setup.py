@@ -62,11 +62,11 @@ setup(# metadata
                               "obs/kn/fluxfactors/*.dat"]},
 
       # make scripts executable
-      scripts   = ['bajes/pipe/scripts/bajes_pipe.py',
-                   'bajes/pipe/scripts/bajes_setup.py',
-                   'bajes/pipe/scripts/bajes_inject.py',
-                   'bajes/pipe/scripts/bajes_read_gwosc.py',
-                   'bajes/pipe/scripts/bajes_postproc.py'],
+      scripts   = ['bajes/pipe/scripts/bajes_pipe',
+                   'bajes/pipe/scripts/bajes_setup',
+                   'bajes/pipe/scripts/bajes_inject',
+                   'bajes/pipe/scripts/bajes_read_gwosc',
+                   'bajes/pipe/scripts/bajes_postproc'],
 
       # set mandatory requirements
       python_requires='>=3.7',
