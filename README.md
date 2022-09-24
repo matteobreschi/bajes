@@ -44,6 +44,9 @@ will generates the requested output directory, if it does not exists, and
 the pipeline will be written into a bash executable (`/path/to/outdir/jobname.sub`). 
 For more details, visit [`conifg_example`](docs/config_example.ini).
 
+The pipeline incorporates an interface with reduced-order-quadratude (ROQ) interpolants.
+In particular, the ROQ pipeline relies on the output provided by [`PyROQ-refactored`](https://github.com/bernuzzi/PyROQ).
+
 ## Credits
 
 *bajes* is developed at the Friedrich-Schiller-Universität Jena,

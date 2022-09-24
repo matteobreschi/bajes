@@ -43,3 +43,4 @@ the user should install some further packages:
 * [`GWSurrogate`](https://pypi.org/project/gwsurrogate/)
 * [`MLGW`](https://pypi.org/project/mlgw/)
 * [`LALSuite`](https://lscsoft.docs.ligo.org/lalsuite/)
+* [`PyROQ-refactored`](https://github.com/bernuzzi/PyROQ)

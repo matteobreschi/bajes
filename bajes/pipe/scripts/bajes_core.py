@@ -38,37 +38,26 @@ def init_core(opts):
 
     import numpy as np
 
-    # all models have distance and time_shift,
+    # Set the prior for parameters common to all models, i.e. distance and time_shift.
+    
     # choose the smaller bounds
-    if len(opts.dist_min) == 1:
-        opts.dist_min       = opts.dist_min[0]
-    elif len(opts.dist_min) == 0:
-        opts.dist_min       = None
-    else:
-        opts.dist_min       = np.max(opts.dist_min)
+    if   len(opts.dist_min) == 1 : opts.dist_min = opts.dist_min[0]
+    elif len(opts.dist_min) == 0 : opts.dist_min = None
+    else                         : opts.dist_min = np.max(opts.dist_min)
 
-    if len(opts.dist_max) == 1:
-        opts.dist_max       = opts.dist_max[0]
-    elif len(opts.dist_max) == 0:
-        opts.dist_max       = None
-    else:
-        opts.dist_max       = np.min(opts.dist_max)
+    if   len(opts.dist_max) == 1 : opts.dist_max = opts.dist_max[0]
+    elif len(opts.dist_max) == 0 : opts.dist_max = None
+    else                         : opts.dist_max = np.min(opts.dist_max)
 
     if not opts.marg_time_shift:
 
-        if len(opts.time_shift_min) == 1:
-            opts.time_shift_min = opts.time_shift_min[0]
-        elif len(opts.time_shift_min) == 0:
-            opts.time_shift_min = None
-        else:
-            opts.time_shift_min = np.max(opts.time_shift_min)
-
-        if len(opts.time_shift_max) == 1:
-            opts.time_shift_max = opts.time_shift_max[0]
-        elif len(opts.time_shift_max) == 0:
-            opts.time_shift_max = None
-        else:
-            opts.time_shift_max = np.min(opts.time_shift_max)
+        if   len(opts.time_shift_min) == 1 : opts.time_shift_min = opts.time_shift_min[0]
+        elif len(opts.time_shift_min) == 0 : opts.time_shift_min = None
+        else                               : opts.time_shift_min = np.max(opts.time_shift_min)
+        
+        if   len(opts.time_shift_max) == 1 : opts.time_shift_max = opts.time_shift_max[0]
+        elif len(opts.time_shift_max) == 0 : opts.time_shift_max = None
+        else                               : opts.time_shift_max = np.min(opts.time_shift_max)
 
     # get likelihood object and arguments
     from bajes.pipe import get_likelihood_and_prior
@@ -127,7 +116,7 @@ if __name__ == "__main__":
     # initialize multi-threading pool (if needed)
     if (engine != 'cpnest' and nprocs>1):
         from bajes.pipe import initialize_mthr_pool
-        pool, close_pool   = initialize_mthr_pool(nprocs)
+        pool, close_pool = initialize_mthr_pool(nprocs)
     else:
         pool = None
         close_pool = None

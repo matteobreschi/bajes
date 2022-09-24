@@ -352,13 +352,13 @@ def make_histograms(names, posterior_samples, prior_samples, outdir):
 def _wrap_compute_wf_and_snr(args):
     return compute_wf_and_snr(*args)
 
-def compute_wf_and_snr(p, dets, noises, w, marg_phi=False, marg_time=False):
+def compute_wf_and_snr(p, dets, noises, w, marg_phi=False, marg_time=False, roq=None):
 
     # compute waveform
     hphc   = w.compute_hphc(p)
 
     # compute SNR
-    phiref, tshift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det = extract_snr(list(dets.keys()), dets, hphc, p, w.domain, marg_phi=marg_phi, marg_time=marg_time)
+    phiref, tshift, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det = extract_snr(list(dets.keys()), dets, hphc, p, w.domain, marg_phi=marg_phi, marg_time=marg_time, roq=roq)
 
     p['time_shift'] = p['time_shift'] + tshift
     hphc   = PolarizationTuple(plus  = hphc.plus*np.cos(phiref) - hphc.cross*np.sin(phiref),
@@ -371,16 +371,16 @@ def compute_wf_and_snr(p, dets, noises, w, marg_phi=False, marg_time=False):
 
     for det in dets.keys():
 
-        h_tmp       = dets[det].project_tdwave(hphc, p, w.domain)
-        h_strain    = Series('time', h_tmp, seglen=p['seglen'], srate=p['srate'], t_gps=p['t_gps'], f_min=p['f_min'], f_max=p['f_max'])
-        sp[det]     = np.abs(h_strain.freq_series)
+        h_tmp    = dets[det].project_tdwave(hphc, p, w.domain)
+        h_strain = Series('time', h_tmp, seglen=p['seglen'], srate=p['srate'], t_gps=p['t_gps'], f_min=p['f_min'], f_max=p['f_max'])
+        sp[det]  = np.abs(h_strain.freq_series)
 
         # store waveform
-        wf[det]     = h_strain.time_series
+        wf[det]  = h_strain.time_series
 
         # store whitened waveform
         h_strain.whitening(noises[det])
-        ww[det]     = h_strain.time_series
+        ww[det]  = h_strain.time_series
 
     return snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det, sp, wf, ww
 
@@ -409,7 +409,8 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
     names     = container_inf.prior.names
     constants = container_inf.prior.const
     w         = container_inf.like.wave
-
+    roq       = container_inf.like.roq
+    
     # set sp-cal
     try:
         nspcal = container_inf.like.nspcal
@@ -464,12 +465,13 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
             p      = {**params,**constants}
 
             # compute waveform and snr
-            snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det, _sp, _wf, _ww = compute_wf_and_snr(p,
+            snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det, _sp, _wf, _ww = compute_wf_and_snr(p                                                               ,
                                                                                                  {ifo: strains_dets[ifo]['d'] for ifo in container_inf.like.ifos},
                                                                                                  {ifo: strains_dets[ifo]['n'] for ifo in container_inf.like.ifos},
-                                                                                                 w, 
-                                                                                                 marg_phi=container_inf.like.marg_phi_ref,
-                                                                                                 marg_time=container_inf.like.marg_time_shift)
+                                                                                                 w                                                               ,
+                                                                                                 marg_phi  = container_inf.like.marg_phi_ref                     ,
+                                                                                                 marg_time = container_inf.like.marg_time_shift                  ,
+                                                                                                 roq       = roq                                                 )
 
             # collect quantities
             SNRs_mf.append(snr_mf)
@@ -547,6 +549,9 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
             snr_opt_fl.write("\t {} ".format(SNRs_opt_per_det[ifo][i]))
         snr_opt_fl.write("\n")
     snr_opt_fl.close()
+
+    #FIXME: Waveform reconstruction has not been yet implemented when the ROQ is active.
+    if roq is not None: return data_output, snr_output
 
     # Plot the data
     fig = plt.figure(figsize=(8,6))

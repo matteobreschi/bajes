@@ -29,6 +29,7 @@ class GWLikelihood(Likelihood):
                  nspcal=0, spcal_freqs=None,
                  nweights=0, len_weights=None,
                  marg_phi_ref=False, marg_time_shift=False,
+                 roq=None,
                  **kwargs):
 
         # run standard initialization
@@ -38,6 +39,9 @@ class GWLikelihood(Likelihood):
         self.ifos   = ifos
         self.dets   = dets
 
+        # Load ROQ object containing both frequency axes and weights for all detectors.
+        self.roq = roq
+
         # store information
         self.nspcal = nspcal
         self.nweights = nweights
@@ -45,6 +49,11 @@ class GWLikelihood(Likelihood):
         # set marginalization flags
         self.marg_phi_ref       = marg_phi_ref
         self.marg_time_shift    = marg_time_shift
+
+        # Compatibility check.
+        if((self.roq is not None) and (self.marg_time_shift)):
+            logger.error("Time-shift marginalization has not been implemented with the ROQ approximation.")
+            raise AttributeError("Time-shift marginalization has not been implemented with the ROQ approximation.")
 
         n_freqs     = None
         f_min_check = None
@@ -88,63 +97,29 @@ class GWLikelihood(Likelihood):
 
         # initialize waveform generator
         from ...obs.gw.waveform import Waveform
-        self.wave   = erase_init_wrapper(Waveform(freqs[mask], srate , seglen, approx))
+        
+        if self.roq is not None: self.wave = erase_init_wrapper(Waveform(self.roq['freqs_join'], srate, seglen, approx))
+        else:                    self.wave = erase_init_wrapper(Waveform(freqs[mask],            srate, seglen, approx))
 
-#    def inner_prods(self, params):
-#
-#        # compute waveform
-#        hphc    = np.array(self.wave.compute_hphc(params))
-#
-#        hh = 0.
-#        dd = 0.
-#
-#        if self.marg_time_shift:
-#
-#            dh_arr = np.zeros(self.Nfr, dtype=complex)
-#
-#            for ifo in self.ifos:
-#                dh_arr_thisifo, hh_thisifo, dd_thisifo = self.dets[ifo].compute_inner_products(hphc, params, self.wave.domain)
-#                dh_arr = dh_arr + np.fft.fft(dh_arr_thisifo)
-#                hh += hh_thisifo
-#                dd += dd_thisifo
-#
-#            if self.marg_phi_ref:
-#                dh  = np.max(np.abs(dh_arr))
-#            else:
-#                dh  = np.max(np.real(dh_arr))
-#
-#        else:
-#
-#            dh = 0.+0.j
-#
-#            # compute inner products
-#            for ifo in self.ifos:
-#                dh_arr_thisifo, hh_thisifo, dd_thisifo = self.dets[ifo].compute_inner_products(hphc, params, self.wave.domain)
-#                dh += np.sum(dh_arr_thisifo)
-#                hh += hh_thisifo
-#                dd += dd_thisifo
-#
-#            # evaluate logL
-#            if self.marg_phi_ref:
-#                dh  = np.abs(dh)
-#            else:
-#                dh  = np.real(dh)
-#
-#        return dh, hh, dd
+        if self.roq is not None and self.wave.domain == 'time':
+            logger.error("ROQ is available only with frequency-domain waveforms.")
+            raise ValueError("ROQ is available only with frequency-domain waveforms.")
 
     def log_like(self, params):
         """
             log-likelihood function
         """
+
         # compute waveform
         logger.debug("Generating waveform for {}".format(params))
-        wave    = self.wave.compute_hphc(params)
+        wave    = self.wave.compute_hphc(params, roq=self.roq)
         logger.debug("Waveform generated".format(params))
 
         # if hp, hc == [None], [None]
         # the requested parameters are unphysical
         # Then, return -inf
         if not any(wave.plus):
+            logger.warning("Likelihood method returned NaN for the set of parameters: {}.".format(x))
             return -np.inf
 
         if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))):
@@ -188,8 +163,10 @@ class GWLikelihood(Likelihood):
             # compute inner products
             for ifo in self.ifos:
                 logger.debug("Projecting over {}".format(ifo))
-                dh_arr_thisifo, hh_thisifo, dd_thisifo, _psdf = self.dets[ifo].compute_inner_products(wave, params, self.wave.domain, psd_weight_factor=True)
-                dh += (dh_arr_thisifo).sum()
+                dh_arr_thisifo, hh_thisifo, dd_thisifo, _psdf = self.dets[ifo].compute_inner_products(wave, params, self.wave.domain, psd_weight_factor=True, roq=self.roq)
+                # In the ROQ case, the sum was already taken when computing the scalar product with the weights.
+                if self.roq is not None: dh += (dh_arr_thisifo)
+                else:                    dh += (dh_arr_thisifo).sum()
                 hh += np.real(hh_thisifo)
                 dd += np.real(dd_thisifo)
                 _psd_fact += _psdf
@@ -197,12 +174,12 @@ class GWLikelihood(Likelihood):
             # evaluate logL
             logger.debug("Estimating likelihood")
             if self.marg_phi_ref:
-                dh  = np.abs(dh)
-                R   = np.log(i0e(dh)) + dh
+                abs_dh = np.abs(dh)
+                R      = np.log(i0e(abs_dh)) + abs_dh
             else:
-                R   = np.real(dh)
+                R      = np.real(dh)
 
-        logL =  -0.5*(hh + dd) + R - self.logZ_noise - 0.5*_psd_fact
+        logL = - 0.5*(hh + dd) + R - self.logZ_noise - 0.5*_psd_fact
 
         return logL
 
