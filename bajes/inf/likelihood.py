@@ -27,8 +27,8 @@ class Likelihood(object):
             logl = self._func(x, *self._args, **self._kwargs)
 
         if np.isnan(logl):
-            logger.error("Likelihood method returned NaN for some parameters.")
-            raise RuntimeError("Likelihood method returned NaN for some parameters.")
+            logger.error("Likelihood method returned NaN for the set of parameters: {}.".format(x))
+            raise RuntimeError("Likelihood method returned NaN for the set of parameters: {}.".format(x))
 
         return logl
 

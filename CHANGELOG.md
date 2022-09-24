@@ -1,5 +1,8 @@
 ## Changelog
 
+# [v0.2.2] June 2022
+* Include ROQ approximation in pipeline
+
 # [v0.2.2] January 2022
 * Introduce additional checks in `bajes_pipe.py`
 * Improve `bajes_postproc.py`

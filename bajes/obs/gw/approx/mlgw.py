@@ -54,12 +54,15 @@ class mlgw_bns_wrapper():
         self.fcut = 2048
 
     def __call__(self, freqs, params):
-        fr_lo, fr_hi    = split_freq_axis(freqs, params['f_max'], self.fcut)
+
         bns_params      = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
+        fr_lo, fr_hi    = split_freq_axis(freqs, params['f_max'], self.fcut)
         hp_i, hc_i      = self.model.predict(fr_lo, bns_params)
+        
         if not(len(fr_hi)==0):
             zeros       = np.zeros(len(fr_hi), dtype=complex)
             hp_i, hc_i  = np.append(hp_i,zeros), np.append(hc_i,zeros)
+        
         return hp_i, hc_i
 
 class mlgw_bns_nrpmw_wrapper():

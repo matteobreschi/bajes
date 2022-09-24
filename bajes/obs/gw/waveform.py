@@ -260,11 +260,12 @@ class Waveform(object):
             from . import __known_approxs__
             raise AttributeError("Unable to read approximant string. Please use a valid value (see bajes.__known_approxs__):\n{}.\nIf you are using a LAL approximant, it is possible to know the full list at https://lscsoft.docs.ligo.org/lalsuite/".format(__known_approxs__))
 
-    def compute_hphc(self, params):
+
+    def compute_hphc(self, params, roq=None):
         """ Compute waveform for compact binary coalescences
             --------
             params : dictionary
-            Dictionary of the parameters, with the following
+            Dictionary of the parameters, with the following:
 
                 [masses notation n.1 ]
                 mchirp      : chirp mass [solar masses]
@@ -291,7 +292,7 @@ class Waveform(object):
                 lambda2     : secondary tidal component [dimensionless]
 
                 [extrinsic]
-                distance    : luminosiry distance [Mpc]
+                distance    : luminosity distance [Mpc]
                 iota        : inclination angle [rad]
                 cosi        : cos(iota), alternative to iota
                 phi_ref     : reference phase [rad]
@@ -313,6 +314,9 @@ class Waveform(object):
                 psi         : polarization angle [rad]
                 time_shift  : time-shift from t-gps to t-ref at Earth's geocenter [sec]
                 t_gps       : GPS trigger time
+
+            roq : dictionary
+            Dictionary containing ROQ options, used to skip time-shifting.
 
             --------
             return hp, hc
@@ -363,7 +367,7 @@ class Waveform(object):
         # include iota
         if 'cosi' in params.keys():
             params['iota'] = np.arccos(params['cosi'])
-
+        
         # compute hplus and hcross according with approx
         hp , hc = self.wave_func(self.freqs, params)
 
@@ -375,8 +379,8 @@ class Waveform(object):
             # padding + time-shifting (amplitude peak as central value)
             hp, hc = centering_tdwave(hp, hc, self.seglen, self.srate, params['tukey'])
 
-        elif self.domain == 'freq':
-            # time-shifting (amplitude peak as central value)
+        elif((self.domain == 'freq') and (roq==None)):
+            # Time-shifting the amplitude peak to the center of the data segment (seglen/2). In the ROQ case, this is done separately.
             hp = hp * np.exp(1j*np.pi*self.freqs*self.seglen)
             hc = hc * np.exp(1j*np.pi*self.freqs*self.seglen)
 

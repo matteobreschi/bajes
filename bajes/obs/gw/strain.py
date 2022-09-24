@@ -296,7 +296,7 @@ class Series(object):
                     self.time_series    = wind_series
 
                 elif finalN > raw_N:
-                    logger.warning("Input seglen for time series is greater than the total data length. The time series will be padded to get the requested input.")
+                    logger.warning("Input seglen for time series is greater than the total data-length. The time series will be padded to get the requested input.")
                     padlen              = finalN - raw_N
                     wind_series, w_tmp  = windowing(series,self.alpha_taper)
                     wfact               = np.mean(np.append(tukey(len(series), self.alpha_taper)**2.,
@@ -304,7 +304,7 @@ class Series(object):
                     self.time_series    = padding(wind_series,self.dt,'center',padlen)
 
                 elif finalN < raw_N:
-                    logger.warning("Input seglen for time series is smaller than effective seglen. The series will be truncated to get the requested input.")
+                    logger.warning("Input seglen for time series is smaller than the total data-length. The series will be truncated to get the requested input.")
                     Nhalf = int(len(series)//2)
                     wind_series, wfact  = windowing(series[Nhalf-finalN//2:Nhalf+finalN//2],self.alpha_taper)
                     self.time_series    = wind_series
