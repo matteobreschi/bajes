@@ -53,7 +53,7 @@ If you use one of the following gravitational-wave approximants, please provide 
     * `7.5PNTides` are taken from T. Damour et al., [arxiv](https://arxiv.org/abs/1203.4352)
     * `7.5PNTides2020` corresponds to Q. Henry et al., [arxiv](https://arxiv.org/abs/2005.13367)
 * For the documentation of `LALSimulation` waveforms, please visit this [link](https://lscsoft.docs.ligo.org/lalsuite/)
-* `JenpyROQ`: H. Qi and V. Raymond, [arxiv](https://arxiv.org/abs/2009.13812)
+* `JenpyROQ`: see documentation at this [link](https://github.com/GCArullo/JenpyROQ)
 
 The *bajes* repository contains the official ASDs and the calibration envelopes
 released with GWTC-1 (LVC, [arxiv](https://arxiv.org/abs/1811.12907)) and the design
