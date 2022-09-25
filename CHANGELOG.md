@@ -1,7 +1,7 @@
 ## Changelog
 
 # [v0.2.2] June 2022
-* Include ROQ approximation in pipeline
+* Include ROQ approximation `JenpyROQ` in pipeline
 
 # [v0.2.2] January 2022
 * Introduce additional checks in `bajes_pipe.py`
@@ -35,7 +35,7 @@
 
 # [v0.0.6] September 2020
 * Introduce `knmodule` and KN pipeline
-* Include parametrized EOS and TOV solver in `gwmodule` 
+* Include parametrized EOS and TOV solver in `gwmodule`
 
 # [v0.0.5] July 2020
 * Add `CHANGELOG.md`

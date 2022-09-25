@@ -72,7 +72,7 @@ setup(# metadata
       description='Bayesian Jenaer Software',
       long_description=open(os.path.join(dir_path, 'README.md')).read(),
       long_description_content_type="text/x-rst",
-      author='Matteo Breschi, Rossella Gamba, Sebastiano Bernuzzi et al.',
+      author='Matteo Breschi',
       author_email='matteo.breschi@uni-jena.de',
       url='https://github.com/matteobreschi/bajes',
       license='MIT',

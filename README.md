@@ -2,8 +2,8 @@
 
 *bajes* [baɪɛs] is a Python software for Bayesian inference developed at Friedrich-Schiller-Universtät Jena 
 and specialized in the analysis of gravitational-wave and multi-messenger transients.
-The software is designed to be state-of-art, simple-to-use and light-weighted 
-with minimal dependencies on external libraries. 
+The software is designed to be state-of-art, simple-to-use and light-weighted
+with minimal dependencies on external libraries.
 
 ## Installation
 
@@ -22,26 +22,26 @@ For more details, visit [`gw_tutorial`](docs/gw_tutorial.ipynb).
 
 ## Inference
 
-The *bajes* package  provides a user-friendly interface capable to easily set up a 
+The *bajes* package  provides a user-friendly interface capable to easily set up a
 Bayesian analysis for an arbitrary model. Providing a prior file and a likelihood function, the command
 
     python -m bajes -p prior.ini -l like.py -o /path/to/outdir/
-    
+
 will run a parameter estimation job, inferring the properties of the input model.
 For more details, visit [`inf_tutorial`](docs/inf_tutorial.ipynb) or type `python -m bajes --help`.
 
 ## Pipeline
 
-The *bajes*  infrastructure allows the user to set up a pipeline for parameters 
-estimation of multi-messenger transients. 
+The *bajes*  infrastructure allows the user to set up a pipeline for parameters
+estimation of multi-messenger transients.
 This can be easily done writing a configuration file,
 that contains the information to be passed to the executables.
 Subsequently,  the following command,
 
     bajes_pipe.py config.ini
-    
-will generates the requested output directory, if it does not exists, and 
-the pipeline will be written into a bash executable (`/path/to/outdir/jobname.sub`). 
+
+will generates the requested output directory, if it does not exists, and
+the pipeline will be written into a bash executable (`/path/to/outdir/jobname.sub`).
 For more details, visit [`conifg_example`](docs/config_example.ini).
 
 The pipeline incorporates an interface with reduced-order-quadratude (ROQ) interpolants.
@@ -79,7 +79,7 @@ If you find *bajes* useful in your research, please include the following [citat
 and the gravitational-wave analysis packages,
 * [`bilby`](https://lscsoft.docs.ligo.org/bilby/)
 * [`gwbinning`](https://bitbucket.org/dailiang8/gwbinning/)
-* [`lalsuite`](https://lscsoft.docs.ligo.org/lalsuite/) 
+* [`lalsuite`](https://lscsoft.docs.ligo.org/lalsuite/)
 * [`pycbc`](https://pycbc.org)
 
 We also acknowledge the LIGO-Virgo-KAGRA Collaboration for maitaining the [GWOSC archive](https://www.gw-openscience.org).
