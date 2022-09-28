@@ -72,7 +72,7 @@ setup(# metadata
       python_requires='>=3.7',
       install_requires=['numpy>=1.18.0',
                         'scipy>=1.4.0',
-                        'astropy>=4.0.0']
+                        'astropy>=4.0.0'],
 
       # classifiers
       classifiers=["License :: OSI Approved :: MIT License",
