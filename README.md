@@ -52,7 +52,7 @@ the pipeline will be written into a bash executable (`/path/to/outdir/jobname.su
 For more details, visit [`conifg_example`](https://github.com/matteobreschi/bajes/tree/release/v0.3.0/docs/config_example.ini).
 
 The pipeline incorporates an interface with reduced-order-quadratude (ROQ) interpolants.
-In particular, the ROQ pipeline relies on the output provided by [`PyROQ-refactored`](https://github.com/bernuzzi/PyROQ).
+In particular, the ROQ pipeline relies on the output provided by [`JenpyROQ`](https://github.com/gcarullo/JenpyROQ).
 
 ## Credits
 
