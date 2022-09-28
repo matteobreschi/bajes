@@ -18,12 +18,12 @@ from ...pipe.utils import data_container
 class SamplerBody(object):
 
     def __init__(self, engine, posterior,
-                 ncheckpoint=0,
-                 outdir='./',
-                 resume='/resume.pkl',
-                 back  ='/backup.pkl',
-                 seed=None,
-                 rank = 0,
+                 ncheckpoint    = 0,
+                 outdir         = './',
+                 resume         = '/resume.pkl',
+                 back           = '/backup.pkl',
+                 seed           = None,
+                 rank           = 0,
                  **kwargs):
 
         # engine tag
@@ -75,13 +75,8 @@ class SamplerBody(object):
                 self.ncheckpoint = ncheckpoint
                 self.store_flag = True
 
-            # initialize random seed
-            if seed == None:
-                import time
-                self.seed = int(time.time())
-            else:
-                self.seed = seed
-            np.random.seed(self.seed)
+            # store random seed
+            self.seed = seed
 
             #initialize specific sampler
             self.__initialize__(posterior, **kwargs)
@@ -131,9 +126,6 @@ class SamplerBody(object):
         for kw in list(previous_inference.keys()):
             logger.debug("Setting {} attribute ...".format(kw))
             self.__setattr__(kw, previous_inference[kw])
-
-        # re-initialize seed
-        np.random.seed(self.seed)
 
         # restore specific sampler
         self.__restore__(**kwargs)

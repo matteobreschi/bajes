@@ -3,6 +3,9 @@
 # [v0.3.0] August 2022
 * Unify pipeline core with `__main__` routine
 * Improve `Waveform` object and introduce `approx_dict`
+* Switch to `argparse` for option parsing
+* Fix initialization of random numbers generator for reproducibility
+* Fix compatibility with `dynesty==1.2.3`
 
 # [v0.2.2] June 2022
 * Include ROQ approximation `JenpyROQ` in pipeline

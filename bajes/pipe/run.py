@@ -39,6 +39,16 @@ def finalize(inference):
 
 def run_main(opts, pool=None, close_pool=None):
 
+    # initialize random seed
+    import numpy, random
+
+    if opts.seed == None:
+        import time
+        opts.seed = int(time.time())
+
+    random.seed(opts.seed)
+    numpy.random.seed(opts.seed)
+
     # header
     print_header(opts.engine, opts.nprocs)
 
@@ -70,7 +80,17 @@ def run_main_mpi(opts, Pool):
 
     # initialize random seed
     # note that this step is common to all processes
-    import numpy
+    import numpy, random
+
+    if opts.seed == None:
+        # different workers might arrive at this point at different times
+        # the best option would be to share master seed to workers
+        # on the other hand if you end up here you're not specifying the random seed
+        # meaning that you dont care
+        import time
+        opts.seed = int(time.time())
+
+    random.seed(opts.seed+Pool.rank)
     numpy.random.seed(opts.seed+Pool.rank)
 
     # open pool
@@ -105,6 +125,21 @@ def run_main_mpi_ultranest(opts, rank, size):
     # in order to activate the multiprocessing pool (in each task, if needed)
     # Then the processes are joined together by ultranest routines, during the run()
 
+    # initialize random seed
+    # note that this step is common to all processes
+    import numpy, random
+
+    if opts.seed == None:
+        # different workers might arrive at this point at different times
+        # the best option would be to share master seed to workers
+        # on the other hand if you end up here you're not specifying the random seed
+        # meaning that you dont care
+        import time
+        opts.seed = int(time.time())
+
+    random.seed(opts.seed+rank)
+    numpy.random.seed(opts.seed+rank)
+
     # estimate cpu_per_task
     cpu_per_task = int(opts.nprocs)//size
 
@@ -124,11 +159,6 @@ def run_main_mpi_ultranest(opts, rank, size):
         if opts.debug:  logger.debug("Using logger with debugging mode")
         print_header(opts.engine, opts.nprocs)
         logger.info("> MPI world initisalized")
-
-    # initialize random seed
-    # note that this step is common to all processes
-    import numpy
-    numpy.random.seed(opts.seed+rank)
 
     # initialize likelihood, prior and sampler
     pr, lk      = init_model(opts)

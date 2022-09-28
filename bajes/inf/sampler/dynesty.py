@@ -194,9 +194,13 @@ class SamplerDynesty(SamplerBody):
 
         like_fn         = posterior.log_like
         ptform_fn       = posterior.prior_transform
-        self.sampler    = self._initialize_sampler(like_fn, ptform_fn, proposals, sampler_kwargs)
+        self.sampler    = self._initialize_sampler(like_fn,
+                                                   ptform_fn,
+                                                   proposals,
+                                                   dynesty.__version__,
+                                                   sampler_kwargs)
 
-    def _initialize_sampler(self, like_fn, ptform_fn, proposals, kwargs):
+    def _initialize_sampler(self, like_fn, ptform_fn, proposals, dynesty_version, kwargs):
         # extract prior samples, ensuring finite logL
         logger.info("Extracting prior samples ...")
         live_points = get_prior_samples_dynesty(kwargs['nlive'], kwargs['ndim'], like_fn, ptform_fn, kwargs['pool'])
@@ -217,7 +221,11 @@ class SamplerDynesty(SamplerBody):
         # clean up sampler
         del sampler._PROPOSE
         del sampler._UPDATE
-        sampler.rstate = np.random
+
+        # from dynesty==1.2.3, the package employs a random.Generator
+        if int(dynesty_version.split('.')[1]) >= 2 :    sampler.rstate = np.random.default_rng(seed=self.seed)
+        else:                                           sampler.rstate = np.random
+
         return sampler
 
     def __restore__(self, pool, **kwargs):
@@ -229,9 +237,6 @@ class SamplerDynesty(SamplerBody):
         else:
             self.sampler.pool   = pool
             self.sampler.M      = pool.map
-
-        # re-initialize random
-        self.sampler.rstate = np.random
 
     def __run__(self):
 
@@ -375,7 +380,7 @@ class SamplerDynestyDynamic(SamplerDynesty):
         state   = self.__dict__.copy()
         state['sampler'].pool   = None
         state['sampler'].M      = None
-        state['sampler'].rstate = None
+        # state['sampler'].rstate = None
         return state
 
     def __run__(self):

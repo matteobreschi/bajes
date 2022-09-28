@@ -65,7 +65,7 @@ def save_opts(opts):
 if __name__ == "__main__":
 
     # parse input arguments
-    opts, args = parse_setup_options()
+    opts = parse_setup_options()
 
     # make output directory and initialize logger
     opts.outdir = os.path.abspath(opts.outdir)

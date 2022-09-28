@@ -1,4 +1,4 @@
-![](https://raw.githubusercontent.com/matteobreschi/bajes/release/v0.3.0/docs/bajes.png)
+![](https://raw.githubusercontent.com/matteobreschi/bajes/release/v0.3.0/docs/figs/bajes.png)
 
 [![PyPI](https://img.shields.io/pypi/v/bajes)](https://pypi.org/project/bajes/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/bajes)](https://pypi.org/project/bajes/)
@@ -37,7 +37,7 @@ or type `python -m bajes --help`.
 
 ## Pipeline
 
-![](https://raw.githubusercontent.com/matteobreschi/bajes/release/v0.3.0/docs/pipe.png)
+![](https://raw.githubusercontent.com/matteobreschi/bajes/release/v0.3.0/docs/figs/pipe.png)
 
 The *bajes*  infrastructure allows the user to set up a pipeline for parameters
 estimation of multi-messenger transients.

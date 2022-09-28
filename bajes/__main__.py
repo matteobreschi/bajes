@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     # parse options
     from .pipe import parse_main_options, set_logger, ensure_dir
-    opts, args = parse_main_options()
+    opts = parse_main_options()
 
     # start memory tracing, if requested
     if opts.trace_memory:
