@@ -15,6 +15,7 @@ from bajes.pipe import ensure_dir, execute_bash, set_logger
 class BajesPipeError(Exception):
     pass
 
+
 def write_executable(outdir, config, string1, string2, string3, string4):
 
     # checking if executable is already in outdir
@@ -494,6 +495,13 @@ def write_setup_string(config, tags, outdir):
             run_string += '--alpha {}'.format(config['gw-data']['alpha'])
 
         run_string += '--approx {} '.format(config['gw-prior']['approx'])
+
+        if 'roq' in list_keys_in_prior:
+            if int(config['gw-prior']['roq']):
+                run_string += '--use-roq --roq-path {} '.format(config['gw-prior']['roq-path'])
+                if 'roq-tc-points' in list_keys_in_prior:
+                    run_string += '--roq-tc-points {} '.format(config['gw-prior']['roq-tc-points'])
+
         run_string += '--spin-flag {} '.format(config['gw-prior']['spin-flag'])
         run_string += '--tidal-flag {} '.format(config['gw-prior']['tidal-flag'])
         run_string += '--mc-min {} '.format(config['gw-prior']['mchirp-min'])
