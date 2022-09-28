@@ -1,10 +1,14 @@
-from __future__ import division, unicode_literals, absolute_import
+from __future__        import division, unicode_literals, absolute_import
+from numpy             import cos, sin
+from scipy.interpolate import splev
 import numpy as np
-from numpy import cos, sin
 
-from .utils import tdwf_2_fdwf, fdwf_2_tdwf
+from .utils  import tdwf_2_fdwf, fdwf_2_tdwf
 from .strain import lagging
-from ... import CLIGHT_SI
+from ...     import CLIGHT_SI
+
+import logging
+logger = logging.getLogger(__name__)
 
 def gmst_accurate(gps_time):
     from astropy.time import Time
@@ -132,7 +136,7 @@ def get_detector_information(ifo):
         yarm_azimuth    = 3.7699007123
         xarm_tilt       = -6.195e-4
         yarm_tilt       = 1.25e-5
-    # The CE-North and CE-South detectors are --fiducial-- sites and configurations for the main US CE (in Idaho) and a secondary CE in Australia, respectively. 
+    # The CE-North and CE-South detectors are --fiducial-- sites and configurations for the main US CE (in Idaho) and a secondary CE in Australia, respectively.
     # These were used for the CE Horizon Study: https://arxiv.org/abs/2109.09882
     elif 'CE-North' in ifo:
         latitude        = 0.764918
@@ -373,7 +377,7 @@ class Detector(object):
         dec = self.latitude
         return ra, dec
 
-    def project_fdwave(self, wave, params, tag):
+    def project_fdwave(self, wave, params, tag, roq=None):
         """
             Project waveform on Detector, with frequency-domain output
 
@@ -385,21 +389,25 @@ class Detector(object):
             Return:
                 - projected wave : np.array, waveform projected on this detector in the frequency-domain
         """
+        
         # compute F+,Fx for the detecor at the moment t-gps + time-shift
-        fplus , fcross  = self.antenna_pattern(params['ra'], params['dec'], params['psi'], params['t_gps']+params['time_shift'])
+        fplus, fcross = self.antenna_pattern(params['ra'], params['dec'], params['psi'], params['t_gps']+params['time_shift'])
         # compute delay from Earth geocenter to detector
-        delay   = self.time_delay_from_earth_center(params['ra'], params['dec'], params['t_gps']+params['time_shift']) + params['time_shift']
+        delay         = self.time_delay_from_earth_center(params['ra'], params['dec'], params['t_gps']+params['time_shift']) + params['time_shift']
         # apply antenna patterns
-        proj_h  = fplus*wave.plus + fcross*wave.cross
+        proj_h        = fplus*wave.plus + fcross*wave.cross
 
         if tag == 'freq':
-            return proj_h*np.exp(-2j*np.pi*self.freqs*delay)
+
+            # In the ROQ formalism, the time delay is already incorporated in the pre-computed weights.
+            if roq==None: return proj_h*np.exp(-2j*np.pi*self.freqs*delay)
+            else:         return proj_h
 
         elif tag == 'time':
             # tdwf_2_fdwf (compute fft, interpolate) + apply time delay
             return tdwf_2_fdwf(self.freqs, proj_h, 1./self.srate) * np.exp(-2j*np.pi*self.freqs*delay)
 
-    def project_tdwave(self, wave, params, tag):
+    def project_tdwave(self, wave, params, tag, roq=None):
         """
             Project waveform on Detector, with time-domain output
 
@@ -412,7 +420,7 @@ class Detector(object):
                 - projected wave : np.array, waveform projected on this detector in the time-domain
         """
         # compute F+,Fx for the detecor at the moment t-gps + time-shift
-        fplus , fcross  = self.antenna_pattern(params['ra'], params['dec'], params['psi'], params['t_gps']+params['time_shift'])
+        fplus, fcross = self.antenna_pattern(params['ra'], params['dec'], params['psi'], params['t_gps']+params['time_shift'])
         # compute delay from Earth geocenter to detector
         delay = self.time_delay_from_earth_center(params['ra'] , params['dec'] , params['t_gps']+params['time_shift']) + params['time_shift']
         # apply antenna patterns
@@ -424,8 +432,8 @@ class Detector(object):
 
         elif tag == 'freq':
             # compute ifft and apply time delay from geocenter
-            proj_wave = fdwf_2_tdwf(self.freqs, proj_h * np.exp(-2j*np.pi*self.freqs*delay), 1./self.srate)
-            return proj_wave
+            if roq==None: return fdwf_2_tdwf(self.freqs, proj_h * np.exp(-2j*np.pi*self.freqs*delay), 1./self.srate)
+            else:         return proj_h
 
     def store_measurement(self,
                           series,
@@ -470,7 +478,8 @@ class Detector(object):
 
         self._dd = (4./self.seglen) * np.sum(np.abs(self.data)**2./self.psd)
 
-    def compute_inner_products(self, hphc, params, tag, psd_weight_factor=False):
+
+    def compute_inner_products(self, hphc, params, tag, psd_weight_factor=False, roq=None):
         """
             Compute inner products
 
@@ -481,19 +490,21 @@ class Detector(object):
                 - psd_weight_factor : bool, return PSD weight likelihood factor
 
             Return:
-                - d_h           : numpy.array, corresponding to the integrand of the inner product
+                - d_h           : numpy.array corresponding to the integrand of the inner product (if roq=None) or float (if roq is not None) corresponding to the inner product
                 - h_h           : float, self inner product of the waveform
                 - d_d           : float, self inner product of the data
                 - psd_factor    : float
         """
-        # project waveform on detector
-        wav = self.project_fdwave(hphc, params, tag)
-        psd = self.psd
 
+        # The hphc waveform was already time-shifted to the center of the segment (seglen/2.), now add `time_shift` and the time delay, together with projection onto the detector.
+        wav = self.project_fdwave(hphc, params, tag, roq=roq)
+        
         # apply calibration envelopes
         if self.nspcal > 0:
             cal = compute_spcalenvs(self.ifo, self.nspcal, params)
             wav = wav*np.interp(self.freqs, self.spcal_freqs, cal)
+
+        psd = self.psd
 
         # apply PSD weights and compute (d|d)
         if self.nweights == 0:
@@ -501,15 +512,19 @@ class Detector(object):
             _w  = 0.
         else:
             weights = compute_psdweights(self.ifo, self.nweights, self.len_weights, params)
-            _w  = (np.log(weights)).sum()
-            psd = psd * weights
-            dd  = (4./self.seglen) * (np.abs(self.data)**2./psd).sum()
+            _w      = (np.log(weights)).sum()
+            psd     = psd * weights
+            dd      = (4./self.seglen) * (np.abs(self.data)**2./psd).sum()
 
-        hh = (4./self.seglen) * (np.abs(wav)**2./psd).sum()
-        dh = np.zeros(self._nfr, dtype=complex)
-        dh[self._mask] = (4./self.seglen) * np.conj(self.data)*wav/psd
-
-        if psd_weight_factor:
-            return dh, hh, dd, _w
+        # In the ROQ case, the inner product is immediately computed when multiplying by the weights. Otherwise we compute only the integrand of the dh inner product, since this is needed when using time marginalisation.
+        if roq is not None:
+            hh             = np.dot(roq[self.ifo]['psi_weights'], np.abs(wav[roq['mask_psi']])**2)
+            tc             = self.seglen/2.+self.time_delay_from_earth_center(params['ra'], params['dec'], params['t_gps']+params['time_shift']) + params['time_shift']
+            dh             = np.dot(roq[self.ifo]['omega_weights_interp'](tc), wav[roq['mask_omega']])
         else:
-            return dh, hh, dd
+            hh             = (4./self.seglen) * (np.abs(wav)**2./psd).sum()
+            dh             = np.zeros(self._nfr, dtype=complex)
+            dh[self._mask] = (4./self.seglen) * np.conj(self.data)*wav/psd
+
+        if psd_weight_factor: return dh, hh, dd, _w
+        else:                 return dh, hh, dd

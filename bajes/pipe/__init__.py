@@ -6,6 +6,7 @@ import os
 import numpy as np
 
 from scipy.linalg import expm, norm
+from scipy import interpolate
 
 try:
     import subprocess
@@ -242,14 +243,12 @@ def close_pool_mthr(pool):
 def initialize_mthr_pool(nprocs):
     if nprocs == None:
         return None, None
-    logger.info("Initializing parallel pool ...")
     from multiprocessing import Pool
     pool = Pool(nprocs-1)
     close_pool = close_pool_mthr
     return  pool, close_pool
 
 # pipeline/core methods
-
 # def parse_main_options():
 #
 #     from .. import __version__, __doc__
@@ -317,31 +316,31 @@ def parse_main_options():
     parser.add_option('-l', '--like',   dest='like',        default=None,       type='string',  help='path to likelihood function (python file)')
     parser.add_option('-I', '--inf',    dest='inf',         default=None,       type='string',  help='path to pickle inference')
 
+    # I/O options
+    parser.add_option('-o', '--outdir', dest='outdir',         default=None,      type='string',                        help='directory for output')
+    parser.add_option('-D', '--debug',  dest='debug',          default=False,                     action="store_true",  help='use debugging mode for logger')
+    parser.add_option('-v','--verbose', dest='silence',        default=True,                      action="store_false", help='activate stream handler, use this if you are running on terminal')
+    parser.add_option('--tracing',      dest='trace_memory',   default=False,                     action="store_true",  help='keep track of memory usage')
+    parser.add_option('--n-tracing',    dest='n_trace_memory', default=25,        type='int',                           help='number of iteration after each memory trace. Default: 25')
+
     # Generic run options
-    parser.add_option('--engine',       dest='engine',      default='dynesty',  type='string',                        help='sampler engine name, available options: {}. Default: dynesty'.format(__known_samplers__))
+    parser.add_option('-e', '--engine', dest='engine',      default='dynesty',  type='string',                        help='sampler engine name, available options: {}. Default: dynesty'.format(__known_samplers__))
     parser.add_option('--priorgrid',    dest='priorgrid',   default=1000,       type='int',                           help='number of nodes for prior interpolators (if needed)')
     parser.add_option('--checkpoint',   dest='ncheck',      default=0,          type='int',                           help='number of periodic checkpoints')
     parser.add_option('--seed',         dest='seed',        default=None,       type='int',                           help='seed for the pseudo-random chain')
     parser.add_option('--use-slice',    dest='use_slice',   default=False,                     action="store_true",  help='use slice proposal (emcee, ptmcmc, cpnest)')
     parser.add_option('--use-gw',       dest='use_gw',      default=False,                     action="store_true",  help='use slice proposal (emcee, ptmcmc, cpnest)')
 
-    # I/O options
-    parser.add_option('-o', '--outdir', dest='outdir',         default=None,      type='string',                        help='directory for output')
-    parser.add_option('--debug',        dest='debug',          default=False,                     action="store_true",  help='use debugging mode for logger')
-    parser.add_option('--verbose',      dest='silence',        default=True,                      action="store_false", help='activate stream handler, use this if you are running on terminal')
-    parser.add_option('--tracing',      dest='trace_memory',   default=False,                     action="store_true",  help='keep track of memory usage')
-    parser.add_option('--n-tracing',    dest='n_trace_memory', default=25,        type='int',                           help='number of iteration after each memory trace. Default: 25')
-
     # Nested sampling options
-    parser.add_option('--nlive',        dest='nlive',       default=1024,   type='int',     help='[nest] number of live points. Default: 1024')
-    parser.add_option('--tol',          dest='tolerance',   default=0.1,    type='float',   help='[nest] evidence tolerance. Default: 0.1')
-    parser.add_option('--maxmcmc',      dest='maxmcmc',     default=4096,   type='int',     help='[nest] maximum number of mcmc iterations. Default: 4096')
-    parser.add_option('--minmcmc',      dest='minmcmc',     default=32,     type='int',     help='[nest] minimum number of mcmc iterations. Default: 32')
-    parser.add_option('--poolsize',     dest='poolsize',    default=2048,   type='int',     help='[nest] number of sample in the pool (cpnest). Default: 2048')
-    parser.add_option('--nact',         dest='nact',        default=5,      type='int',     help='[nest] sub-chain safe factor (dynesty). Default: 5')
-    parser.add_option('--nbatch',       dest='nbatch',      default=512,    type='int',     help='[nest] number of live points for batch (dynesty-dyn). Default: 512')
-    parser.add_option('--dkl',          dest='dkl',         default=0.5,    type='float',   help='[nest] target KL divergence (ultranest). Default: 0.5')
-    parser.add_option('--z-frac',       dest='z_frac',      default=None,   type='float',   help='[nest] remaining Z fraction (ultranest). Default: None')
+    parser.add_option('--nlive',         dest='nlive',       default=1024,      type='int',                          help='[nest] number of live points. Default: 1024')
+    parser.add_option('--tol',           dest='tolerance',   default=0.1,       type='float',                        help='[nest] evidence tolerance. Default: 0.1')
+    parser.add_option('--maxmcmc',       dest='maxmcmc',     default=4096,      type='int',                          help='[nest] maximum number of mcmc iterations. Default: 4096')
+    parser.add_option('--minmcmc',       dest='minmcmc',     default=32,        type='int',                          help='[nest] minimum number of mcmc iterations. Default: 32')
+    parser.add_option('--poolsize',      dest='poolsize',    default=2048,      type='int',                          help='[nest] number of sample in the pool (cpnest). Default: 2048')
+    parser.add_option('--nact',          dest='nact',        default=5,         type='int',                          help='[nest] sub-chain safe factor (dynesty). Default: 5')
+    parser.add_option('--nbatch',        dest='nbatch',      default=512,       type='int',                          help='[nest] number of live points for batch (dynesty-dyn). Default: 512')
+    parser.add_option('--dkl',           dest='dkl',         default=0.5,       type='float',                        help='[nest] target KL divergence (ultranest). Default: 0.5')
+    parser.add_option('--z-frac',        dest='z_frac',      default=None,      type='float',                        help='[nest] remaining Z fraction (ultranest). Default: None')
 
     # MCMC options
     parser.add_option('--nout',         dest='nout',        default=10000,  type='int',     help='[mcmc] number of posterior samples')
@@ -370,7 +369,7 @@ def parse_setup_options():
     parser=op.OptionParser(usage=usage, version=__version__, description="Initialize prior and likelihood in inf.pkl for parameter estimation.")
 
     # Generic run options
-    parser.add_option('--tag',               dest='tags',           default=[],        type='string', action="append",       help="Tag for data messenger. Available options: ['gw', 'kn'].")
+    parser.add_option('--tag',               dest='tags',           default=[],        type='string',  action="append",      help='Tag for data messenger. Available options: [`gw`, `kn`].')
     parser.add_option('--t-gps',             dest='t_gps',                             type='float',                         help='GPS time: for GW, center value of time axis (if a local version of the data is provided, has to coincide with this value for the input time axis); for KN, initial value of time axis')
     parser.add_option('--priorgrid',         dest='priorgrid',      default=1000,      type='int',                           help='number of nodes for prior interpolators (if needed)')
 
@@ -397,26 +396,26 @@ def parse_setup_options():
     #
 
     # Data and PSDs information
-    parser.add_option('--ifo',               dest='ifos',           default=[],        type='string',  action="append",      help='Detector to be considered in the analysis. Has to be passed once per detector, and sets the order for similar commands to pass strains and psds. Available options: [H1, L1, V1, K1, G1]. Default: []')
-    parser.add_option('--strain',            dest='strains',        default=[],        type='string',  action="append",      help='Path to strain data. Has to be passed once per detector and in the same order as the `--ifo` options. Default: []')
-    parser.add_option('--asd',               dest='asds',           default=[],        type='string',  action="append",      help='Path to ASD data. Has to be passed once per detector and in the same order as the `--ifo` options. Default: []')
+    parser.add_option('--ifo',               dest='ifos',           default=[],        type='string',  action="append",      help='Detector to be considered in the analysis. Has to be passed once per detector, and sets the order for similar commands to pass strains and psds. Available options: [`H1`, `L1`, `V1`, `K1`, `G1`]. Default: [].')
+    parser.add_option('--strain',            dest='strains',        default=[],        type='string',  action="append",      help='Path to strain data. Has to be passed once per detector and in the same order as the `--ifo` options. Default: [].')
+    parser.add_option('--asd',               dest='asds',           default=[],        type='string',  action="append",      help='Path to ASD data. Has to be passed once per detector and in the same order as the `--ifo` options. Default: [].')
     parser.add_option('--alpha',             dest='alpha',          default=None,      type='float',                         help='Alpha parameter of the Tukey window. Default: 0.4/seglen.')
 
-    # Optional, calibration envelopes
+    # Calibration envelopes (optional)
     parser.add_option('--spcal',             dest='spcals',         default=[],        type='string',  action="append",      help='Path to calibration envelope. Has to be passed once per detector and in the same order as the `--ifo` options. Default: []')
     parser.add_option('--nspcal',            dest='nspcal',         default=0,         type='int',                           help='Number of spectral calibration nodes. Default: 0')
 
     # Time series information
     parser.add_option('--f-min',             dest='f_min',          default=None,      type='float',                         help='Mandatory parameter: minimum frequency at which likelihood is evaluated [Hz]. Default: None')
     parser.add_option('--f-max',             dest='f_max',          default=None,      type='float',                         help='Mandatory parameter: maximum frequency at which likelihood is evaluated [Hz]. Default: None')
-    parser.add_option('--srate',             dest='srate',          default=None,      type='float',                         help='Mandatory parameter: requested sampling rate [Hz]. If smaller than data samppling rate, downsampling is applied. Default: None')
+    parser.add_option('--srate',             dest='srate',          default=None,      type='float',                         help='Mandatory parameter: requested sampling rate [Hz]. If smaller than data sampling rate, downsampling is applied. Default: None')
     parser.add_option('--seglen',            dest='seglen',         default=None,      type='float',                         help='Mandatory parameter: requested length of the segment to be analysed [sec]. If smaller than data total lenght, data are cropped. If longer, data are padded. Default: None.')
 
     # Waveform model
     parser.add_option('--approx',            dest='approx',         default=None,      type='string',                        help='Gravitational-wave approximant. Default: None')
     parser.add_option('--extra-option',      dest='extra_opt',      default=[],        type='string',  action="append",      help='Names of the additional parameters for the chosen approximant. Has to be passed once for each parameter. Default: []')
     parser.add_option('--extra-option-val',  dest='extra_opt_val',  default=[],        type='string',  action="append",      help='Values of the additional parameters for the chosen approximant. Has to be passed once for each parameter and in the same order as the `--extra-option` option. Default: []')
-    parser.add_option('--lmax',              dest='lmax',           default=0,         type='int',                           help='Higher angular mode index to be considered for GW template. Default: 0')
+    parser.add_option('--lmax',              dest='lmax',           default=0,         type='int',                           help='Higher angular mode index to be considered for GW template. The zero value corresponds to MISSING. Default: 0')
     parser.add_option('--Eprior',            dest='Eprior',         default=None,      type='str',                           help='Prior on the initial energy in hyperbolic TEOB models. Default: None. Available options: [Constrained, Unconstrained].')
     parser.add_option('--nqc-TEOBHyp',       dest='nqc_TEOBHyp',    default=1,         type='int',                           help='Flag to activate/deactivate (1/0) NQCs in hyperbolic TEOB models. Default: 1.')
 
@@ -426,44 +425,44 @@ def parse_setup_options():
     parser.add_option('--tidal-flag',        dest='lambda_flag',    default='no-tides', type='string',                       help='Tidal prior flag. Available options: [???]. Default: `no-tides`.')
 
     # Prior bounds
-    parser.add_option('--mc-min',            dest='mchirp_min',      default=None,   type='float',   help='lower mchirp prior bound (if use-mtot, lower mtot prior bound)')
-    parser.add_option('--mc-max',            dest='mchirp_max',      default=None,   type='float',   help='upper mchirp prior bound (if use-mtot, upper mtot prior bound)')
-    parser.add_option('--q-max',             dest='q_max',           default=None,   type='float',   help='upper mass ratio prior bound')
-    parser.add_option('--q-min',             dest='q_min',           default=1.,     type='float',   help='lower mass ratio prior bound')
-    #parser.add_option('--mass-max',        dest='mass_max',       default=None,   type='float',   help='upper mass component prior bound')
-    #parser.add_option('--mass-min',        dest='mass_min',       default=None,   type='float',   help='lower mass component prior bound')
-    parser.add_option('--spin-max',          dest='spin_max',        default=None,   type='float',   help='upper spin prior bound')
-    parser.add_option('--spin1-max',         dest='spin1_max',      default=None,   type='float',   help='upper spin prior bound')
-    parser.add_option('--spin2-max',         dest='spin2_max',      default=None,   type='float',   help='upper spin prior bound')
-    parser.add_option('--lambda-min',        dest='lambda_min',      default=None,   type='float',   help='lower tidal prior bound')
-    parser.add_option('--lambda-max',        dest='lambda_max',      default=None,   type='float',   help='upper tidal prior bound')
-    parser.add_option('--use-mtot',          dest='use_mtot',     default=False,  action="store_true",    help='Perform sampling in mtot instead of mchirp, default False')
+    parser.add_option('--mc-min',            dest='mchirp_min',      default=None,      type='float',                        help='lower mchirp prior bound (if use-mtot, lower mtot prior bound)')
+    parser.add_option('--mc-max',            dest='mchirp_max',      default=None,      type='float',                        help='upper mchirp prior bound (if use-mtot, upper mtot prior bound)')
+    parser.add_option('--q-max',             dest='q_max',           default=None,      type='float',                        help='upper mass ratio prior bound')
+    parser.add_option('--q-min',             dest='q_min',           default=1.,        type='float',                        help='lower mass ratio prior bound')
+#    parser.add_option('--mass-max',          dest='mass_max',        default=None,      type='float',                        help='upper mass component prior bound')
+#    parser.add_option('--mass-min',          dest='mass_min',        default=None,      type='float',                        help='lower mass component prior bound')
+    parser.add_option('--spin-max',          dest='spin_max',        default=None,      type='float',                        help='upper spin prior bound')
+    parser.add_option('--spin1-max',         dest='spin1_max',       default=None,      type='float',                        help='upper spin prior bound')
+    parser.add_option('--spin2-max',         dest='spin2_max',       default=None,      type='float',                        help='upper spin prior bound')
+    parser.add_option('--lambda-min',        dest='lambda_min',      default=None,      type='float',                        help='lower tidal prior bound')
+    parser.add_option('--lambda-max',        dest='lambda_max',      default=None,      type='float',                        help='upper tidal prior bound')
+    parser.add_option('--use-mtot',          dest='use_mtot',        default=False,                     action="store_true", help='Perform sampling in mtot instead of mchirp, default False')
 
     # Extra parameters
-    parser.add_option('--use-energy-angmom', dest='ej_flag',     default=False,  action="store_true",    help='include energy and angular momentum parameters')
-    parser.add_option('--use-eccentricity',  dest='ecc_flag',    default=False,  action="store_true",    help='include energy and angular momentum parameters')
-    parser.add_option('--e-min',             dest='e_min',   type='float',   default=None,   help='lower energy prior bound')
-    parser.add_option('--e-max',             dest='e_max',   type='float',   default=None,   help='upper energy prior bound')
-    parser.add_option('--j-min',             dest='j_min',   type='float',   default=None,   help='lower angular momentum prior bound')
-    parser.add_option('--j-max',             dest='j_max',   type='float',   default=None,   help='upper angular momentum prior bound')
-    parser.add_option('--ecc-min',           dest='ecc_min', type='float',   default=None,   help='lower eccentricity prior bound')
-    parser.add_option('--ecc-max',           dest='ecc_max', type='float',   default=None,   help='upper eccentricity prior bound')
+    parser.add_option('--use-energy-angmom', dest='ej_flag',         default=False,                     action="store_true", help='include energy and angular momentum parameters')
+    parser.add_option('--use-eccentricity',  dest='ecc_flag',        default=False,                     action="store_true", help='include energy and angular momentum parameters')
+    parser.add_option('--e-min',             dest='e_min',           default=None,      type='float',                        help='lower energy prior bound')
+    parser.add_option('--e-max',             dest='e_max',           default=None,      type='float',                        help='upper energy prior bound')
+    parser.add_option('--j-min',             dest='j_min',           default=None,      type='float',                        help='lower angular momentum prior bound')
+    parser.add_option('--j-max',             dest='j_max',           default=None,      type='float',                        help='upper angular momentum prior bound')
+    parser.add_option('--ecc-min',           dest='ecc_min',         default=None,      type='float',                        help='lower eccentricity prior bound')
+    parser.add_option('--ecc-max',           dest='ecc_max',         default=None,      type='float',                        help='upper eccentricity prior bound')
 
     # Optional, marginalize over phi_ref and/or time_shift
-    parser.add_option('--marg-phi-ref',      dest='marg_phi_ref',        default=False,  action="store_true",   help='phi-ref marginalization flag')
-    parser.add_option('--marg-time-shift',   dest='marg_time_shift',     default=False,  action="store_true",   help='time-shift marginalization flag')
+    parser.add_option('--marg-phi-ref',      dest='marg_phi_ref',    default=False,                     action="store_true", help='phi-ref marginalization flag')
+    parser.add_option('--marg-time-shift',   dest='marg_time_shift', default=False,                     action="store_true", help='time-shift marginalization flag')
 
     # Optional, number of PSD weights
-    parser.add_option('--psd-weights',       dest='nweights',         default=0,     type='int',  help='number of PSD weight parameters per IFO, default 0')
+    parser.add_option('--psd-weights',       dest='nweights',        default=0,         type='int',                          help='number of PSD weight parameters per IFO, default 0')
 
     # ROQ options
-    parser.add_option('--use-roq',           dest='roq',         default=False,  action="store_true",    help='ROQ flag')
-    parser.add_option('--roq-epsilon',       dest='roq_epsilon', default=1e-6,   type='float',           help='accuracy for ROQ approximation, default 1e-6')
-    parser.add_option('--roq-training',      dest='roq_points',  default=5000,   type='int',             help='number of training points for ROQ, default 5000')
+    parser.add_option('--use-roq',           dest='roq',             default=False,                     action="store_true", help='ROQ flag, activates ROQ likelihood computation.')
+    parser.add_option('--roq-path',          dest='roq_path',        default='',        type='str',                          help='ROQ data path, storing the basis data generated following the conventions of `https://github.com/bernuzzi/PyROQ/tree/master/PyROQ`.')
+    parser.add_option('--roq-tc-points',     dest='roq_tc_points',   default=10000,     type='int',                          help='Number of points used to interpolate the time axis when using the ROQ. Default: 10000')
 
     # GWBinning options
-    parser.add_option('--use-binning',       dest='binning',     default=False,  action="store_true",    help='frequency binning flag')
-    parser.add_option('--fiducial',          dest='fiducial',    default=None,   type='string',  help='path to parameters file for gwbinning')
+    parser.add_option('--use-binning',       dest='binning',         default=False,                     action="store_true", help='frequency binning flag')
+    parser.add_option('--fiducial',          dest='fiducial',        default=None,      type='string',                       help='path to parameters file for gwbinning')
 
     #
     # KN OPTIONS
@@ -692,84 +691,86 @@ def init_proposal(engine, post, use_slice=False, use_gw=False, maxmcmc=4096, min
     elif engine == 'ultranest':
         return None
 
-# def get_roq_training_grid(prior, n_train):
-#
-#     _intrinsic_names = ['mchirp', 'mtot', 'q',                  # masses
-#                         's1z', 's2z',                           # aligned spins
-#                         's1', 'tilt1', 'phi_1l',                # precessing spin 1
-#                         's2', 'tilt2', 'phi_2l',                # precessing spin 2
-#                         'lambda1', 'lambda2',                   # tides
-#                         'eccentricity', 'angmom', 'energy'      # non-circular
-#                         ]
-#
-#     # default values for extrinsic parameters
-#     _default = {'phi_ref':0., 'time_shift':0., 'cosi': 1.}
-#     if 'distance' in prior.names:
-#         _default['distance'] = np.min(prior.bounds[prior.names.index('distance')])
-#
-#     _n = []
-#     _b = []
-#
-#     _o = {}
-#
-#     for i,ni in enumerate(prior.names):
-#
-#         if ni in _intrinsic_names:
-#             _n.append(ni)
-#             _b.append(prior.bounds[i])
-#         else:
-#             if ni in _default.keys():
-#                 _o[ni] = _default[ni]
-#             else:
-#                 _o[ni] = np.mean(prior.bounds[i])
-#
-#     # check eos sampling
-#     eos = sum([1 if 'eos' in ni for ni in prior.names else 0])
-#     if eos:
-#         _n.append('lambda1')
-#         _b.append([0,5000])
-#         _n.append('lambda2')
-#         _b.append([0,5000])
-#
-#     n_per_dim = int(float(n_train)**(1./len(_n)))
-#
-#     return
-#
-# def initialize_roq(freqs, srate , seglen, noise, prior, approx, n_training_points, epsilon):
-#     # set parameter
-#     params  = get_roq_training_grid(prior, n_training_points)
-#
-#     # initialize waveform generator and compute waveforms
-#     from ...obs.gw.waveform import Waveform
-#     wave    = Waveform(freqs, srate , seglen, approx)
-#     waves   = []
-#
-#     # compute PSD
-#     psd     = noise.interp_psd_pad(freqs)
-#
-#     # compute ROQ
-#     from .utils.roq import ROQ
-#     roq     = ROQ(freqs, 1./psd, params, waves, epsilon)
-#     x, i, w = roq.produceROQ()
-#
-#     return i, w
+def initialize_roq(roq_path   ,
+                   time_points,
+                   freqs_full ,
+                   data_f     ,
+                   psd        ,
+                   f_min      ,
+                   f_max      ,
+                   seglen     ,
+                   prior      ,
+                   approx     ):
+
+    from .utils.roq import Initialise_pyROQ_Jena_for_inference
+
+    # The ROQ linear weights need to be computed for all the possible coalescence times (tc).
+    # Our strategy will be to split the tc bounds in N intevals, and compute the weights for the central value of each interval.
+    # Then, from this set we will create an interpolant that will allow the ROQ weights computation for all possible values of tc.
+    if not 'time_shift' in prior.const.keys():
+        idx_t_shift = None
+        for i,param in enumerate(prior.names):
+            if(param=='time_shift'):
+                idx_t_shift = i
+                break
+        t_low, t_high = prior.bounds[idx_t_shift][0], prior.bounds[idx_t_shift][1]
+    else:
+        t_low, t_high = prior.const['time_shift'],    prior.const['time_shift']
+
+    # We need to account for the fact that tc will be different in each detector, so we pad the time bounds by the largest possible time delay across the Earth, 26ms, plus an additional bufer of 4ms to avoid interpolation errors at the boundaries.
+    # The waveform is generated by default with the peak at tc=0.0 and then shifted to the center of the time axis, seglen/2, which corresponds to t_gps.
+    central_tcs = np.linspace(seglen/2.+t_low-0.030, seglen/2.+t_high+0.030, time_points)
+
+    # Notation and method follow `arXiv:1604.08253`.
+    # Initialise ROQ evaluation class, checking that the requested parameters are covered by the constructed basis.
+    # Compute the new frequency axex as a mask to be placed on top of the input array of frequencies.
+    linear_frequencies, quadratic_frequencies, linear_weights_interp, quadratic_weights = Initialise_pyROQ_Jena_for_inference(path       = roq_path   ,
+                                                                                                                              approx     = approx     ,
+                                                                                                                              f_min      = f_min      ,
+                                                                                                                              f_max      = f_max      ,
+                                                                                                                              df         = 1./seglen  ,
+                                                                                                                              freqs_full = freqs_full ,
+                                                                                                                              psd        = psd        ,
+                                                                                                                              data_f     = data_f     ,
+                                                                                                                              tcs        = central_tcs)
+
+    # Here we join the two axes together, and their masks, so that later the waveform can be evaluated just once,
+    # but the distinct axes can be retrieved when computing the (h|h) or (d|h) terms.
+    freqs_conc         = np.concatenate((quadratic_frequencies,linear_frequencies))
+    # Avoid duplicates
+    freqs_conc_no_dupl = np.array(list(set(freqs_conc)))
+    # Restore order
+    roq_freqs_join     = np.sort(freqs_conc_no_dupl)
+
+    # Store masks that will be needed to evaluate the different likelihood components.
+    roq_mask_lin       = [i for i in range(len(roq_freqs_join)) if roq_freqs_join[i] in linear_frequencies]
+    roq_mask_qua       = [i for i in range(len(roq_freqs_join)) if roq_freqs_join[i] in quadratic_frequencies]
+
+    return roq_freqs_join, roq_mask_qua, roq_mask_lin, quadratic_weights, linear_weights_interp
 
 # main setup
 
 def get_likelihood_and_prior(opts):
 
-    # get likelihood objects
-    likes = []
+    # Get likelihood and prior objects for each of the "messengers" considered.
+    likes  = []
     priors = []
 
+    # Loop over the "messengers"
     for ti in opts.tags:
 
         if ti == 'gw':
 
-            # check
+            # Check inputs compatibility
             if opts.binning and opts.roq:
-                logger.error("Unable to set simultaneusly frequency-binning and ROQ approximation. Please choose one of the two options.")
-                raise AttributeError("Unable to set simultaneusly frequency-binning and ROQ approximation. Please choose one of the two options.")
+                logger.error("Unable to set simultaneusly frequency-binning and the ROQ approximation. Please choose one of the two options.")
+                raise AttributeError("Unable to set simultaneusly frequency-binning and the ROQ approximation. Please choose one of the two options.")
+            if opts.nspcal and opts.roq:
+                logger.error("The ROQ approximation has not yet been extended to incorporate calibration uncertainties. Please choose one of the two options.")
+                raise AttributeError("The ROQ approximation has not yet been extended to incorporate calibration uncertainties. Please choose one of the two options.")
+            if(opts.roq_tc_points < 4):
+                logger.error("Number of points on the time grid has to be at least four.")
+                raise ValueError("Number of points on the time grid has to be at least four.")
 
             # read arguments for likelihood and compute prior
             l_kwas, pr = initialize_gwlikelihood_kwargs(opts)
@@ -778,28 +779,41 @@ def get_likelihood_and_prior(opts):
 
                 from .utils.binning import GWBinningLikelihood as GWLikelihood
 
-            elif opts.roq:
-
-                logger.error("ROQ approximation not yet implemented.")
-                raise AttributeError("ROQ approximation not yet implemented.")
-
-                # from .utils.roq import ROQGWLikelihood as GWLikelihood
-                #
-                # # compute ROQ weights
-                # l_kwas['roq_weights'] = {}
-                #
-                # for ifo in opts.ifos:
-                #
-                #     logger.info("Computing ROQ weights for {} ...".format(ifo))
-                #     inds, wghts = initialize_roq(l_kwas['freqs'][l_kwas['datas'][ifo].mask],
-                #                                  l_kwas['srate'], l_kwas['seglen'],
-                #                                  l_kwas['noises'][ifo], pr, l_kwas['approx'],
-                #                                  opts.roq_epsilon, opts.roq_points)
-                #     l_kwas['roq_weights'][ifo] = [inds,wghts]
-
             else:
 
                 from .log_like import GWLikelihood
+
+                if opts.roq:
+
+                    # compute ROQ weights
+                    l_kwas['roq'] = {ifo: {} for ifo in opts.ifos}
+
+                    for ifo in opts.ifos:
+
+                        f_min_max_mask = l_kwas['datas'][ifo].mask
+                        freqs_full     = l_kwas['freqs'][f_min_max_mask]
+                        data_freq      = l_kwas['datas'][ifo].freq_series[f_min_max_mask]
+                        psd            = l_kwas['noises'][ifo].interp_psd_pad(freqs_full)
+
+                        logger.info("Computing ROQ weights for the {} detector.".format(ifo))
+                        roq_freqs_join, roq_mask_psi, roq_mask_omega, roq_psi_weights, roq_omega_weights_interp = initialize_roq(opts.roq_path     ,
+                                                                                                                                 opts.roq_tc_points,
+                                                                                                                                 freqs_full        ,
+                                                                                                                                 data_freq         ,
+                                                                                                                                 psd               ,
+                                                                                                                                 l_kwas['f-min']   ,
+                                                                                                                                 l_kwas['f-max']   ,
+                                                                                                                                 l_kwas['seglen']  ,
+                                                                                                                                 pr                ,
+                                                                                                                                 l_kwas['approx']  )
+
+                        l_kwas['roq'][ifo]['omega_weights_interp'] = roq_omega_weights_interp
+                        l_kwas['roq'][ifo]['psi_weights']          = roq_psi_weights
+
+                    # These quantities are detector independent, since in bajes the time axis is the same for all detectors.
+                    l_kwas['roq']['freqs_join'] = roq_freqs_join
+                    l_kwas['roq']['mask_psi']   = roq_mask_psi
+                    l_kwas['roq']['mask_omega'] = roq_mask_omega
 
             logger.info("Initializing GW likelihood ...")
 
@@ -823,26 +837,26 @@ def get_likelihood_and_prior(opts):
             logger.error("Unknown tag {} for likelihood initialization. Please use gw, kn or a combination.".format(opts.tags[0]))
             raise ValueError("Unknown tag {} for likelihood initialization. Please use gw, kn or a combination.".format(opts.tags[0]))
 
-    # reduce to single likelihood object (single or joined)
+    # Either reduce likelihood and prior objects to a single "messenger", or initialise joint objects.
     if len(opts.tags) == 0:
         logger.error("Unknown tag for likelihood initialization. Please use gw, kn or a combination.")
         raise ValueError("Unknown tag for likelihood initialization. Please use gw, kn or a combination.")
 
     elif len(opts.tags) == 1:
-        l_obj   = likes[0]
-        p_obj   = priors[0]
+        l_obj = likes[0]
+        p_obj = priors[0]
 
     else:
 
         from ..inf.prior import JointPrior
         from ..inf.likelihood import JointLikelihood
 
-        l_kwas              = {}
-        l_kwas['likes']     = likes
+        l_kwas          = {}
+        l_kwas['likes'] = likes
 
-        p_obj   = JointPrior(priors=priors, prior_grid=opts.priorgrid)
-        l_obj   = JointLikelihood(**l_kwas)
+        p_obj = JointPrior(priors=priors, prior_grid=opts.priorgrid)
+        l_obj = JointLikelihood(**l_kwas)
 
-    # save prior and likelihood in pickle
+    # Save the prior and likelihood objects in a pickle file, for future resuming and reproducibility.
     cont_kwargs = {'prior': p_obj, 'like': l_obj}
     save_container(opts.outdir+'/inf.pkl', cont_kwargs)

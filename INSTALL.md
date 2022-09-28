@@ -18,13 +18,6 @@ and the samplers,
 
 All these packages can be easily installed via `pip`.
 
-In order to execute the gravitational-wave pipeline routines,
-the user should install some further packages:
-* [`TEOBResumS`](https://bitbucket.org/eob_ihes/teobresums)
-* [`GWSurrogate`](https://pypi.org/project/gwsurrogate/)
-* [`MLGW`](https://pypi.org/project/mlgw/)
-* [`LALSuite`](https://lscsoft.docs.ligo.org/lalsuite/)
-
 ## Installing this package
 
 The *bajes* package is available on [`PyPI`](https://pypi.org/project/bajes/) and the installation can be performed using `pip` as
@@ -42,5 +35,15 @@ and the package can be installed with `setuptools` routines,
 
         sudo -E python setup.py install
 
-Once *bajes* is installed, it is possible to perform Bayesian inference on arbitrary models (see [`inf_tutorial`](docs/inf_tutorial.ipynb))
-and to execute the provided pipeline with a configuration file (see [`conifg_example`](docs/conifg_example.ini)).
+Once *bajes* is installed, it is possible to perform Bayesian inference on arbitrary models,
+see [`inf_tutorial`](https://github.com/matteobreschi/bajes/tree/release/v0.3.0/docs/inf_tutorial.ipynb).
+
+The execution of the provided pipeline can be handled with a configuration file,
+see [`conifg_example`](https://github.com/matteobreschi/bajes/tree/release/v0.3.0/docs/conifg_example.ini).
+In order to execute the gravitational-wave pipeline routines,
+the user should install additional packages depending on the requested template:
+* [`TEOBResumS`](https://bitbucket.org/eob_ihes/teobresums)
+* [`GWSurrogate`](https://pypi.org/project/gwsurrogate/)
+* [`MLGW`](https://pypi.org/project/mlgw/)
+* [`LALSuite`](https://lscsoft.docs.ligo.org/lalsuite/)
+* [`JenpyROQ`](https://github.com/gcarullo/JenpyROQ)

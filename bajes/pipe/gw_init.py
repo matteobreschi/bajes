@@ -55,38 +55,38 @@ def initialize_gwlikelihood_kwargs(opts):
     # set up data, detectors and PSDs
     for i,ifo in enumerate(opts.ifos):
         # read data
-        ifo         = opts.ifos[i]
-        data        = read_data(opts.data_flag, opts.strains[i], opts.srate)
-        f_asd , asd = read_asd(opts.asds[i], ifo)
+        ifo        = opts.ifos[i]
+        data       = read_data(opts.data_flag, opts.strains[i], opts.srate)
+        f_asd, asd = read_asd(opts.asds[i], ifo)
 
         # check ASD domain
         f_asd_min, f_asd_max = np.min(f_asd), np.max(f_asd)
-        if (opts.f_min < f_asd_min) or (opts.f_max > f_asd_max):
+        if (opts.f_min < f_asd_min) or ((opts.f_max-1./opts.seglen) > f_asd_max):
             logger.error("The provided ASD for the {} IFO does not have support over the full requested [f-min, f-max] = [{}, {}] range. While, the ASD has [{}, {}]".format(ifo, opts.f_min, opts.f_max, f_asd_min, f_asd_max))
             raise ValueError("The provided ASD for the {} IFO does not have support over the full requested [f-min, f-max] = [{}, {}] range. While, the ASD has [{}, {}]".format(ifo, opts.f_min, opts.f_max, f_asd_min, f_asd_max))
 
         if opts.binning:
-            # if frequency binning is on, the frequency series does not need to be cut
-            strains[ifo]      = Series('time' ,
-                                       data ,
-                                       srate=opts.srate,
-                                       seglen=opts.seglen,
-                                       f_min=opts.f_min,
-                                       f_max=opts.f_max,
-                                       t_gps=opts.t_gps,
-                                       only=False,
-                                       alpha_taper=opts.alpha)
+            # WORK IN PROGRESS: if frequency binning is on, the frequency series does not need to be cut
+            strains[ifo] = Series('time',
+                                  data,
+                                  srate       = opts.srate,
+                                  seglen      = opts.seglen,
+                                  f_min       = opts.f_min,
+                                  f_max       = opts.f_max,
+                                  t_gps       = opts.t_gps,
+                                  only        = False,
+                                  alpha_taper = opts.alpha)
 
         else:
-            strains[ifo]      = Series('time' ,
-                                       data ,
-                                       srate=opts.srate,
-                                       seglen=opts.seglen,
-                                       f_min=opts.f_min,
-                                       f_max=opts.f_max,
-                                       t_gps=opts.t_gps,
-                                       only=False,
-                                       alpha_taper=opts.alpha)
+            strains[ifo] = Series('time',
+                                  data,
+                                  srate       = opts.srate,
+                                  seglen      = opts.seglen,
+                                  f_min       = opts.f_min,
+                                  f_max       = opts.f_max,
+                                  t_gps       = opts.t_gps,
+                                  only        = False,
+                                  alpha_taper = opts.alpha)
 
         dets[ifo]       = Detector(ifo, t_gps=opts.t_gps)
         noises[ifo]     = Noise(f_asd, asd, f_max=opts.f_max)
@@ -103,7 +103,7 @@ def initialize_gwlikelihood_kwargs(opts):
                 logger.error("Frequency axes for {} data and {} data do not agree.".format(ifo1,ifo2))
                 raise ValueError("Frequency axes for {} data and {} data do not agree.".format(ifo1,ifo2))
 
-    freqs   = strains[opts.ifos[0]].freqs
+    freqs = strains[opts.ifos[0]].freqs
 
     l_kwargs['ifos']            = opts.ifos
     l_kwargs['datas']           = strains
@@ -112,6 +112,8 @@ def initialize_gwlikelihood_kwargs(opts):
     l_kwargs['freqs']           = freqs
     l_kwargs['srate']           = opts.srate
     l_kwargs['seglen']          = opts.seglen
+    l_kwargs['f-min']           = opts.f_min
+    l_kwargs['f-max']           = opts.f_max
     l_kwargs['approx']          = opts.approx
     l_kwargs['nspcal']          = opts.nspcal
     l_kwargs['nweights']        = opts.nweights
@@ -234,23 +236,34 @@ def initialize_gwprior(ifos,
                        srate,
                        approx,
                        freqs,
-                       spin_flag='no-spins', spin_max=None,
-                       lambda_flag='no-tides', lambda_max=None, lambda_min=None,
-                       dist_flag='vol', dist_max=None, dist_min=None,
-                       time_shift_bounds=None,
-                       fixed_names=[], fixed_values=[],
-                       extra_opt =[], extra_opt_val=[],
-                       spcals=None, nspcal=0, nweights=0,
-                       ej_flag = False, ecc_flag = False,
-                       energ_bounds=None, angmom_bounds=None, ecc_bounds=None,
-                       marg_phi_ref=False, marg_time_shift=False,
-                       tukey_alpha=None,
-                       lmax=2,
-                       Eprior = None,
-                       nqc_TEOBHyp = 1,
-                       prior_grid=2000,
-                       kind='linear',
-                       use_mtot=False):
+                       spin_flag         = 'no-spins',
+                       spin_max          = None,
+                       lambda_flag       = 'no-tides',
+                       lambda_max        = None,
+                       lambda_min        = None,
+                       dist_flag         = 'vol',
+                       dist_max          = None,
+                       dist_min          = None,
+                       time_shift_bounds = None,
+                       fixed_names       = [],
+                       fixed_values      = [],
+                       extra_opt         = [],
+                       extra_opt_val     = [],
+                       spcals            = None, nspcal=0, nweights=0,
+                       ej_flag           = False,
+                       ecc_flag          = False,
+                       energ_bounds      = None,
+                       angmom_bounds     = None,
+                       ecc_bounds        = None,
+                       marg_phi_ref      = False,
+                       marg_time_shift   = False,
+                       tukey_alpha       = None,
+                       lmax              = 2,
+                       Eprior            = None,
+                       nqc_TEOBHyp       = 1,
+                       prior_grid        = 2000,
+                       kind              = 'linear',
+                       use_mtot          = False):
 
     from ..inf.prior import Prior, Parameter, Variable, Constant
 

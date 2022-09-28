@@ -7,7 +7,7 @@ def _get_git_hast():
     import os
     import sys
     import pathlib
-    from . import __path__
+    from . import __path__, __version__
     git_hash = 'UNKNOWN'
 
     # search in __path__ and sys.path for git folder
@@ -24,10 +24,17 @@ def _get_git_hast():
                 git_hash = git_hash.readline().strip()
             break
 
+    # if git_hash is still unknown, look on github for the related version
+    # tag = 'v' + __version__
+
     return git_hash
 
-__version__ = '0.3'
-__doc__     = "bajes [baɪɛs], Bayesian Jenaer Software. Python package for Bayesian inference developed at Friedrich-Schiller-Universtät Jena and specialized in the analysis of gravitational-wave and multi-messenger transients. The software is designed to be state-of-art, simple-to-use and light-weighted with minimal dependencies on external libraries. The source code is available at https://github.com/matteobreschi/bajes"
+__version__ = '0.3.0'
+__doc__     = "bajes [baɪɛs], Bayesian Jenaer Software. Python package for Bayesian inference \
+               developed at Friedrich-Schiller-Universtät Jena and specialized in the analysis \
+               of gravitational-wave and multi-messenger transients. The software is designed to be state-of-art, \
+               simple-to-use and light-weighted with minimal dependencies on external libraries. \
+               The source code is available at https://github.com/matteobreschi/bajes"
 __githash__ = _get_git_hast()
 __ascii_art__ = """
                     ....
