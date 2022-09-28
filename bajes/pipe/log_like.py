@@ -96,6 +96,7 @@ class GWLikelihood(Likelihood):
             mask            = datas[ifo].mask
 
         # initialize waveform generator
+        from ..obs.gw.waveform import Waveform
         if self.roq is not None: self.wave = erase_init_wrapper(Waveform(self.roq['freqs_join'], srate, seglen, approx))
         else:                    self.wave = erase_init_wrapper(Waveform(freqs[mask],            srate, seglen, approx))
 
