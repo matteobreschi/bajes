@@ -42,6 +42,9 @@ def write_executable(outdir, config, string1, string2, string3, string4):
         if string3:
             execfile.write(string3+'\n')
             execfile.write('\n')
+        if string4:
+            execfile.write(string4+'\n')
+            execfile.write('\n')
 
     elif config['pipe']['sub'] == 'slurm':
 
@@ -56,7 +59,7 @@ def write_executable(outdir, config, string1, string2, string3, string4):
         ncpu    = int(config['pipe']['nprocs'])
 
         # setting string for core command
-        srun_string_core = srun_string
+        srun_string_main = srun_string
 
         # set mpi flag if it is missing
         if 'mpi' not in list_keys_in_pipe: config['pipe']['mpi'] = '0'
@@ -103,7 +106,7 @@ def write_executable(outdir, config, string1, string2, string3, string4):
                 which_mpi = 'pmi2'
 
             # set up core string
-            srun_string_core    += '-n $SLURM_NTASKS --mpi={} '.format(which_mpi)
+            srun_string_main    += '-n $SLURM_NTASKS --mpi={} '.format(which_mpi)
 
         # writing slurm configuation
         execfile.write('#!/bin/bash'+'\n')
@@ -215,9 +218,9 @@ def write_executable(outdir, config, string1, string2, string3, string4):
             execfile.write('\n')
         if string3:
             # main
-            execfile.write(srun_string_core  + string3 + '\n')
+            execfile.write(srun_string_main  + string3 + '\n')
             execfile.write('\n')
-        if string3:
+        if string4:
             # postproc
             execfile.write(srun_string  + string4 + '\n')
             execfile.write('\n')
