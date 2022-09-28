@@ -1,5 +1,9 @@
 ![](https://raw.githubusercontent.com/matteobreschi/bajes/release/v0.3.0/docs/bajes.png)
 
+[![PyPI](https://img.shields.io/pypi/v/bajes)](https://pypi.org/project/bajes/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/bajes)](https://pypi.org/project/bajes/)
+[![PyPI - License](https://img.shields.io/pypi/l/bajes)](https://pypi.org/project/bajes/)
+
 *bajes* [baɪɛs] is a Python software for Bayesian inference developed at Friedrich-Schiller-Universtät Jena
 and specialized in the analysis of gravitational-wave and multi-messenger transients.
 The software is designed to be state-of-art, simple-to-use and light-weighted
