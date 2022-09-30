@@ -5,13 +5,30 @@ import logging
 logger = logging.getLogger(__name__)
 
 import dynesty
-from dynesty.utils import unitcheck
 
 from . import SamplerBody
 from ..utils import estimate_nmcmc, list_2_dict
 
 def void():
     pass
+
+def unitcheck(u, nonbounded=None):
+    """Check whether `u` is inside the unit cube. Given a masked array
+    `nonbounded`, also allows periodic boundaries conditions to exceed
+    the unit cube."""
+
+    if all(np.logical_not(nonbounded)): nonbounded = None
+
+    if nonbounded is None:
+        # No periodic boundary conditions provided.
+        return np.min(u) > 0 and np.max(u) < 1
+    else:
+        # Alternating periodic and non-periodic boundary conditions.
+        unb = u[nonbounded]
+        # pylint: disable=invalid-unary-operand-type
+        ub = u[~nonbounded]
+        return (unb.min() > 0 and unb.max() < 1 and ub.min() > -0.5 and ub.max() < 1.5)
+
 
 def reflect(u):
     idxs_even = np.mod(u, 2) < 1
@@ -132,8 +149,7 @@ class SamplerDynesty(SamplerBody):
                        # update
                        bootstrap=0, enlarge=1.5, facc=0.5, update_interval=None,
                        # proposal
-                       proposals=None, nact = 5., maxmcmc=4096, minmcmc=32,
-                       proposals_kwargs={'use_slice': False},
+                       proposals=None, nact = 5., maxmcmc=4096, minmcmc=32, proposals_kwargs={'use_slice': False},
                        # first update
                        first_min_ncall = None, first_min_eff = 10,
                        # parallelization
@@ -153,8 +169,10 @@ class SamplerDynesty(SamplerBody):
             logger.warning("Given number of live points < Ndim*(Ndim-1)/2. This may generate problems in the exploration of the parameters space.")
 
         # set up periodic and reflective boundaries
-        periodic_inds   = np.concatenate(np.where(np.array(posterior.prior.periodics) == 1))
-        reflective_inds = np.concatenate(np.where(np.array(posterior.prior.periodics) == 0))
+        periodic_inds   = list(np.concatenate(np.where(np.array(posterior.prior.periodics) == 1)))
+        if len(periodic_inds) == 0 :    periodic_inds = None
+        reflective_inds = list(np.concatenate(np.where(np.array(posterior.prior.periodics) == 0)))
+        if len(reflective_inds) == 0 :  reflective_inds = None
 
         # initialize proposals
         if proposals == None:
@@ -278,7 +296,6 @@ class SamplerDynesty(SamplerBody):
         # extract posteriors
         ns = []
         wt = []
-        scale = np.array(self.sampler.saved_scale)
         for i in range(len(self.nested_samples)):
 
             this_params = list_2_dict(self.nested_samples[i], self.names)
@@ -480,7 +497,7 @@ class BajesDynestyProposal(object):
         """
 
         # Unzipping.
-        (u, loglstar, axes, scale, prior_transform, loglikelihood, kwargs) = args
+        (u, loglstar, axes, scale, prior_transform, loglikelihood, seedsequence, kwargs) = args
         rstate = np.random
 
         # Bounds
@@ -584,7 +601,7 @@ class BajesDynestyProposal(object):
     def sample_rslice(self, args):
 
         # Unzipping.
-        (u, loglstar, axes, scale, prior_transform, loglikelihood, kwargs) = args
+        (u, loglstar, axes, scale, prior_transform, loglikelihood, seedsequence, kwargs) = args
         rstate = np.random
 
         # Periodicity.
