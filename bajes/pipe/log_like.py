@@ -231,17 +231,24 @@ class KNLikelihood(Likelihood):
         from ..obs.kn.lightcurve import Lightcurve
         self.light  = Lightcurve(comps, t_axis, filters.lambdas, v_min, n_v)
 
+        # calib_sigma flag
+        self.use_calib_sigma = False
+        for ni in priors.names:
+            if 'LC_calib_sigma' in ni:
+                self.use_calib_sigma = True
+                break
+
     def log_like(self, params):
 
         # compute lightcurve
         mags    = self.light.compute_mag(params)
         logL    = 0.
 
-        if 'LC_calib_sigma' in params.keys():
+        if self.use_calib_sigma:
 
             for bi in self.filters.bands():
                 interp_mag  = np.interp(self.filters.times[bi], self.light.times+params['t_gps'], mags[bi])
-                sigma2      = self.filters.mag_stdev[bi]**2. + params['LC_calib_sigma']**2.
+                sigma2      = self.filters.mag_stdev[bi]**2. + params['LC_calib_sigma_{}'.format(bi)]**2.
                 residuals   = (((self.filters.magnitudes[bi]-interp_mag))**2.)/sigma2
                 logL       += -0.5*(residuals + np.log(2*np.pi*sigma2)).sum()
 

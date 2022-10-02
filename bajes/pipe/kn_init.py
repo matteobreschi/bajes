@@ -79,7 +79,7 @@ def initialize_knlikelihood_kwargs(opts):
     save_container(opts.outdir+'/kn_obs.pkl', cont_kwargs)
     return l_kwargs, priors
 
-def initialize_knprior(comps, mej_bounds, vel_bounds, opac_bounds, t_gps,
+def initialize_knprior(comps, bands, mej_bounds, vel_bounds, opac_bounds, t_gps,
                        dist_max=None, dist_min=None,
                        eps0_max=None, eps0_min=None,
                        dist_flag=False, log_eps0_flag=False,
@@ -193,7 +193,9 @@ def initialize_knprior(comps, mej_bounds, vel_bounds, opac_bounds, t_gps,
 
     # include theoretical error
     if use_calib_sigma:
-        dict['LC_calib_sigma']   = Parameter(name='LC_calib_sigma', min = 0., max = 25.)
+        for bi in bands:
+            dict['LC_calib_sigma_{}'.format(bi)]   = Parameter(name='LC_calib_sigma_{}'.format(bi),
+                                                               min = 1e-3, max = 25., prior='log-uniform')
 
     # set fixed parameters
     if len(fixed_names) != 0 :

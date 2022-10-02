@@ -538,12 +538,17 @@ def read_model_from_paths(prior_path, like_path, priorgrid):
 def read_model_from_pickle(file):
 
     # get inference pickle
+    logger.info("Importing model from pickle ...")
     file    = os.path.abspath(file)
 
     # get data container information
     from .utils import data_container
     dc = data_container(file)
     dc = dc.load()
+
+    for pi in dc.prior.parameters:
+        logger.info("Setting {} with {} prior in range [{:.3g},{:.3g}] ...".format(pi.name, pi.prior, pi.min, pi.max))
+
     return dc.prior, dc.like
 
 def init_model(opts):
@@ -801,7 +806,7 @@ def get_likelihood_and_prior(opts):
         l_kwas          = {}
         l_kwas['likes'] = likes
 
-        p_obj = JointPrior(priors=priors, prior_grid=opts.priorgrid)
+        p_obj = JointPrior(priors=priors)
         l_obj = JointLikelihood(**l_kwas)
 
     # Save the prior and likelihood objects in a pickle file, for future resuming and reproducibility.

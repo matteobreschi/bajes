@@ -16,7 +16,7 @@ def draw_uniform_list(pr, N):
     return init_samples
 
 def draw_uniform_samples(pr, Nmax):
-    
+
     from .utils import list_2_dict
 
     Nparam       = len(pr.names)
@@ -48,17 +48,17 @@ class Parameter(object):
         Parameter object
     """
 
-    def __init__(self, 
-                 name=None, 
-                 min=None, max=None, 
+    def __init__(self,
+                 name=None,
+                 min=None, max=None,
                  prior='uniform',
-                 periodic=0, 
+                 periodic=0,
                  func=None, func_kwarg={},
                  interp_kwarg={'ngrid':2000, 'kind':'linear'},
                  **kwarg):
         """
             Initialize parameter
-            
+
             Arguments:
             - name          : str, name of parameter
             - min           : float, lower bound
@@ -80,7 +80,7 @@ class Parameter(object):
                               - deg : if power, deg is the power-law degree
                               - tau : if exponential, tau is the exponential decay factor
                               - mu, sigma : if normal, specify mean and stdev
-        
+
         """
 
         # check name
@@ -92,42 +92,42 @@ class Parameter(object):
         # check bounds
         if min == None or max == None:
             raise ValueError("Unable to initialize parameter {}, please define upper and lower bounds.".format(name))
-        
+
         if min >= max :
             raise ValueError("Unable to initialize parameter {}, lower bound is greater or equal to the upper bound".format(name))
-        
+
         bound = [float(min),float(max)]
-        
+
         # check periodic
         periodic = int(periodic)
-        
+
         # check/get distribution
         if func == None:
-            
+
             from . import __known_probs__
-            
+
             if not isinstance(prior, str):
                 _all = ''
                 for kpi in __known_probs__ : _all = _all + kpi +', '
                 raise AttributeError("Unable to initialize parameter {}, prior argument is not a string. Please use one of the followings: {} or a customized function using the func argument".format(name,_all))
-            
+
             if prior not in __known_probs__:
                 _all = ''
                 for kpi in __known_probs__ : _all = _all + kpi +', '
                 raise AttributeError("Unable to initialize parameter {}, unknown prior argument. Please use one of the followings: {} or a customized function using the func argument".format(name,_all))
-            
+
             # if func == None, read prior from prior string
             from .utils import get_parameter_distribution_from_string
             prob =  get_parameter_distribution_from_string(name, prior, min, max, kwarg)
-        
+
         else:
-            
+
             prior = 'custom'
-            
+
             if callable(func):
                 from .utils import initialize_param_from_func
                 prob = initialize_param_from_func(name, min, max, func, kwarg=func_kwarg, **interp_kwarg)
-            
+
             else:
                 raise AttributeError("Unable to initialize parameter {}, requested probability function is not callable.".format(name))
 
@@ -138,7 +138,7 @@ class Parameter(object):
 
         self._kind  = prior
         self._prob  = prob
-            
+
     def __eq__(self, other):
         # check prior arguments
         args    = ['_name', '_bound', '_periodic', '_kind']
@@ -174,10 +174,10 @@ class Parameter(object):
 
     def log_density(self, x):
         return self._prob.log_density(x)
-    
+
     def cumulative(self, x):
         return self._prob.cumulative(x)
-    
+
     def quantile(self, x):
         return self._prob.quantile(x)
 
@@ -188,15 +188,15 @@ class Prior(object):
     def __init__(self, parameters, variables=[], constants=[]):
         """
             Initialize Prior object
-            
+
             Arguments:
             - parameters  : list of bajes.inf.Parameter objects
             - variables   : list of bajes.inf.Variable objects, default empty
             - constants   : list of bajes.inf.Constant objects, default empty
         """
-        
+
         self.ndim   = len(parameters)
-        
+
         # reading constant properties
         self.const  = {ci.name : ci.value for ci in constants}
 
@@ -204,14 +204,14 @@ class Prior(object):
         self.v_names    = []
         self.v_funcs    = []
         self.v_kwargs   = []
-        
+
         for vi in variables:
-            
+
             # check that every element in parameters is a Parameter object
             if not isinstance(vi, Variable):
                 logger.error("The Prior received a variable that is not a Variable object.")
                 raise ValueError("The Prior received a variable that is is not a Variable object.")
-        
+
             # check that name is not in constants
             if vi.name in list(self.const.keys()):
                 logger.error("Repeated name {} between variables and contants. Please use different names.".format(vi.name))
@@ -221,32 +221,32 @@ class Prior(object):
             self.v_names.append(vi.name)
             self.v_funcs.append(vi.func)
             self.v_kwargs.append(vi.kwarg)
-        
+
         # checking/reading parameters
         temp_names  = []
-        
+
         for pi in parameters:
-            
+
             # check that every element in parameters is a Parameter object
             if not isinstance(pi, Parameter):
                 logger.error("The Prior received a parameter that is not a Parameter object.")
                 raise ValueError("The Prior received a parameter that is is not a Parameter object.")
-        
+
             # check bounds lengths
             if len(pi.bound) !=2:
                 logger.error("Wrong prior bounds for {} parameter. Bounds array length is different from 2.".format(pi.name))
                 raise ValueError("Wrong prior bounds for {} parameter. Bounds array length is different from 2.".format(pi.name))
-    
+
             # check that name is not repeated
             if pi.name in temp_names:
                 logger.error("Repeate name {} for different parameters. Please use different names.".format(pi.name))
                 raise ValueError("Repeate name {} for different parameters. Please use different names.".format(pi.name))
-            
+
             # check that name is not in constants
             if pi.name in list(self.const.keys()) or pi.name in self.v_names:
                 logger.error("Repeated name {} between parameters/contants/variables. Please use different names.".format(pi.name))
                 raise ValueError("Repeated name {} in sampling parameters/contants/variables. Please use different names.".format(pi.name))
-    
+
         self.parameters = parameters
 
     @property
@@ -288,17 +288,17 @@ class Prior(object):
         return np.array([pi.quantile(xi) for pi,xi in zip(self.parameters, u)])
 
     def cumulative(self, x, name=None):
-        
+
         if isinstance(x, (float, int, np.float)):
             x = [x]
-        
+
         if len(x) == self.ndim:
             return np.prod(list(map(lambda pi, xi: pi.cumulative(xi), self.parameters, x)))
         else:
-            
+
             if name == None:
                 raise AttributeError("Unable to estimate partial cumulative probability. Please include the names of the requested parameters.")
-            
+
             indx = [i for i,pi in enumerate(self.paramters) if pi.name in name]
             return np.prod(list(map(lambda i, xi: self.parameters[i].cumulative(xi), indx, x)))
 
@@ -306,7 +306,7 @@ class Prior(object):
     def sample(self):
         u = np.random.uniform(0,1,size=self.ndim)
         return self.prior_transform(u)
-    
+
     def get_prior_samples(self, n, **kwargs):
         return np.array([self.sample for _ in range(n)])
 
@@ -328,7 +328,7 @@ class Prior(object):
 class JointPrior(Prior):
 
     def __init__(self, priors):
-        
+
         pars        = []
         temp_names  = []
 
@@ -336,38 +336,38 @@ class JointPrior(Prior):
         v_funcs     = []
         v_kwargs    = []
         const       = {}
-        
+
         for i,pr in enumerate(priors):
-            
+
             # iterate on sampling parameters
             for pi in pr.parameters:
-                
+
                 # include name if not yet
                 if pi.name not in temp_names:
                     temp_names.append(pi.name)
                     pars.append(pi)
-    
+
                 # else check agreement
                 else:
-                    iprev = temp_names.index(ni)
+                    iprev = temp_names.index(pi.name)
                     if pi != pars[iprev]:
                         logger.error("Unable to join prior distributions. Common parameter {} has been found, but their priors do not agree.".format(pi.name))
                         raise AttributeError("Unable to join prior distributions. Common parameter {} has been found, but their priors do not agree.".format(pi.name))
-    
+
             # iterate on variables
-            for ni,fi,ki in list(pr.v_names, pr.v_funcs, pr.v_kwargs):
-            
+            for ni,fi,ki in zip(pr.v_names, pr.v_funcs, pr.v_kwargs):
+
                 if ni in temp_names:
                     logger.error("Unable to join prior distributions. Repeated name {} between parameters/contants/variables.".format(ni))
                     raise ValueError("Unable to join prior distributions. Repeated name {} between parameters/contants/variables.".format(ni))
-            
+
                 if ni in v_names:
-                    
+
                     iprev = v_names.index(ni)
                     if v_funcs[iprev] != fi:
                         logger.error("Unable to join prior distributions. Inconsistent methods for variable {}.".format(ni))
                         raise ValueError("Unable to join prior distributions. Inconsistent methods for variable {}.".format(ni))
-            
+
                 else:
                     v_names.append(ni)
                     v_funcs.append(fi)

@@ -2,7 +2,7 @@
 from __future__ import division
 import os
 import numpy as np
-import optparse as op
+import argparse as ap
 
 try:
     import matplotlib.pyplot as plt
@@ -362,33 +362,34 @@ class Injection(object):
 
 def bajes_inject_parser():
 
-    parser=op.OptionParser()
-    parser.add_option('--ifo',         dest='ifos',                       type='string',  action="append",    help="Single IFO tag. This option needs to be passed separately for every ifo in which the injection is requested. The order must correspond to the one in which the '--asd' commands are passed. Available options: ['H1', 'L1', 'V1', 'K1', 'G1'].")
-    parser.add_option('--asd',         dest='asds',                       type='string',  action="append",    help="Single path to ASD file. This option needs to be passed separately for every ifo in which the injection is requested.  The order must correspond to the one in which the '--ifo' commands are passed.")
+    parser=ap.ArgumentParser(prog='bajes_inject', usage='bajes_inject [opts]')
+    parser.add_argument('--ifo',        dest='ifos',    type=str,  action="append",    help="Single IFO tag. This option needs to be passed separately for every ifo in which the injection is requested. The order must correspond to the one in which the '--asd' commands are passed. Available options: ['H1', 'L1', 'V1', 'K1', 'G1'].")
+    parser.add_argument('--asd',        dest='asds',    type=str,  action="append",    help="Single path to ASD file. This option needs to be passed separately for every ifo in which the injection is requested.  The order must correspond to the one in which the '--ifo' commands are passed.")
 
-    parser.add_option('--wave',     dest='wave',        type='string',  default='',     help='path to strain data to inject, the file should contains 3 cols [t, reh, imh]. If empty, pure noise is generated.')
-    parser.add_option('--srate',    dest='srate',       type='float',   help='sampling rate of the injected waveform [Hz] and it will be the srate of the sampling, please check that everything is consistent')
-    parser.add_option('--seglen',   dest='seglen',      type='float',   help='length of the segment of the injected waveform [sec], if it is not a power of 2, the final segment will be padded')
+    parser.add_argument('--wave',       dest='wave',    type=str,  default='',     help='path to strain data to inject, the file should contains 3 cols [t, reh, imh]. If empty, pure noise is generated.')
+    parser.add_argument('--srate',      dest='srate',   type=float,   help='sampling rate of the injected waveform [Hz] and it will be the srate of the sampling, please check that everything is consistent')
+    parser.add_argument('--seglen',     dest='seglen',  type=float,   help='length of the segment of the injected waveform [sec], if it is not a power of 2, the final segment will be padded')
 
-    parser.add_option('--f-min',    dest='f_min',       type='float',   default=20.,            help='minimum frequency [Hz], default 20Hz')
-    parser.add_option('--t-gps',    dest='t_gps',       type='float',   default=1187008882,     help='GPS time of the series, default 1187008882 (GW170817)')
+    parser.add_argument('--f-min',      dest='f_min',   type=float,   default=20.,            help='minimum frequency [Hz], default 20Hz')
+    parser.add_argument('--t-gps',      dest='t_gps',   type=float,   default=1187008882,     help='GPS time of the series, default 1187008882 (GW170817)')
 
-    parser.add_option('--zero-noise',    dest='zero',   action="store_true",    default=False,  help='use zero noise')
-    parser.add_option('--seed',          dest='seed',   type='int',             default=None,   help='seed for random number generator')
+    parser.add_argument('--zero-noise', dest='zero',    action="store_true",    default=False,  help='use zero noise')
+    parser.add_argument('--seed',       dest='seed',    type=int,             default=None,   help='seed for random number generator')
 
-    parser.add_option('--ra',          dest='ra',     default=None,       type='float',                       help='right ascencion location of the injected source. Default optimal location for the first IFO.')
-    parser.add_option('--dec',         dest='dec',    default=None,       type='float',                       help='declination location of the injected source. Default optimal location for the first IFO.')
-    parser.add_option('--pol',         dest='psi',    default=0.,         type='float',                       help='polarization angle of the injected source. Default: 0.')
-    parser.add_option('--window',      dest='window', default='low',      type='string',                      help="Location of the window. Available options: ['low' or 'both']. Default: 'low'.")
+    parser.add_argument('--ra',         dest='ra',      default=None,       type=float,                       help='right ascencion location of the injected source. Default optimal location for the first IFO.')
+    parser.add_argument('--dec',        dest='dec',     default=None,       type=float,                       help='declination location of the injected source. Default optimal location for the first IFO.')
+    parser.add_argument('--pol',        dest='psi',     default=0.,         type=float,                       help='polarization angle of the injected source. Default: 0.')
+    parser.add_argument('--window',     dest='window',  default='low',      type=str,                      help="Location of the window. Available options: ['low', 'both', 'none']. Default: 'low'.")
 
-    parser.add_option('--tukey',       dest='tukey',  default=0.1,        type='float',                       help='tukey window parameter')
+    parser.add_argument('--tukey',      dest='tukey',   default=0.1,        type=float,                       help='tukey window parameter')
 
-    parser.add_option('-o','--outdir', dest='outdir', default=None,       type='string',                      help='Output directory. Default: None.')
+    parser.add_argument('-o','--outdir', dest='outdir', default=None,       type=str,                      help='Output directory. Default: None.')
+
     return parser.parse_args()
 
 if __name__ == "__main__":
 
-    (opts,args) = bajes_inject_parser()
+    opts    = bajes_inject_parser()
     dets    = {}
     noises  = {}
 

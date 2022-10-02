@@ -151,7 +151,8 @@ class SamplerBody(object):
                 logger.debug("Resume file is safe, updating backup ...")
                 copyfile(self.outdir+self.resume, self.outdir+self.back)
             elif access == 1:
-                # if container is safe, rename it as backup
+                # if container is safe,
+                # but inference is not there, so there is not need to copy the resume
                 logger.debug("Resume file is safe")
             else:
                 # otherwise lock previous backup to the last safe iteration

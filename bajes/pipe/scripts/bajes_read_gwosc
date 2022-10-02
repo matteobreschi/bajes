@@ -2,24 +2,24 @@
 from __future__ import division, unicode_literals
 import os
 import numpy as np
-import optparse as op
+import argparse as ap
 
 from bajes.pipe import set_logger, ensure_dir
 from bajes.obs.gw.utils import read_gwosc
 
 if __name__ == "__main__":
 
-    parser=op.OptionParser()
-    parser.add_option('--ifo',      dest='ifos',            type='string',  action="append", help='IFO tag, i.e. H1, L1, V1, K1, G1')
+    parser=ap.ArgumentParser(prog='bajes_read_gwosc', usage='bajes_read_gwosc [opts]')
+    parser.add_argument('--ifo',      dest='ifos',            type=str,  action="append", help='IFO tag, i.e. H1, L1, V1, K1, G1')
 
-    parser.add_option('--event',    dest='event',           default=None,   help='GW event label')
-    parser.add_option('--version',  dest='version',         default=None,   help='version of data')
-    parser.add_option('--t-gps',    dest='t_gps',           type='float',   help='GPS time of the time series')
-    parser.add_option('--srate',    dest='srate',           type='float',   help='sampling rate [Hz]')
-    parser.add_option('--seglen',   dest='seglen',          type='float',   help='length of the segment [sec]')
+    parser.add_argument('--event',    dest='event',           default=None,   help='GW event label')
+    parser.add_argument('--version',  dest='version',         default=None,   help='version of data')
+    parser.add_argument('--t-gps',    dest='t_gps',           type=float,   help='GPS time of the time series')
+    parser.add_argument('--srate',    dest='srate',           type=float,   help='sampling rate [Hz]')
+    parser.add_argument('--seglen',   dest='seglen',          type=float,   help='length of the segment [sec]')
 
-    parser.add_option('-o','--outdir',default=None,type='string',dest='outdir',help='directory for output')
-    (opts,args) = parser.parse_args()
+    parser.add_argument('-o','--outdir',default=None,type=str,dest='outdir',help='directory for output')
+    opts = parser.parse_args()
 
     datadir = os.path.abspath(opts.outdir+'/data')
     ensure_dir(datadir)

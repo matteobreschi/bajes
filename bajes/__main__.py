@@ -13,6 +13,10 @@ if __name__ == "__main__":
     from .pipe import parse_main_options, set_logger, ensure_dir
     opts = parse_main_options()
 
+    # make output directory
+    opts.outdir = os.path.abspath(opts.outdir)
+    ensure_dir(opts.outdir)
+
     # start memory tracing, if requested
     if opts.trace_memory:
         import tracemalloc
@@ -42,6 +46,21 @@ if __name__ == "__main__":
         except ImportError:
             raise ImportError("Unable to initialize MPI run. Cannot import mpi4py.")
 
+        # initialize random seed
+        # note that this step is common to all processes
+        import numpy, random
+
+        if opts.seed == None:
+            # different workers might arrive at this point at different times
+            # the best option would be to share master seed to workers
+            # on the other hand if you end up here you're not specifying the random seed
+            # meaning that you dont care
+            import time
+            opts.seed = int(time.time())
+
+        random.seed(opts.seed+rank)
+        numpy.random.seed(opts.seed+rank)
+
         # switch between samplers
         # cpnest + MPI, not available
         if opts.engine == 'cpnest':
@@ -60,10 +79,6 @@ if __name__ == "__main__":
             # execute run
             from .pipe.run import run_main_mpi_ultranest
             run_main_mpi_ultranest(opts, rank, size)
-
-            # stop memory tracing, if requested
-            if opts.trace_memory:
-                tracemalloc.stop()
 
         # other samplers
         # i.e. the ones that work with the Pool object
@@ -88,28 +103,29 @@ if __name__ == "__main__":
                 # logger
                 logger      = set_logger(outdir=opts.outdir, level='ERROR', silence=True)
 
-                # delete inputs,
-                # not needed for worker tasks
-                del opts
-                del args
-
             # execute run run
             from .pipe.run import run_main_mpi
             run_main_mpi(opts, Pool)
             # NOTE: at this stage only master is active
 
-            # stop memory tracing, if requested
-            if opts.trace_memory:
-                tracemalloc.stop()
+        # stop memory tracing, if requested
+        if opts.trace_memory:
+            tracemalloc.stop()
 
     ###
     ### MULTIPROCESSING RUN
     ###
     else:
 
-        # make output directory
-        opts.outdir = os.path.abspath(opts.outdir)
-        ensure_dir(opts.outdir)
+        # initialize random seed
+        import numpy, random
+
+        if opts.seed == None:
+            import time
+            opts.seed = int(time.time())
+
+        random.seed(opts.seed)
+        numpy.random.seed(opts.seed)
 
         # initialize logger
         if opts.debug:

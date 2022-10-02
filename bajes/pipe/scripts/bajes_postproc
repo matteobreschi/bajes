@@ -3,7 +3,7 @@
 from __future__ import division, unicode_literals
 import os
 import numpy as np
-import optparse as op
+import argparse as ap
 
 from scipy.special import logsumexp
 
@@ -842,22 +842,23 @@ def clean_outdir(outdir):
 
 if __name__ == "__main__":
 
-    parser=op.OptionParser()
+    parser=ap.ArgumentParser(prog='bajes_postproc', usage='bajes_postproc [opts]')
 
     # Required options
-    parser.add_option('-o','--outdir',    dest='outdir',          default=None,           type='string',                        help="Name of the directory containing the output of the run.")
+    parser.add_argument('-o','--outdir',    dest='outdir',          default=None,           type=str,                        help="Name of the directory containing the output of the run.")
 
     # Optional options
-    parser.add_option('-n', '--nprocs',   dest='nprocs',          default=0,              type='int',                           help='Optional: Number of parallel threads. Default: 0 (serial)')
-    parser.add_option('-v', '--verbose',  dest='silence',         default=True,           action="store_false",                 help='Optional: Flag to activate stream handler, use this if you are running on terminal. Default: False')
-    parser.add_option('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
-    parser.add_option('--N-samples-wf',   dest='N_samples_wf',    default=3000,           type='int',                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 3000.")
-    parser.add_option('--N-samples-prior',dest='nprior',          default=None,           type='int',                           help="Optional: Number of prior samples. Default: min(N_posterior_samples, 10000).")
-    parser.add_option('--spin-flag',      dest='spin_flag',       default='no-spins',     type='string',                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
-    parser.add_option('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type='string',                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
-    parser.add_option('--cosmo',          dest='cosmo',           default='Planck18_arXiv_v2',     type='string',               help="Optional: Cosmology model for redshift computation. Default: 'Planck18_arXiv_v2'. Available options: ['MISSING']. ")
-    parser.add_option('--seed',           dest='seed',            default=None,           type='int',                           help="Optional: Seed for pseudo-random number generator.")
-    (opts,args) = parser.parse_args()
+    parser.add_argument('-n', '--nprocs',   dest='nprocs',          default=0,              type=int,                           help='Optional: Number of parallel threads. Default: 0 (serial)')
+    parser.add_argument('-v', '--verbose',  dest='silence',         default=True,           action="store_false",                 help='Optional: Flag to activate stream handler, use this if you are running on terminal. Default: False')
+    parser.add_argument('--M-tot-estimate', dest='M_tot',           default='posterior',                                          help="Optional: Estimate of the total mass of the system, if not None, it is used to set narrower bandpassing and merger zoom. If equal to 'posterior', the value is extracted from the posterior samples. If a float is passed, that value is used instead. Default: None.")
+    parser.add_argument('--N-samples-wf',   dest='N_samples_wf',    default=3000,           type=int,                           help="Optional: Number of samples to be used in waveform reconstruction. If 0, all samples are used. Default: 3000.")
+    parser.add_argument('--N-samples-prior',dest='nprior',          default=None,           type=int,                           help="Optional: Number of prior samples. Default: min(N_posterior_samples, 10000).")
+    parser.add_argument('--spin-flag',      dest='spin_flag',       default='no-spins',     type=str,                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
+    parser.add_argument('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type=str,                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
+    parser.add_argument('--cosmo',          dest='cosmo',           default='Planck18_arXiv_v2',     type=str,               help="Optional: Cosmology model for redshift computation. Default: 'Planck18_arXiv_v2'. Available options: ['MISSING']. ")
+    parser.add_argument('--seed',           dest='seed',            default=None,           type=int,                           help="Optional: Seed for pseudo-random number generator.")
+
+    opts = parser.parse_args()
 
     if opts.outdir is not None: outdir = opts.outdir
     else: raise ValueError("The 'outdir' option is required. Aborting.")
