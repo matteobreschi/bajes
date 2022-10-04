@@ -771,13 +771,11 @@ def initialize_gwprior(ifos,
             dict['NRPM_recal_'+ni] = Parameter(name='NRPM_recal_'+ni, max = 1., min = -1., prior='normal', mu = 0., sigma = __ERRS__[ni])
 
     # set fixed parameters
-    # OBS. This step must be done when all parameters are in dict
     if len(fixed_names) != 0 :
         assert len(fixed_names) == len(fixed_values)
         for ni,vi in zip(fixed_names,fixed_values) :
             if ni not in list(dict.keys()):
-                logger.warning("Requested fixed parameters ({}={}) is not in the list of all parameters. The command will be ignored.".format(ni,vi))
-                continue
+                logger.warning("Requested fixed parameter ({}={}) is not in the list of all parameters. The command will be ignored.".format(ni,vi))
             else:
                 dict[ni] = Constant(ni, vi)
 
@@ -788,13 +786,13 @@ def initialize_gwprior(ifos,
             dict[ni] = Constant(ni, vi)
 
     # fill values for the waveform and the likelihood
-    dict['f_min']  = Constant('f_min',  f_min)
-    dict['f_max']  = Constant('f_max',  f_max)
-    dict['t_gps']  = Constant('t_gps',  t_gps)
-    dict['seglen'] = Constant('seglen', seglen)
-    dict['srate']  = Constant('srate',  srate)
-    dict['lmax']   = Constant('lmax',   lmax)
-    dict['Eprior'] = Constant('Eprior', Eprior)
+    dict['f_min']       = Constant('f_min',  f_min)
+    dict['f_max']       = Constant('f_max',  f_max)
+    dict['t_gps']       = Constant('t_gps',  t_gps)
+    dict['seglen']      = Constant('seglen', seglen)
+    dict['srate']       = Constant('srate',  srate)
+    dict['lmax']        = Constant('lmax',   lmax)
+    dict['Eprior']      = Constant('Eprior', Eprior)
     dict['nqc-TEOBHyp'] = Constant('nqc-TEOBHyp', nqc_TEOBHyp)
 
     if tukey_alpha == None:

@@ -299,7 +299,7 @@ def parse_main_options():
     parser.add_argument('--tmax',           dest='tmax',            default=None,       type=float,                                 help='[mcmc] maximum temperature scale (ptmcmc). Default: Inf')
 
     # Parallelization options
-    parser.add_argument('--nprocs',         dest='nprocs',          default=0.,         type=int,                                   help='number of processes in the pool')
+    parser.add_argument('-n', '--nprocs',   dest='nprocs',          default=0.,         type=int,                                   help='number of processes in the pool')
     parser.add_argument('--mpi',            dest='mpi',             default=False,                      action="store_true",        help='use MPI parallelization')
     parser.add_argument('--mpi-per-node',   dest='mpi_per_node',    default=0.,         type=int,                                   help='number of MPI processes per node')
     parser.add_argument('--fast-mpi',       dest='fast_mpi',        default=False,                      action="store_true",        help='enable fast MPI communication (under development)')
@@ -345,20 +345,20 @@ def parse_setup_options():
     #
 
     # Data and PSDs information
-    parser.add_argument('--ifo',               dest='ifos',           default=[],        type=str,  action="append",      help='Detector to be considered in the analysis. Has to be passed once per detector, and sets the order for similar commands to pass strains and psds. Available options: [`H1`, `L1`, `V1`, `K1`, `G1`]. Default: [].')
-    parser.add_argument('--strain',            dest='strains',        default=[],        type=str,  action="append",      help='Path to strain data. Has to be passed once per detector and in the same order as the `--ifo` options. Default: [].')
-    parser.add_argument('--asd',               dest='asds',           default=[],        type=str,  action="append",      help='Path to ASD data. Has to be passed once per detector and in the same order as the `--ifo` options. Default: [].')
+    parser.add_argument('--ifo',               dest='ifos',           default=[],        type=str,  action="append",      help='Detector to be considered in the analysis. Has to be passed once per detector, and sets the order for similar commands to pass strains and psds. Available options: [`H1`, `L1`, `V1`, `K1`, `G1`].')
+    parser.add_argument('--strain',            dest='strains',        default=[],        type=str,  action="append",      help='Path to strain data. Has to be passed once per detector and in the same order as the `--ifo` options.')
+    parser.add_argument('--asd',               dest='asds',           default=[],        type=str,  action="append",      help='Path to ASD data. Has to be passed once per detector and in the same order as the `--ifo` options.')
     parser.add_argument('--alpha',             dest='alpha',          default=None,      type=float,                         help='Alpha parameter of the Tukey window. Default: 0.4/seglen.')
 
     # Calibration envelopes (optional)
-    parser.add_argument('--spcal',             dest='spcals',         default=[],        type=str,  action="append",      help='Path to calibration envelope. Has to be passed once per detector and in the same order as the `--ifo` options. Default: []')
+    parser.add_argument('--spcal',             dest='spcals',         default=[],        type=str,  action="append",      help='Path to calibration envelope. Has to be passed once per detector and in the same order as the `--ifo` options.')
     parser.add_argument('--nspcal',            dest='nspcal',         default=0,         type=int,                           help='Number of spectral calibration nodes. Default: 0')
 
     # Time series information
-    parser.add_argument('--f-min',             dest='f_min',          default=None,      type=float,                         help='Mandatory parameter: minimum frequency at which likelihood is evaluated [Hz]. Default: None')
-    parser.add_argument('--f-max',             dest='f_max',          default=None,      type=float,                         help='Mandatory parameter: maximum frequency at which likelihood is evaluated [Hz]. Default: None')
-    parser.add_argument('--srate',             dest='srate',          default=None,      type=float,                         help='Mandatory parameter: requested sampling rate [Hz]. If smaller than data sampling rate, downsampling is applied. Default: None')
-    parser.add_argument('--seglen',            dest='seglen',         default=None,      type=float,                         help='Mandatory parameter: requested length of the segment to be analysed [sec]. If smaller than data total lenght, data are cropped. If longer, data are padded. Default: None.')
+    parser.add_argument('--f-min',             dest='f_min',          default=None,      type=float,                         help='Minimum frequency at which likelihood is evaluated [Hz]. Default: None')
+    parser.add_argument('--f-max',             dest='f_max',          default=None,      type=float,                         help='Maximum frequency at which likelihood is evaluated [Hz]. Default: None')
+    parser.add_argument('--srate',             dest='srate',          default=None,      type=float,                         help='Rsequested sampling rate [Hz]. If smaller than data sampling rate, downsampling is applied. Default: None')
+    parser.add_argument('--seglen',            dest='seglen',         default=None,      type=float,                         help='Requested length of the segment to be analysed [sec]. If smaller than data total lenght, data are cropped. If longer, data are padded. Default: None.')
 
     # Waveform model
     parser.add_argument('--approx',            dest='approx',         default=None,      type=str,                        help='Gravitational-wave approximant. Default: None')
@@ -374,44 +374,44 @@ def parse_setup_options():
     parser.add_argument('--tidal-flag',        dest='lambda_flag',    default='no-tides', type=str,                       help='Tidal prior flag. Available options: [???]. Default: `no-tides`.')
 
     # Prior bounds
-    parser.add_argument('--mc-min',            dest='mchirp_min',      default=None,      type=float,                        help='lower mchirp prior bound (if use-mtot, lower mtot prior bound)')
-    parser.add_argument('--mc-max',            dest='mchirp_max',      default=None,      type=float,                        help='upper mchirp prior bound (if use-mtot, upper mtot prior bound)')
-    parser.add_argument('--q-max',             dest='q_max',           default=None,      type=float,                        help='upper mass ratio prior bound')
-    parser.add_argument('--q-min',             dest='q_min',           default=1.,        type=float,                        help='lower mass ratio prior bound')
+    parser.add_argument('--mc-min',            dest='mchirp_min',      default=None,      type=float,                        help='Lower mchirp prior bound (if use-mtot, lower mtot prior bound)')
+    parser.add_argument('--mc-max',            dest='mchirp_max',      default=None,      type=float,                        help='Upper mchirp prior bound (if use-mtot, upper mtot prior bound)')
+    parser.add_argument('--q-max',             dest='q_max',           default=None,      type=float,                        help='Upper mass ratio prior bound')
+    parser.add_argument('--q-min',             dest='q_min',           default=1.,        type=float,                        help='Lower mass ratio prior bound')
 #    parser.add_argument('--mass-max',          dest='mass_max',        default=None,      type=float,                        help='upper mass component prior bound')
 #    parser.add_argument('--mass-min',          dest='mass_min',        default=None,      type=float,                        help='lower mass component prior bound')
-    parser.add_argument('--spin-max',          dest='spin_max',        default=None,      type=float,                        help='upper spin prior bound')
-    parser.add_argument('--spin1-max',         dest='spin1_max',       default=None,      type=float,                        help='upper spin prior bound')
-    parser.add_argument('--spin2-max',         dest='spin2_max',       default=None,      type=float,                        help='upper spin prior bound')
-    parser.add_argument('--lambda-min',        dest='lambda_min',      default=None,      type=float,                        help='lower tidal prior bound')
-    parser.add_argument('--lambda-max',        dest='lambda_max',      default=None,      type=float,                        help='upper tidal prior bound')
+    parser.add_argument('--spin-max',          dest='spin_max',        default=None,      type=float,                        help='Upper spin prior bound')
+    parser.add_argument('--spin1-max',         dest='spin1_max',       default=None,      type=float,                        help='Upper spin1 prior bound')
+    parser.add_argument('--spin2-max',         dest='spin2_max',       default=None,      type=float,                        help='Upper spin2 prior bound')
+    parser.add_argument('--lambda-min',        dest='lambda_min',      default=None,      type=float,                        help='Lower tidal prior bound')
+    parser.add_argument('--lambda-max',        dest='lambda_max',      default=None,      type=float,                        help='Upper tidal prior bound')
     parser.add_argument('--use-mtot',          dest='use_mtot',        default=False,                     action="store_true", help='Perform sampling in mtot instead of mchirp, default False')
 
     # Extra parameters
-    parser.add_argument('--use-energy-angmom', dest='ej_flag',         default=False,                     action="store_true", help='include energy and angular momentum parameters')
-    parser.add_argument('--use-eccentricity',  dest='ecc_flag',        default=False,                     action="store_true", help='include energy and angular momentum parameters')
-    parser.add_argument('--e-min',             dest='e_min',           default=None,      type=float,                        help='lower energy prior bound')
-    parser.add_argument('--e-max',             dest='e_max',           default=None,      type=float,                        help='upper energy prior bound')
-    parser.add_argument('--j-min',             dest='j_min',           default=None,      type=float,                        help='lower angular momentum prior bound')
-    parser.add_argument('--j-max',             dest='j_max',           default=None,      type=float,                        help='upper angular momentum prior bound')
-    parser.add_argument('--ecc-min',           dest='ecc_min',         default=None,      type=float,                        help='lower eccentricity prior bound')
-    parser.add_argument('--ecc-max',           dest='ecc_max',         default=None,      type=float,                        help='upper eccentricity prior bound')
+    parser.add_argument('--use-energy-angmom', dest='ej_flag',         default=False,                     action="store_true",  help='Include energy and angular momentum parameters')
+    parser.add_argument('--use-eccentricity',  dest='ecc_flag',        default=False,                     action="store_true",  help='Include eccentricity parameter')
+    parser.add_argument('--e-min',             dest='e_min',           default=None,      type=float,                           help='Lower energy prior bound')
+    parser.add_argument('--e-max',             dest='e_max',           default=None,      type=float,                           help='Upper energy prior bound')
+    parser.add_argument('--j-min',             dest='j_min',           default=None,      type=float,                           help='Lower angular momentum prior bound')
+    parser.add_argument('--j-max',             dest='j_max',           default=None,      type=float,                           help='Upper angular momentum prior bound')
+    parser.add_argument('--ecc-min',           dest='ecc_min',         default=None,      type=float,                           help='Lower eccentricity prior bound')
+    parser.add_argument('--ecc-max',           dest='ecc_max',         default=None,      type=float,                           help='Upper eccentricity prior bound')
 
     # Optional, marginalize over phi_ref and/or time_shift
-    parser.add_argument('--marg-phi-ref',      dest='marg_phi_ref',    default=False,                     action="store_true", help='phi-ref marginalization flag')
-    parser.add_argument('--marg-time-shift',   dest='marg_time_shift', default=False,                     action="store_true", help='time-shift marginalization flag')
+    parser.add_argument('--marg-phi-ref',      dest='marg_phi_ref',    default=False,                     action="store_true",  help='Phi-ref marginalization flag')
+    parser.add_argument('--marg-time-shift',   dest='marg_time_shift', default=False,                     action="store_true",  help='Time-shift marginalization flag')
 
     # Optional, number of PSD weights
-    parser.add_argument('--psd-weights',       dest='nweights',        default=0,         type=int,                          help='number of PSD weight parameters per IFO, default 0')
+    parser.add_argument('--psd-weights',       dest='nweights',        default=0,         type=int,                             help='Number of PSD weight parameters per IFO, default 0')
 
     # ROQ options
-    parser.add_argument('--use-roq',           dest='roq',             default=False,                     action="store_true", help='ROQ flag, activates ROQ likelihood computation.')
-    parser.add_argument('--roq-path',          dest='roq_path',        default='',        type=str,                          help='ROQ data path, storing the basis data generated following the conventions of `https://github.com/bernuzzi/PyROQ/tree/master/PyROQ`.')
-    parser.add_argument('--roq-tc-points',     dest='roq_tc_points',   default=10000,     type=int,                          help='Number of points used to interpolate the time axis when using the ROQ. Default: 10000')
+    parser.add_argument('--use-roq',           dest='roq',             default=False,                     action="store_true",  help='ROQ flag, activates ROQ likelihood computation.')
+    parser.add_argument('--roq-path',          dest='roq_path',        default='',        type=str,                             help='ROQ data path, storing the basis data generated following the conventions of `https://github.com/bernuzzi/PyROQ/tree/master/PyROQ`.')
+    parser.add_argument('--roq-tc-points',     dest='roq_tc_points',   default=10000,     type=int,                             help='Number of points used to interpolate the time axis when using the ROQ. Default: 10000')
 
     # GWBinning options
-    parser.add_argument('--use-binning',       dest='binning',         default=False,                     action="store_true", help='frequency binning flag')
-    parser.add_argument('--fiducial',          dest='fiducial',        default=None,      type=str,                       help='path to parameters file for gwbinning')
+    parser.add_argument('--use-binning',       dest='binning',         default=False,                     action="store_true",  help='Frequency binning flag')
+    parser.add_argument('--fiducial',          dest='fiducial',        default=None,      type=str,                             help='Path to parameters file for gwbinning')
 
     #
     # KN OPTIONS
@@ -424,7 +424,7 @@ def parse_setup_options():
     # Photometric bands information
     parser.add_argument('--band',         dest='bands',       type=str,  action="append",    default=[], help='Name of photometric bands used in the data')
     parser.add_argument('--lambda',       dest='lambdas',     type=float,   action="append",    default=[], help='Wave-length of photometric bands used in the data [nm]')
-    parser.add_argument('--use-dereddening',  dest='dered',   default=True,  action="store_true",    help='apply deredding to given data filters')
+    parser.add_argument('--use-dereddening',  dest='dered',   default=True,  action="store_true",    help='Apply deredding to given data filters')
 
     # Prior bounds
     parser.add_argument('--mej-max',      dest='mej_max',     type=float,   action="append",    default=[], help='Upper bounds for ejected mass parameters')
@@ -435,15 +435,19 @@ def parse_setup_options():
     parser.add_argument('--opac-min',     dest='opac_min',    type=float,   action="append",    default=[], help='Lower bounds for opacity parameters')
 
     # Heating factor information
-    parser.add_argument('--log-eps0',     dest='log_eps_flag',    default=False,  action="store_true",   help='log-epsilon0 prior flag')
+    parser.add_argument('--log-eps0',     dest='log_eps_flag',    default=False,  action="store_true",   help='Uniform prior in log-epsilon0 flag')
     parser.add_argument('--eps-max',      dest='eps_max',     type=float,   default=None,       help='Upper bounds for heating factor parameter')
     parser.add_argument('--eps-min',      dest='eps_min',     type=float,   default=None,       help='Lower bounds for heating factor parameter')
 
     # Extra heating rate coefficients
     parser.add_argument('--sample-heating',   dest='heat_sampling',    default=False,  action="store_true",   help='Include extra heating coefficients in sampling, default False')
-    parser.add_argument('--heat-alpha',       dest='heating_alpha',     type=float,   default=1.3,          help='alpha coefficient for heating rate (default 1.3)')
-    parser.add_argument('--heat-time',        dest='heating_time',     type=float,   default=1.3,           help='time coefficient for heating rate (default 1.3)')
-    parser.add_argument('--heat-sigma',       dest='heating_sigma',     type=float,   default=0.11,         help='sigma coefficient for heating rate (default 0.11)')
+    parser.add_argument('--heat-alpha',       dest='heating_alpha',     type=float,   default=1.3,          help='Alpha coefficient for heating rate (default 1.3)')
+    parser.add_argument('--heat-time',        dest='heating_time',     type=float,   default=1.3,           help='Time coefficient for heating rate (default 1.3)')
+    parser.add_argument('--heat-sigma',       dest='heating_sigma',     type=float,   default=0.11,         help='Sigma coefficient for heating rate (default 0.11)')
+
+    # Flags
+    parser.add_argument('--use-mag-dev',        dest='use_calib_sigma_lc',  default=False,  action="store_true",    help='Include systematic deviation parameter for each band')
+    parser.add_argument('--use-nr-ejecta-fit',  dest='use_nr_ejecta_fit',   default=False,  action="store_true",    help='Use NR fits for dynamical ejecta (first comp.) and baryonic wind (second comp.). This option works only with joint GW-KN inference.')
 
     # Integrators properties
     parser.add_argument('--nvel',         dest='n_v',         type=int,     default=400,        help='Number of elements in velocity array, default 400')
@@ -468,15 +472,19 @@ def read_model_from_paths(prior_path, like_path, priorgrid):
     from ..inf import Prior, Parameter, Likelihood, Sampler
 
     # get likelihood module
-    logger.info("Importing likelihood module ...")
+    logger.info("Importing likelihood from module ({}) ...".format(like_path))
     sys.path.append(os.path.dirname(like_path))
     like_module = importlib.import_module(os.path.basename(like_path).split('.')[0])
 
     # initialize likelihood
-    lk = Likelihood(func = like_module.log_like)
+    try:
+        lk = Likelihood(func = like_module.log_like)
+    except Exception:
+        logger.error("Unable to import log_like method from provided module ({}). Please check that a log_like method is provived.".format(like_path))
+        raise RuntimeError("Unable to import log_like method from provided module ({}). Please check that a log_like method is provived.".format(like_path))
 
     # parse prior
-    logger.info("Parsing prior options ...")
+    logger.info("Parsing prior options from file ({}) ...".format(prior_path))
     config = configparser.ConfigParser()
     config.optionxform = str
     config.sections()
@@ -538,7 +546,7 @@ def read_model_from_paths(prior_path, like_path, priorgrid):
 def read_model_from_pickle(file):
 
     # get inference pickle
-    logger.info("Importing model from pickle ...")
+    logger.info("Importing model from container ({}) ...".format(file))
     file    = os.path.abspath(file)
 
     # get data container information
@@ -547,7 +555,7 @@ def read_model_from_pickle(file):
     dc = dc.load()
 
     for pi in dc.prior.parameters:
-        logger.info("Setting {} with {} prior in range [{:.3g},{:.3g}] ...".format(pi.name, pi.prior, pi.min, pi.max))
+        logger.info("Setting {} with {} prior in range [{:.3g},{:.3g}] ...".format(pi.name, pi._kind, pi.min, pi.max))
 
     return dc.prior, dc.like
 
@@ -565,12 +573,15 @@ def init_model(opts):
 
     # if inference pickle is None
     elif (opts.inf is None):
+
         if (opts.prior is None):
             logger.error("Unable to initialize model. Prior is not given.")
             raise ValueError("Unable to initialize model. Prior is not given.")
+
         if (opts.like is None):
             logger.error("Unable to initialize model. Likelihood is not given.")
             raise ValueError("Unable to initialize model. Likelihood is not given.")
+
         # get prior and likelihood from input files
         opts.prior  = os.path.abspath(opts.prior)
         opts.like   = os.path.abspath(opts.like)

@@ -72,7 +72,9 @@ def initialize_knlikelihood_kwargs(opts):
                                 heating_time=opts.heating_time,heating_sigma=opts.heating_sigma,
                                 time_shift_bounds=[opts.time_shift_min, opts.time_shift_max],
                                 fixed_names=opts.fixed_names, fixed_values=opts.fixed_values,
-                                prior_grid=opts.priorgrid, kind='linear')
+                                prior_grid=opts.priorgrid, kind='linear',
+                                use_calib_sigma=opts.use_calib_sigma_lc,
+                                use_nr_ejecta_fit=opts.use_nr_ejecta_fit)
 
     # save observations in pickle
     cont_kwargs = {'filters': l_kwargs['filters']}
@@ -87,7 +89,8 @@ def initialize_knprior(comps, bands, mej_bounds, vel_bounds, opac_bounds, t_gps,
                        time_shift_bounds=None,
                        fixed_names=[], fixed_values=[],
                        prior_grid=2000, kind='linear',
-                       use_calib_sigma=True):
+                       use_calib_sigma=True,
+                       use_nr_ejecta_fit=False):
 
     from ..inf.prior import Prior, Parameter, Variable, Constant
 
@@ -191,6 +194,33 @@ def initialize_knprior(comps, bands, mej_bounds, vel_bounds, opac_bounds, t_gps,
     # setting inclination
     dict['cosi']   =  Parameter(name='cosi', min=-1., max=+1.)
 
+    # use NR fits for dynamical ejecta and baryonic wind
+    if use_nr_ejecta_fit:
+
+        if len(comps) < 2:
+            logger.warning("Unable to use NR ejecta fits, the model has only {} component and at least 2-comp model is requested. Ignoring NR fits.".format(len(comps)))
+        else:
+
+            logger.warning("Activating NR fits for ejecta properties. This option works only with joint KN+GW model. Please be sure you are using the correct framework.")
+            # NOTE: the NR fits work only if the prior already includes the BNS parameters, i.e. mchirp, q, lambda1, lambda2.
+            # These parameters are used to determined the predictions of the fits and they are automatically included by the
+            # GW initialization routine. So the NR ejecta fits work only with GW+KN framework.
+
+            dyn_tag     = comps[0]
+            wind_tag    = comps[1]
+
+            from ..obs.kn.utils import NRfit_recal_mass_dyn, NRfit_recal_vel_dyn, NRfit_recal_mass_wind
+
+            # include calibrations and disk fracion
+            dict['disk_frac']         = Parameter(name='disk_frac',         min = 0.,   max = 1.,   prior='uniform')
+            dict['NR_fit_recal_mdyn'] = Parameter(name='NR_fit_recal_mdyn', min = -1.,  max = 1.,   prior='normal', mu=0., sigma=0.136)
+            dict['NR_fit_recal_vdyn'] = Parameter(name='NR_fit_recal_vdyn', min = -1.,  max = 1.,   prior='normal', mu=0., sigma=0.21)
+
+            # fix (m-dyn, v-dyn, m-wind) with NR fits
+            dict['mej_{}'.format(dyn_tag)]  = Variable(name='mej_{}'.format(dyn_tag),   func=NRfit_recal_mass_dyn)
+            dict['vel_{}'.format(dyn_tag)]  = Variable(name='vel_{}'.format(dyn_tag),   func=NRfit_recal_vel_dyn)
+            dict['mej_{}'.format(wind_tag)] = Variable(name='mej_{}'.format(wind_tag),  func=NRfit_recal_mass_wind)
+
     # include theoretical error
     if use_calib_sigma:
         for bi in bands:
@@ -202,7 +232,7 @@ def initialize_knprior(comps, bands, mej_bounds, vel_bounds, opac_bounds, t_gps,
         assert len(fixed_names) == len(fixed_values)
         for ni,vi in zip(fixed_names,fixed_values) :
             if ni not in list(dict.keys()):
-                logger.warning("Requested fixed parameters ({}={}) is not in the list of all parameters. The command will be ignored.".format(ni,vi))
+                logger.warning("Requested fixed parameter ({}={}) is not in the list of all parameters. The command will be ignored.".format(ni,vi))
             else:
                 dict[ni] = Constant(ni, vi)
 
