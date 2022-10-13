@@ -627,7 +627,7 @@ def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
     # This has been tested and does not cause a loss of accuracy, since PM signals from BNS remnants have broad spectral features
     # (consistent with the maximum duration discussed above).
     df_requested    = 1./params['seglen']
-    df_downsampled  = 16.
+    df_downsampled  = 10.
     decimate_factor = int(df_downsampled/df_requested)
 
     # Skip downsampling if:
