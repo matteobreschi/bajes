@@ -1,4 +1,6 @@
-from __future__ import division, unicode_literals
+from __future__ import division, unicode_literals, absolute_import
+__import__("pkg_resources").declare_namespace(__name__)
+
 import numpy as np
 
 from .model import KorobkinBarnesGrossmanPeregoEtAl, Shell, Heating, initialize_angular_axis, initialize_flux_factors
