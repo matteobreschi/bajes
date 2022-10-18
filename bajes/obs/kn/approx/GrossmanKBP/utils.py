@@ -18,7 +18,8 @@ def planckian(nu,T_plk):
 
 def mag_filter(lam,T,rad,dist,ff):
     fnu     = calc_fnu(lam,T,rad,dist,ff)
-    return -2.5*np.log10(fnu)-48.6
+    out = -2.5*np.log10(np.maximum(fnu,np.zeros(fnu.shape)))-48.6
+    return out
 
 def calc_fnu(lam,temp,rad,dist,ff):
     ff1     = ff[:len(ff)//2]
