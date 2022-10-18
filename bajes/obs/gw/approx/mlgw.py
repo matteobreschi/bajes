@@ -26,15 +26,6 @@ def params_bajes_to_mlgwbns(pars):
     out['time_shift'] = 0.
     return out
 
-def split_freq_axis(freqs, f_max, fcut):
-    # TO DO : check efficiency of this step
-    if (f_max>fcut):
-        ihi = (freqs>fcut)
-        ilo = np.logical_not(ihi)
-        return freqs[ilo], freqs[ihi]
-    else:
-        return freqs, []
-
 class mlgw_bns_wrapper():
 
     """
@@ -45,20 +36,9 @@ class mlgw_bns_wrapper():
 
         self.model = Model.default()
 
-        # note: mlgw-bns is not trained on f > f_cut
-        # see https://mlgw-bns.readthedocs.io/en/latest/usage_guides/overview.html
-        self.fcut = 2048
-
     def __call__(self, freqs, params):
-
         bns_params      = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
-        fr_lo, fr_hi    = split_freq_axis(freqs, params['f_max'], self.fcut)
-        hp_i, hc_i      = self.model.predict(fr_lo, bns_params)
-        
-        if not(len(fr_hi)==0):
-            zeros       = np.zeros(len(fr_hi), dtype=complex)
-            hp_i, hc_i  = np.append(hp_i,zeros), np.append(hc_i,zeros)
-        
+        hp_i, hc_i      = self.model.predict(freqs, bns_params)
         return hp_i, hc_i
 
 class mlgw_bns_nrpmw_wrapper():
@@ -71,20 +51,12 @@ class mlgw_bns_nrpmw_wrapper():
 
         self.model = Model.default()
 
-        # note: mlgw-bns is not trained on f > f_cut
-        # see https://mlgw-bns.readthedocs.io/en/latest/usage_guides/overview.html
-        self.fcut = 2048
-
         from .nrpmw import nrpmw_attach_wrapper
         self.nrpmw_func = nrpmw_attach_wrapper
 
     def __call__(self, freqs, params):
-        fr_lo, fr_hi    = split_freq_axis(freqs, params['f_max'], self.fcut)
         bns_params      = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
         hp_i, hc_i      = self.model.predict(freqs, bns_params)
-        if not(len(fr_hi)==0):
-            zeros       = np.zeros(len(fr_hi), dtype=complex)
-            hp_i, hc_i  = np.append(hp_i,zeros), np.append(hc_i,zeros)
         hp_p, hc_p      = self.nrpmw_func(freqs, params)
         return hp_i+hp_p, hc_i+hc_p
 
@@ -98,20 +70,13 @@ class mlgw_bns_nrpmw_recal_wrapper():
 
         self.model = Model.default()
 
-        # note: mlgw-bns is not trained on f > f_cut
-        # see https://mlgw-bns.readthedocs.io/en/latest/usage_guides/overview.html
-        self.fcut = 2048
-
         from .nrpmw import nrpmw_attach_recal_wrapper
         self.nrpmw_func = nrpmw_attach_recal_wrapper
 
     def __call__(self, freqs, params):
-        fr_lo, fr_hi    = split_freq_axis(freqs, params['f_max'], self.fcut)
         bns_params      = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
-        hp_i, hc_i      = self.model.predict(fr_lo, bns_params)
-        if not(len(fr_hi)==0):
-            zeros       = np.zeros(len(fr_hi), dtype=complex)
-            hp_i, hc_i  = np.append(hp_i,zeros), np.append(hc_i,zeros)
+        hp_i, hc_i      = self.model.predict(freqs, bns_params)
+        hp_p, hc_p      = self.nrpmw_func(freqs, params)
         return hp_i, hc_i
 
 class mlgw_bns_nrpmw_wrapper():
@@ -128,25 +93,13 @@ class mlgw_bns_nrpmw_wrapper():
         self.srate  = srate
         self.seglen = seglen
 
-        # note: mlgw-bns is not trained on f > f_cut
-        # see https://mlgw-bns.readthedocs.io/en/latest/usage_guides/overview.html
-        self.fcut = 2048
-
         from .nrpmw import nrpmw_attach_wrapper
         self.nrpmw_func = nrpmw_attach_wrapper
 
     def __call__(self, freqs, params):
-
         bns_params      = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
-        fr_lo, fr_hi    = split_freq_axis(freqs, params['f_max'], self.fcut)
-        hp_i, hc_i      = self.model.predict(fr_lo, bns_params)
-
-        if not(len(fr_hi)==0):
-            zeros       = np.zeros(len(fr_hi), dtype=complex)
-            hp_i, hc_i  = np.append(hp_i,zeros), np.append(hc_i,zeros)
-
+        hp_i, hc_i      = self.model.predict(freqs, bns_params)
         hp_p, hc_p      = self.nrpmw_func(freqs, params)
-
         return hp_i+hp_p, hc_i+hc_p
 
 class mlgw_bns_nrpmw_recal_wrapper():
@@ -163,20 +116,12 @@ class mlgw_bns_nrpmw_recal_wrapper():
         self.srate  = srate
         self.seglen = seglen
 
-        # note: mlgw-bns is not trained on f > f_cut
-        # see https://mlgw-bns.readthedocs.io/en/latest/usage_guides/overview.html
-        self.fcut = 2048
-
         from .nrpmw import nrpmw_attach_recal_wrapper
         self.nrpmw_func = nrpmw_attach_recal_wrapper
 
     def __call__(self, freqs, params):
-        fr_lo, fr_hi    = split_freq_axis(freqs, params['f_max'], self.fcut)
         bns_params      = ParametersWithExtrinsic(**params_bajes_to_mlgwbns(params))
         hp_i, hc_i      = self.model.predict(freqs, bns_params)
-        if not(len(fr_hi)==0):
-            zeros       = np.zeros(len(fr_hi), dtype=complex)
-            hp_i, hc_i  = np.append(hp_i,zeros), np.append(hc_i,zeros)
         hp_p, hc_p      = self.nrpmw_func(freqs, params)
         return hp_i+hp_p, hc_i+hc_p
 
