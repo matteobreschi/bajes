@@ -159,9 +159,9 @@ class Shell(object):
         if self.geometry == 'isotropic':
             m_dist = params['mej_{}'.format(self.name)] * 0.5 * (np.cos(at[0])-np.cos(at[1]))
         elif self.geometry == 'polar':
-            m_dist = params['mej_{}'.format(self.name)] * 0.5 * (np.cos(a[0])**3 - np.cos(a[1])**3)
+            m_dist = params['mej_{}'.format(self.name)] * 0.5 * (np.cos(at[0])**3 - np.cos(at[1])**3)
         elif self.geometry == 'equatorial':
-            m_dist = params['mej_{}'.format(self.name)] * 0.0625 * (np.cos(3.*a[1]) - 9.*np.cos(a[1]) - np.cos(3.*a[0]) + 9.*np.cos(a[0]))
+            m_dist = params['mej_{}'.format(self.name)] * 0.0625 * (np.cos(3.*at[1]) - 9.*np.cos(at[1]) - np.cos(3.*at[0]) + 9.*np.cos(at[0]))
 
         v_dist = params['vel_{}'.format(self.name)] * np.ones(12)
         k_dist = params['opac_{}'.format(self.name)] * np.ones(12)
