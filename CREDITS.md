@@ -70,3 +70,14 @@ ASDs for current and future detectors,
 * KAGRA Design sensitivity, T. Akutsu et al., [arxiv](https://arxiv.org/abs/1811.08079)
 * Einstein Telescope (configuration D) sensitivity, S. Hild et al., [arxiv](https://arxiv.org/abs/1012.0908)
 * Cosmic Explorer sensitivity, D. Reitze et al., [arxiv](https://arxiv.org/abs/1907.04833)
+
+## Kilonova pipeline
+
+If you use one of the following kilonova approximants, please provide the related citation,
+* `GrossmanKBP`: D. Grossman et al., [arxiv](https://arxiv.org/abs/1307.2943)
+    * Nuclear heating rates extracted from O. Korobkin et al., [arxiv](https://arxiv.org/abs/1206.2379)
+    * Thermal efficiency described in J. Barnes et al., [arxiv](https://arxiv.org/abs/1605.07218)
+    * Multi-component anisotropic model presented in A. Perego et al., [arxiv](https://arxiv.org/abs/1711.03982)
+
+The *bajes* repository contains the bolometric magnitudes of AT2017gfo and the corresponding standard deviations
+extracted from V. A. Villar et al., [arxiv](https://arxiv.org/abs/1710.11576)
