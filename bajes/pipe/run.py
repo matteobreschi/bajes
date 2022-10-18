@@ -79,7 +79,7 @@ def run_main_mpi(opts, Pool):
 
         # header
         print_header(opts.engine, opts.nprocs)
-        logger.info("> MPI world initisalized")
+        logger.info("> MPI world initialized")
 
         # initialize likelihood, prior and sampler
         pr, lk      = init_model(opts)
@@ -118,7 +118,7 @@ def run_main_mpi_ultranest(opts, rank, size):
     if rank == 0:
         if opts.debug:  logger.debug("Using logger with debugging mode")
         print_header(opts.engine, opts.nprocs)
-        logger.info("> MPI world initisalized")
+        logger.info("> MPI world initialized")
 
     # initialize likelihood, prior and sampler
     pr, lk      = init_model(opts)

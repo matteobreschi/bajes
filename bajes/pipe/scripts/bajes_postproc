@@ -227,10 +227,10 @@ def make_corners(posterior, spin_flag, lambda_flag, ppdir, priors):
         logger.info("Sky position parameters were fixed. Skipping sky position corner.")
 
     # distance - inclination
-    if not (('distance' in priors.const) or ('cosi' in priors.const)):
+    if not (('distance' in priors.const) or ('cos_iota' in priors.const)):
         try:
             logger.info("... plotting distance-iota ...")
-            iota_post = np.arccos(posterior['cosi'])
+            iota_post = np.arccos(posterior['cos_iota'])
             distiot_matrix = np.column_stack((posterior['distance'], iota_post))
             distiot_labels = [r'$D_L [{\rm Mpc}]$', r'$\iota [{\rm rad}]$']
             make_corner_plot(distiot_matrix,distiot_labels,ppdir+'/distance_posterior.pdf')

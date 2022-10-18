@@ -56,7 +56,7 @@ def initialize_gwlikelihood_kwargs(opts):
     for i,ifo in enumerate(opts.ifos):
         # read data
         ifo        = opts.ifos[i]
-        data       = read_data(opts.data_flag, opts.strains[i], opts.srate)
+        data       = read_data(opts.strains[i], opts.srate)
         f_asd, asd = read_asd(opts.asds[i], ifo)
 
         # check ASD domain
@@ -579,8 +579,8 @@ def initialize_gwprior(ifos,
     dict['dec'] = Parameter(name='dec', min=-np.pi/2., max=np.pi/2., prior='cosinusoidal')
 
     # setting other extrinsic parameters
-    dict['cosi']    = Parameter(name='cosi', min=-1., max=+1.)
-    dict['psi']     = Parameter(name='psi', min=0., max=np.pi, periodic=1)
+    dict['cos_iota']    = Parameter(name='cos_iota', min=-1., max=+1.)
+    dict['psi']         = Parameter(name='psi', min=0., max=np.pi, periodic=1)
 
     # setting distance
     if dist_min == None and dist_max == None:

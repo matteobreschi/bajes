@@ -100,10 +100,10 @@ class Lightcurve(object):
 
     def compute_mag(self, params):
 
-        if 'cosi' in params.keys():
-            params['iota'] = np.arccos(params['cosi'])
+        if 'cos_iota' in params.keys():
+            params['iota'] = np.arccos(params['cos_iota'])
         elif 'iota' in params.keys():
-            params['cosi'] = np.cos(params['iota'])
+            params['cos_iota'] = np.cos(params['iota'])
         else:
             raise KeyError("Unable to read inclination parameter, information is missing. Please use iota or cosi.")
 

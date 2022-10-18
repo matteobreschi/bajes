@@ -640,14 +640,14 @@ def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
         hf  = __linear_interp__(freqs, fr, hf)
     else:
         hf = nrpmw_func(freqs, params, recalib=recalib)
-    return hf*(0.5*(1.+params['cosi']**2.)), hf*(params['cosi']*EmIPIHALF)
+    return hf*(0.5*(1.+params['cos_iota']**2.)), hf*(params['cos_iota']*EmIPIHALF)
 
 def nrpmw_wrapper(freqs, params):
     return _wrapper_nrpmw(freqs, params, attach=False, recalib=False)
 
 def nrpmw_wrapper_nodownsampling(freqs, params):
     hf = NRPMw(freqs, params, recalib=False)
-    return hf*(0.5*(1.+params['cosi']**2.)), hf*(params['cosi']*EmIPIHALF)
+    return hf*(0.5*(1.+params['cos_iota']**2.)), hf*(params['cos_iota']*EmIPIHALF)
 
 def nrpmw_attach_wrapper(freqs, params):
     return _wrapper_nrpmw(freqs, params, attach=True, recalib=False)

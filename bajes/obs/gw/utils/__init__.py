@@ -10,6 +10,9 @@ from scipy.signal import decimate
 from ..noise import get_design_sensitivity, get_event_sensitivity, get_event_calibration
 from ..strain import fft, ifft
 
+import logging
+logger = logging.getLogger(__name__)
+
 def lambda_2_kappa(M1,M2,L1,L2):
     Mt = M1 + M2
     k1 = 3. * L1 * (M2/M1) * (M1/Mt)**5
@@ -210,21 +213,20 @@ def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
     t   = np.arange(len(s))*(1./srate) + GPSstart
     return t , s
 
-def read_data(data_flag, data_path, srate):
+def read_data(data_path, srate):
 
-    if data_flag == 'inject' or data_flag == 'local' or  data_flag == 'gwosc':
+    time, data = np.genfromtxt(data_path, unpack=True)
+    srate_dt = 1./float(time[1] - time[0])
 
-        time, data = np.genfromtxt(data_path, unpack=True)
-        srate_dt = 1./float(time[1] - time[0])
-        if (srate > srate_dt):
-            raise ValueError("You requested a sampling rate higher than the data sampling.")
-        elif (srate < srate_dt):
-            sys.stdout.write('Requested sampling rate is lower than data sampling rate. Downsampling detector data from {} to {} Hz, decimate factor {}\n'.format(srate_dt, srate, int(srate_dt/srate)))
-            data = decimate(data, int(srate_dt/srate), zero_phase=True)
-        else:
-            pass
+    if (srate > srate_dt):
+        logger.error("Requested sampling rate is larger than the data sampling rate. Please request a sampling rate equal to or smaller than {} Hz.".format(srate_dt))
+        raise ValueError("Requested sampling rate is larger than the data sampling. Please request a sampling rate equal to or smaller than {} Hz.".format(srate_dt))
+    elif (srate < srate_dt):
+        logger.warning('Requested sampling rate is lower than data sampling rate. Downsampling detector data from {} to {} Hz, decimate factor {}'.format(srate_dt, srate, int(srate_dt/srate)))
+        data = decimate(data, int(srate_dt/srate), zero_phase=True)
     else:
-        raise KeyError("Please specify a data_flag.")
+        pass
+
     return data
 
 def read_asd(asd_path, ifo):
@@ -312,7 +314,7 @@ def read_params(path, flag):
 
     if 'lmax' not in params_list:
         params['lmax'] = 0.
-        
+
     if 'Eprior' not in params_list:
         params['Eprior'] = 'Constrained'
     if 'nqc-TEOBHyp' not in params_list:

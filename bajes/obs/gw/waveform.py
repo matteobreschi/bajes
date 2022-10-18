@@ -356,9 +356,9 @@ class Waveform(object):
                 logger.debug("Estimated lambda={} for mass={}".format(params['lambda2'], m2))
 
         # include iota
-        if 'cosi' in params.keys():
-            params['iota'] = np.arccos(params['cosi'])
-        
+        if 'cos_iota' in params.keys():
+            params['iota'] = np.arccos(params['cos_iota'])
+
         # compute hplus and hcross according with approx
         hp , hc = self.wave_func(self.freqs, params)
 

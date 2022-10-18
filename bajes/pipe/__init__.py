@@ -369,7 +369,7 @@ def parse_setup_options():
     parser.add_argument('--nqc-TEOBHyp',       dest='nqc_TEOBHyp',    default=1,         type=int,                           help='Flag to activate/deactivate (1/0) NQCs in hyperbolic TEOB models. Default: 1.')
 
     # Prior flags
-    parser.add_argument('--data-flag',         dest='data_flag',      default=None,       type=str,                       help='Data flag. Available options: [???]. Default: None')
+    # parser.add_argument('--data-flag',         dest='data_flag',      default=None,       type=str,                       help='Data flag. Available options: [???]. Default: None')
     parser.add_argument('--spin-flag',         dest='spin_flag',      default='no-spins', type=str,                       help='Spin prior flag. Available options: [???]. Default: `no-spins`.')
     parser.add_argument('--tidal-flag',        dest='lambda_flag',    default='no-tides', type=str,                       help='Tidal prior flag. Available options: [???]. Default: `no-tides`.')
 

@@ -207,7 +207,7 @@ def initialize_knprior(approx,
     dict['time_shift']  = Parameter(name='time_shift', min=time_shift_bounds[0], max=time_shift_bounds[1])
 
     # setting inclination
-    dict['cosi']   =  Parameter(name='cosi', min=-1., max=+1.)
+    dict['cos_iota']   =  Parameter(name='cos_iota', min=-1., max=+1.)
 
     # use NR fits for dynamical ejecta and baryonic wind
     if approx=='GrossmanKBP-2-NRfits':

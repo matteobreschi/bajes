@@ -212,7 +212,7 @@ class GWTargetProposal(object):
             self.proposal_list.append(self.move_skyloc)
             self.proposal_prob.append(4.)
 
-        if 'distance' in self.names and 'cosi' in self.names:
+        if 'distance' in self.names and 'cos_iota' in self.names:
             self.proposal_list.append(self.move_distiota)
             self.proposal_prob.append(2.)
 
@@ -291,13 +291,13 @@ class GWTargetProposal(object):
 
         # move for distance - iota
         c_t         = np.transpose(np.concatenate(c))
-        distiota_kde = gaussian_kde([ c_t[self.where['cosi']] , c_t[self.where['distance']] ])
+        distiota_kde = gaussian_kde([ c_t[self.where['cos_iota']] , c_t[self.where['distance']] ])
 
         # initialize current sample
         q = np.array(s)
         vec = np.concatenate(distiota_kde.resample(1))
 
-        q[self.where['cosi']]        = vec[0]
+        q[self.where['cos_iota']]        = vec[0]
         q[self.where['distance']]    = vec[1]
 
         return q
@@ -346,7 +346,7 @@ class GWTargetProposal(object):
 #        dist_new, iota_new, psi_new = project_all_extrinsic(self.dets,
 #                                                            s[self.where['ra']],
 #                                                            s[self.where['dec']],
-#                                                            np.arccos(s[self.where['cosi']]),
+#                                                            np.arccos(s[self.where['cos_iota']]),
 #                                                            s[self.where['distance']],
 #                                                            s[self.where['psi']],
 #                                                            s[self.where['time_shift']],
@@ -362,7 +362,7 @@ class GWTargetProposal(object):
 #            pass
 #        else:
 #            q[self.where['distance']]    = dist_new
-#            q[self.where['cosi']]        = np.cos((iota_new)%(np.pi))
+#            q[self.where['cos_iota']]        = np.cos((iota_new)%(np.pi))
 #            q[self.where['psi']]         = (psi_new)%(np.pi)
 #
 #        return q
