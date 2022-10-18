@@ -97,5 +97,10 @@ class Filter(object):
 
         self.all_times = np.sort(list(set(all_times)))
 
+    @property
     def bands(self):
         return list(self.lambdas.keys())
+
+    @property
+    def wavelengths(self):
+        return [self.lambdas[bi] for bi in self.bands]

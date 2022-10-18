@@ -15,16 +15,19 @@ units_pc2cm    = 3.085678e+18      #[cm/pc]
 def NRfit_recal_mass_dyn(mchirp, q, lambda1, lambda2, NR_fit_recal_mdyn, **kwargs):
     mtot        = mchirp / (q/(1+q)**2)**0.6
     log_mdyn    = NRfit_log_mass_dyn(mtot, q, lambda1, lambda2) * (1. + NR_fit_recal_mdyn)
-    return mtot * np.exp(log_mdyn)
+    mdyn        = mtot * np.exp(log_mdyn)
+    return np.max([0., mdyn])
 
 def NRfit_recal_vel_dyn(mchirp, q, lambda1, lambda2, NR_fit_recal_vdyn, **kwargs):
-    mtot        = mchirp / (q/(1+q)**2)**0.6
-    return NRfit_vel_dyn(mtot, q, lambda1, lambda2) * (1. + NR_fit_recal_vdyn)
+    mtot    = mchirp / (q/(1+q)**2)**0.6
+    vdyn    = NRfit_vel_dyn(mtot, q, lambda1, lambda2) * (1. + NR_fit_recal_vdyn)
+    return np.max([1e-10, vdyn])
 
 def NRfit_recal_mass_wind(mchirp, q, lambda1, lambda2, disk_frac, **kwargs):
     mtot        = mchirp / (q/(1+q)**2)**0.6
     log_m_disk  = NRfit_log_mass_disk(mtot, q, lambda1, lambda2)
-    return mtot * np.exp(log_m_disk) * disk_frac
+    mwind       = mtot * np.exp(log_m_disk) * disk_frac
+    return np.max([0., mdyn])
 
 def NRfit_log_mass_dyn(mtot, q, lambda1, lambda2):
     """
@@ -71,61 +74,3 @@ def NRfit_log_mass_disk(mtot, q, lambda1, lambda2):
     corr_l = 1. + Abar*((1./np.pi)*np.arctan((lambda1+lambda2-Lbar)/Sbar) - 0.5)
     corr_p = 1 + a1*(lambda1)**2 + a2*(lambda2)**2 + b1*m1**2 + b2*m2**2
     return alpha * corr_l * corr_p
-
-#
-# Magnitude evaluation methods
-#
-
-def planckian(nu,T_plk):
-    tmp = (units_h*nu)/(units_kB*T_plk)
-    return (2.*units_h*nu**3)/(units_c**2)/(np.exp(tmp)-1.)
-
-def m_filter(lam,T,rad,dist,ff):
-    fnu = calc_fnu(lam,T,rad,dist,ff)
-    return -2.5*np.log10(fnu)-48.6
-
-def calc_fnu(lam,temp,rad,dist,ff):
-    ff1 = ff[:len(ff)//2]
-    ff2 = ff[len(ff)//2:]
-    tmp1 = np.array([r**2 * f * planckian(units_c/(100.*lam),T) for r,f,T in zip(rad,ff1,temp)])
-    tmp2 = np.array([r**2 * f * planckian(units_c/(100.*lam),T) for r,f,T in zip(rad[::-1],ff2,temp[::-1])])
-    return np.sum(tmp1+tmp2)/dist**2
-
-def compute_magnitudes(times,ff,rad_ray,T_ray,lambdas,D,tshift):
-    ordered_T = np.asarray([list(x) for x in zip(*T_ray)])
-    ordered_R = np.asarray([list(x) for x in zip(*rad_ray)])
-    shifted_times = times+tshift
-    return { li : np.interp(times, shifted_times,[m_filter(lambdas[li],T,R,D,ff) for T,R in zip(ordered_T,ordered_R)],left=np.inf) for li in list(lambdas.keys()) }
-
-#
-# Spherical expansion methods
-#
-
-def mass_gt_v(v,mej,v_exp):
-    return mej*units_Msun*(1.0+func_vel(v/v_exp))  #[g]
-
-def func_vel(x):
-    return 35.*x**7/112.-105.*x**5/80.+35.*x**3/16.-35.*x/16.
-
-def t_diff_v(kappa,v,m_v,omega):
-    return np.sqrt(kappa*m_v/(omega*v*units_c*units_c))  #[s]
-
-def t_fs_v(kappa,v,m_v,omega):
-    return np.sqrt(1.5*kappa*m_v/(omega*v*v*units_c*units_c))  #[s]
-
-def GK_expansion_model(args):
-
-    Omega,m_ej,v_rms,v_min,n_v,kappa = args
-    v_max  = 3.*v_rms
-    vel    = np.linspace(v_min,v_max,n_v)
-    m_vel  = mass_gt_v(vel,m_ej,v_max)
-    t_diff = t_diff_v(kappa,vel,m_vel,Omega)
-    t_fs   = t_fs_v(kappa,vel,m_vel,Omega)
-    return vel,m_vel,t_diff,t_fs
-
-#
-# Effective temperature
-#
-
-def compute_effective_temperature(Lum,dOmega,r_ph):
-    return np.power(Lum/(dOmega*r_ph**2*units_sigma_SB), 0.25)

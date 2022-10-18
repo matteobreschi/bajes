@@ -1,161 +1,102 @@
+from __future__ import division, unicode_literals
 import numpy as np
 
-from .heating import Heating
-from .utils import compute_magnitudes, GK_expansion_model, compute_effective_temperature
+import logging
+logger = logging.getLogger(__name__)
 
-# obs. the following universal constant are not expressed in SI
-units_c        = 2.99792458e10     #[cm/s]
-units_Msun     = 1.98855e33        #[g]
-units_sigma_SB = 5.6704e-5         #[erg/cm^2/s/K^4]
-units_h        = 6.6260755e-27     #[erg*s]
-units_kB       = 1.380658e-16      #[erg/K]
-units_pc2cm    = 3.085678e+18      #[cm/pc]
+# # Dictionary of known approximants
+# # Each key corresponds to the name of the approximant
+# # Each value has to be a dictionary
+# # that include the following keys:
+# #   * 'path':   string to method to be imported, e.g. bajes.obs.gw.approx.taylorf2.taylorf2_35pn_wrapper
+# #   * 'type':   define if the passed func is a function or a class, options: ['fnc', 'cls']
+# #   * 'domain': define if the method returns a frequency- or time-domain waveform, options: ['time', 'freq']
+
+__approx_dict__ = { ### TIME-DOMAIN
+                    # funcs
+                    # classes
+                    'GrossmanKBP-1-isotropic':              {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_isotropic_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-1-equatorial':             {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_equatorial_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-1-polar':                  {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_polar_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-2-isotropic':              {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_isotropic_isotropic_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-2-equatorial':             {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_isotropic_equatorial_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-2-polar':                  {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_isotropic_polar_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-2-eq+pol':                 {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_equatorial_polar_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-2-NRfits':                 {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_nrfit_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-3-isotropic':              {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_three_isotropic_wrapper',
+                                                             'type': 'cls'},
+                    'GrossmanKBP-3-anisotropic':            {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_three_anisotropic_wrapper',
+                                                             'type': 'cls'},
+                  }
+
+def __get_lightcurve_generator__(approx, times, lambdas, **kwargs):
+
+    # get approximant list
+    __known_approxs__ = list(__approx_dict__.keys())
+
+    # non-LAL waaveforms
+    if (approx not in __known_approxs__):
+        logger.error("Unable to read approximant string. Please use a valid string: {}.".format(__known_approxs__))
+        raise AttributeError("Unable to read approximant string. Please use a valid string: {}.".format(__known_approxs__))
+
+    this_light = __approx_dict__[approx]
+    light_pars = {'times'   : times,
+                  'lambdas' : lambdas,
+                  'v_min'   : kwargs.get('v_min',   1.e-7),
+                  'n_v'     : kwargs.get('n_v',     400),
+                  't_start' : kwargs.get('t_start', 1),
+                  }
+
+    # set module string and import
+    from importlib import import_module
+    path_to_method  = this_light['path'].split('.')
+    light_module    = import_module('.'.join(path_to_method[:-1]))
+
+    # this condition never occurs if the code is properly written
+    if path_to_method[-1] not in dir(light_module):
+        raise AttributeError("Unable to import {} method from {}".format(path_to_method[-1], light_module))
+
+    # get waveform generator and domain string
+    if this_light['type'] == 'fnc':
+        light_func = getattr(light_module, path_to_method[-1])
+    elif this_light['type'] == 'cls':
+        light_obj  = getattr(light_module, path_to_method[-1])
+        light_func = light_obj(**light_pars)
+    else:
+        # this condition never occurs if the __approx_dict__ is properly written
+        raise AttributeError("Unable to define method of type {} for waveform generator. Check bajes.obs.kn.lightcurve.__approx_dict__".format(light_pars['type']))
+
+    return light_func
 
 #
-# initialization methods
+# lightcurve object
 #
-
-def initialize_flux_factors(nrays):
-    """
-        compute flux factors (uniform in the cos-theta)
-        from given viewing angle
-    """
-    import os
-    from scipy.interpolate import InterpolatedUnivariateSpline
-    from ... import __path__
-
-    view_angles     = np.linspace(0.0,90.,91)
-    data_location   = __path__[0] + '/obs/kn/fluxfactors/'
-    flux_factors    = np.array([np.loadtxt(data_location+'/ff_ray_%d.dat'%i,unpack=True,usecols=([1])) for i in range(int(nrays))])
-    return [InterpolatedUnivariateSpline(view_angles,f) for f in flux_factors]
-
-def initialize_angular_axis(n):
-    """
-        compute angular distribution (uniform in the cos-theta)
-    """
-    delta = 1./n
-    a = np.array([ [np.arccos(delta*i),np.arccos(delta*(i-1))] for i in range(int(n),0,-1)])
-    o = np.array([ 2.*np.pi*(np.cos(x[0]) - np.cos(x[1])) for x in a])
-    return a, o
-
-class Shell(object):
-    """
-    Ejecta shell class
-    """
-    def __init__(self, name, time, angles, omegas, heat, v_min, n_v):
-
-        # initilize shell name
-        self.name   = name
-
-        # initialize angular axis
-        self.time   = time
-        self.angles = angles
-        self.omegas = omegas
-
-        # initialize heating model
-        self.heat   = heat
-
-        # initialize integration constants
-        self.v_min  = v_min
-        self.n_v    = n_v
-
-    def get_angular_distribution(self, params):
-        """
-            Return uniform angular profiles for mass, velocity and opacity
-            Arguments:
-            - params : list of floats, [mej, vel, opac]
-                       mej  : total ejected mass
-                       vel  : shell rms velocity
-                       opac : opacity
-            Return:
-            - mass profile
-            - velocity profile
-            - opacity profile
-        """
-        at = np.transpose(self.angles)
-        m_dist = params['mej_{}'.format(self.name)] * 0.5 * (np.cos(at[0])-np.cos(at[1]))
-        v_dist = params['vel_{}'.format(self.name)] * np.ones(12)
-        k_dist = params['opac_{}'.format(self.name)] * np.ones(12)
-        return m_dist, v_dist, k_dist
-
-    def expansion_angular_distribution(self, params):
-
-        # update angular distributions
-        ms,vs,ks = self.get_angular_distribution(params)
-        Rph     = np.zeros((len(ms),len(self.time)), dtype=float)
-        Lbol    = np.zeros((len(ms),len(self.time)), dtype=float)
-
-        # iterate over angular axis
-        for i, (omega,m_ej,v_rms,kappa) in enumerate(zip(self.omegas,ms,vs,ks)):
-
-            # expand shell ejecta
-            exp_args = [omega,m_ej,v_rms,self.v_min,self.n_v,kappa]
-            vel,m_vel,t_diff,t_fs = GK_expansion_model(exp_args)
-            v_fs    = np.interp(self.time, t_fs[::-1], vel[::-1])
-            m_diff  = np.interp(self.time, t_diff[::-1], m_vel[::-1])
-            m_fs    = np.interp(self.time, t_fs[::-1], m_vel[::-1])
-            m_rad   = m_diff-m_fs
-
-            # compute photosphere radius
-            Rph[i]  = v_fs*units_c*self.time
-
-            # compute bolometric luminosity
-            eps_args = [params['eps_alpha'], params['eps_time'], params['eps_sigma'], params['eps0'], m_ej, omega, v_rms]
-            eps      = self.heat.heating_rate(self.time, eps_args)
-            Lbol[i]  = m_rad*eps
-
-        return np.array(Rph), np.array(Lbol)
 
 class Lightcurve(object):
+    """
+        Lightcurve object
+    """
 
-    def __init__(self, comps, times, lambdas,
-                 v_min=1.e-7, n_v=400, t_start=1.):
+    def __init__(self, times, lambdas, approx, **kwargs):
+        """
+            Initialize the Lightcurve with a frequency axis and the name of the approximant
+        """
 
-        # initialize angular axis
-        # obs. the inclinations angle is divided in 12 slices
-        n_rays = 12
-        angles, omegas  = initialize_angular_axis(n_rays//2)
-
-        # initialize nuclear heating rate model
-        heat    = Heating()
-
-        # check time axis
-        if any(times < 0.):
-            times += t_start - np.times[0]
-        self.times  = times
-
-        # initialize shell components
-        self.ncomponents    = len(comps)
-        self.components     = [Shell(ci, times, angles, omegas, heat, v_min, n_v) for ci in comps]
-
-        # initialize filter bands
+        self.times      = times
         self.lambdas    = lambdas
+        self.approx     = approx
+        logger.info("Setting {} lightcurve ...".format(self.approx))
 
-        # initialize flux factor interpolator
-        self.ff_interp  = initialize_flux_factors(n_rays)
-
-    def compute_lc(self, params):
-
-        # compute Rph e Lbol for every shell
-        Rs = []
-        Ls = []
-        for ci in self.components:
-            ri, li = ci.expansion_angular_distribution(params)
-            Rs.append(ri)
-            Ls.append(li)
-
-        # select the photospheric radius as the maximum between the different single photospheric radii
-        Rph = np.zeros(np.shape(ri))
-        for i in range(self.ncomponents):
-            Rph = np.maximum(Rph,Rs[i])
-
-        # compute the total bolometric luminosity
-        Lbol = np.sum(Ls, axis = 0)
-
-        # compute the effective BB temperature based on the photospheric radius and luminosity
-        Teff = [[compute_effective_temperature(L,ci.omegas[k],R) for L,R in zip(Lbol[k,:],Rph[k,:])] for k in range(len(ci.angles))]
-
-        return np.array(Rph), np.array(Lbol), np.asarray(Teff)
+        # get waveform generator from string
+        self.light_func = __get_lightcurve_generator__(self.approx, self.times, self.lambdas, **kwargs)
 
     def compute_mag(self, params):
 
@@ -164,16 +105,6 @@ class Lightcurve(object):
         elif 'iota' in params.keys():
             params['cosi'] = np.cos(params['iota'])
         else:
-            raise KeyError("Unable to read inclination parameter, information is missing.\n Please use iota or cosi.")
+            raise KeyError("Unable to read inclination parameter, information is missing. Please use iota or cosi.")
 
-        # convert iota and distance
-        _iota = params['iota']*360./(2.*np.pi)
-        _dist = params['distance']*1.e6*units_pc2cm
-
-        # compute Rph, Lbol, Teff
-        Rph, Lbol, Teff = self.compute_lc(params)
-
-        # compute flux factors
-        ff = [fi(_iota) for fi in self.ff_interp]
-
-        return compute_magnitudes(self.times,ff,Rph,Teff,self.lambdas,_dist,params['time_shift'])
+        return self.light_func(params)

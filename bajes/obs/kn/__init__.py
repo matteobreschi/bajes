@@ -2,7 +2,9 @@
 __import__("pkg_resources").declare_namespace(__name__)
 
 from .filter import Filter
-from .lightcurve import Lightcurve
+from .lightcurve import Lightcurve, __approx_dict__
+
+__known_approxs__   = list(__approx_dict__.keys())
 
 __photometric_bands__       = { 'B'         : 445e-9,
                                 'Y'         : 1005e-9,

@@ -361,7 +361,7 @@ def parse_setup_options():
     parser.add_argument('--seglen',            dest='seglen',         default=None,      type=float,                         help='Requested length of the segment to be analysed [sec]. If smaller than data total lenght, data are cropped. If longer, data are padded. Default: None.')
 
     # Waveform model
-    parser.add_argument('--approx',            dest='approx',         default=None,      type=str,                        help='Gravitational-wave approximant. Default: None')
+    parser.add_argument('--gw-approx',         dest='approx',         default=None,      type=str,                        help='Gravitational-wave approximant. Default: None')
     parser.add_argument('--extra-option',      dest='extra_opt',      default=[],        type=str,  action="append",      help='Names of the additional parameters for the chosen approximant. Has to be passed once for each parameter. Default: []')
     parser.add_argument('--extra-option-val',  dest='extra_opt_val',  default=[],        type=str,  action="append",      help='Values of the additional parameters for the chosen approximant. Has to be passed once for each parameter and in the same order as the `--extra-option` option. Default: []')
     parser.add_argument('--lmax',              dest='lmax',           default=0,         type=int,                           help='Higher angular mode index to be considered for GW template. The zero value corresponds to MISSING. Default: 0')
@@ -418,8 +418,9 @@ def parse_setup_options():
     #
 
     # Data & Components information
-    parser.add_argument('--comp',         dest='comps',       type=str,  action="append", default=[],    help='Name of shell component(s) for lightcurve estimation')
-    parser.add_argument('--mag-folder',   dest='mag_folder',  type=str,  default=None,    help='Path to magnitudes data folder')
+    #parser.add_argument('--comp',         dest='comps',       type=str,  action="append", default=[],    help='Name of shell component(s) for lightcurve estimation')
+    parser.add_argument('--mag-folder',   dest='mag_folder',  type=str,     default=None,   help='Path to magnitudes data folder')
+    parser.add_argument('--kn-approx',    dest='kn_approx',   type=str,     default=None,   help='Gravitational-wave approximant. Default: None')
 
     # Photometric bands information
     parser.add_argument('--band',         dest='bands',       type=str,  action="append",    default=[], help='Name of photometric bands used in the data')
@@ -447,7 +448,6 @@ def parse_setup_options():
 
     # Flags
     parser.add_argument('--use-mag-dev',        dest='use_calib_sigma_lc',  default=False,  action="store_true",    help='Include systematic deviation parameter for each band')
-    parser.add_argument('--use-nr-ejecta-fit',  dest='use_nr_ejecta_fit',   default=False,  action="store_true",    help='Use NR fits for dynamical ejecta (first comp.) and baryonic wind (second comp.). This option works only with joint GW-KN inference.')
 
     # Integrators properties
     parser.add_argument('--nvel',         dest='n_v',         type=int,     default=400,        help='Number of elements in velocity array, default 400')
@@ -555,7 +555,7 @@ def read_model_from_pickle(file):
     dc = dc.load()
 
     for pi in dc.prior.parameters:
-        logger.info("Setting {} with {} prior in range [{:.3g},{:.3g}] ...".format(pi.name, pi._kind, pi.min, pi.max))
+        logger.info("Setting {} with {} prior in range [{:.3g},{:.3g}] ...".format(pi.name, pi._kind, pi.lower_bound, pi.upper_bound))
 
     return dc.prior, dc.like
 

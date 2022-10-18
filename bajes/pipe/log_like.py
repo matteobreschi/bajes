@@ -187,8 +187,8 @@ class GWLikelihood(Likelihood):
 # -0.5 (|d-L|/s)**2
 class KNLikelihood(Likelihood):
 
-    def __init__(self, comps, filters,
-                 priors, prior_grid=900, kind='linear',
+    def __init__(self, filters, approx, priors,
+                 prior_grid=900, kind='linear',
                  v_min=1.e-7, n_v=400,
                  n_time=400, t_start=1., t_scale='linear',
                  **kwargs):
@@ -200,8 +200,8 @@ class KNLikelihood(Likelihood):
         self.filters = filters
 
         # compute data normalization
-        self.logZ_noise = -0.5*sum([np.power(self.filters.magnitudes[bi]/self.filters.mag_stdev[bi],2.).sum() for bi in self.filters.bands()])
-        self.logNorm    = -0.5*sum([np.log(2*np.pi*self.filters.mag_stdev[bi]**2).sum() for bi in self.filters.bands()])
+        self.logZ_noise = -0.5*sum([np.power(self.filters.magnitudes[bi]/self.filters.mag_stdev[bi],2.).sum() for bi in self.filters.bands])
+        self.logNorm    = -0.5*sum([np.log(2*np.pi*self.filters.mag_stdev[bi]**2).sum() for bi in self.filters.bands])
 
         # initilize time axis for lightcurve model
         if t_start > 86400:
@@ -229,7 +229,8 @@ class KNLikelihood(Likelihood):
 
         # initialize lightcurve model
         from ..obs.kn.lightcurve import Lightcurve
-        self.light  = Lightcurve(comps, t_axis, filters.lambdas, v_min, n_v)
+        light_kwargs    = {'v_min': v_min, 'n_v': n_v, 't_start': t_start}
+        self.light      = Lightcurve(times=t_axis, lambdas=filters.lambdas, approx=approx, **light_kwargs)
 
         # calib_sigma flag
         self.use_calib_sigma = False
@@ -246,15 +247,15 @@ class KNLikelihood(Likelihood):
 
         if self.use_calib_sigma:
 
-            for bi in self.filters.bands():
+            for bi in self.filters.bands:
                 interp_mag  = np.interp(self.filters.times[bi], self.light.times+params['t_gps'], mags[bi])
-                sigma2      = self.filters.mag_stdev[bi]**2. + params['LC_calib_sigma_{}'.format(bi)]**2.
+                sigma2      = self.filters.mag_stdev[bi]**2. + np.exp(params['log_sigma_mag_{}'.format(bi)])**2.
                 residuals   = (((self.filters.magnitudes[bi]-interp_mag))**2.)/sigma2
                 logL       += -0.5*(residuals + np.log(2*np.pi*sigma2)).sum()
 
         else:
 
-            for bi in self.filters.bands():
+            for bi in self.filters.bands:
                 interp_mag  = np.interp(self.filters.times[bi], self.light.times+params['t_gps'], mags[bi])
                 residuals   = ((self.filters.magnitudes[bi]-interp_mag)/self.filters.mag_stdev[bi])**2.
                 logL       += -0.5*residuals.sum() + self.logNorm

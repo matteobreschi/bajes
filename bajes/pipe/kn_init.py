@@ -13,13 +13,15 @@ def initialize_knlikelihood_kwargs(opts):
     from ..obs.kn.filter import Filter
 
     # initial check
-    if (len(opts.comps) != len(opts.mej_min)) or (len(opts.comps) != len(opts.mej_max)):
+    ncomps = int(opts.kn_approx.split('-')[1])
+
+    if (ncomps != len(opts.mej_min)) or (ncomps != len(opts.mej_max)):
         logger.error("Number of components does not match the number of ejected mass bounds. Please give in input the same number of arguments in the respective order.")
         raise ValueError("Number of components does not match the number of ejected mass bounds. Please give in input the same number of arguments in the respective order.")
-    if (len(opts.comps) != len(opts.vel_min)) or (len(opts.comps) != len(opts.vel_max)):
+    if (ncomps != len(opts.vel_min)) or (ncomps != len(opts.vel_max)):
         logger.error("Number of components does not match the number of velocity bounds. Please give in input the same number of arguments in the respective order.")
         raise ValueError("Number of components does not match the number of velocity bounds. Please give in input the same number of arguments in the respective order.")
-    if (len(opts.comps) != len(opts.opac_min)) or (len(opts.comps) != len(opts.opac_max)):
+    if (ncomps != len(opts.opac_min)) or (ncomps != len(opts.opac_max)):
         logger.error("Number of components does not match the number of opacity bounds. Please give in input the same number of arguments in the respective order.")
         raise ValueError("Number of components does not match the number of opacity bounds. Please give in input the same number of arguments in the respective order.")
     if opts.time_shift_min == None:
@@ -49,7 +51,7 @@ def initialize_knlikelihood_kwargs(opts):
 
     # initialize likelihood keyword arguments
     l_kwargs = {}
-    l_kwargs['comps']       = opts.comps
+    l_kwargs['approx']      = opts.kn_approx
     l_kwargs['filters']     = Filter(opts.mag_folder, lambdas, dered=opts.dered)
     l_kwargs['v_min']       = opts.vgrid_min
     l_kwargs['n_v']         = opts.n_v
@@ -64,49 +66,62 @@ def initialize_knlikelihood_kwargs(opts):
 
 
     # define priors
-    priors = initialize_knprior(comps=opts.comps, mej_bounds=mej_bounds, vel_bounds=vel_bounds, opac_bounds=opac_bounds, t_gps=opts.t_gps,
+    priors = initialize_knprior(approx=opts.kn_approx, bands=opts.bands,
+                                mej_bounds=mej_bounds, vel_bounds=vel_bounds, opac_bounds=opac_bounds, t_gps=opts.t_gps,
                                 dist_max=opts.dist_max, dist_min=opts.dist_min,
-                                eps0_max=opts.eps_max, eps0_min=opts.eps_min,
+                                eps0_max=opts.eps_max,  eps0_min=opts.eps_min,
                                 dist_flag=opts.dist_flag, log_eps0_flag=opts.log_eps_flag,
                                 heating_sampling=opts.heat_sampling, heating_alpha=opts.heating_alpha,
                                 heating_time=opts.heating_time,heating_sigma=opts.heating_sigma,
                                 time_shift_bounds=[opts.time_shift_min, opts.time_shift_max],
                                 fixed_names=opts.fixed_names, fixed_values=opts.fixed_values,
                                 prior_grid=opts.priorgrid, kind='linear',
-                                use_calib_sigma=opts.use_calib_sigma_lc,
-                                use_nr_ejecta_fit=opts.use_nr_ejecta_fit)
+                                use_calib_sigma=opts.use_calib_sigma_lc)
 
     # save observations in pickle
     cont_kwargs = {'filters': l_kwargs['filters']}
     save_container(opts.outdir+'/kn_obs.pkl', cont_kwargs)
     return l_kwargs, priors
 
-def initialize_knprior(comps, bands, mej_bounds, vel_bounds, opac_bounds, t_gps,
-                       dist_max=None, dist_min=None,
-                       eps0_max=None, eps0_min=None,
-                       dist_flag=False, log_eps0_flag=False,
-                       heating_sampling=False, heating_alpha=1.3, heating_time=1.3, heating_sigma=0.11,
-                       time_shift_bounds=None,
-                       fixed_names=[], fixed_values=[],
-                       prior_grid=2000, kind='linear',
-                       use_calib_sigma=True,
-                       use_nr_ejecta_fit=False):
+def initialize_knprior(approx,
+                       bands,
+                       mej_bounds,
+                       vel_bounds,
+                       opac_bounds,
+                       t_gps,
+                       dist_max             = None,
+                       dist_min             = None,
+                       eps0_max             = None,
+                       eps0_min             = None,
+                       dist_flag            = False,
+                       log_eps0_flag        = False,
+                       heating_sampling     = False,
+                       heating_alpha        = 1.3,
+                       heating_time         = 1.3,
+                       heating_sigma        = 0.11,
+                       time_shift_bounds    = None,
+                       fixed_names          = [],
+                       fixed_values         = [],
+                       prior_grid           = 2000,
+                       kind                 = 'linear',
+                       use_calib_sigma      = True):
 
     from ..inf.prior import Prior, Parameter, Variable, Constant
 
+    # get names of component from approximant
+    if   approx=='GrossmanKBP-1-isotropic':     comps = ['isotropic']
+    elif approx=='GrossmanKBP-1-equatorial':    comps = ['equatorial']
+    elif approx=='GrossmanKBP-1-polar':         comps = ['polar']
+    elif approx=='GrossmanKBP-2-isotropic':     comps = ['isotropic1', 'isotropic2']
+    elif approx=='GrossmanKBP-2-equatorial':    comps = ['isotropic', 'equatorial']
+    elif approx=='GrossmanKBP-2-polar':         comps = ['isotropic', 'polar']
+    elif approx=='GrossmanKBP-2-eq+pol':        comps = ['equatorial', 'polar']
+    elif approx=='GrossmanKBP-2-NRfits':        comps = ['dyn', 'wind']
+    elif approx=='GrossmanKBP-3-isotropic':     comps = ['isotropic1', 'isotropic2', 'isotropic3']
+    elif approx=='GrossmanKBP-3-anisotropic':   comps = ['isotropic', 'equatorial', 'polar']
+
     # initializing disctionary for wrap up all information
     dict = {}
-
-    # checking number of components and number of prior bounds
-    if len(comps) != len(mej_bounds):
-        logger.error("Number of Mej bounds does not match the number of components")
-        raise ValueError("Number of Mej bounds does not match the number of components")
-    if len(comps) != len(vel_bounds):
-        logger.error("Number of velocity bounds does not match the number of components")
-        raise ValueError("Number of velocity bounds does not match the number of components")
-    if len(comps) != len(opac_bounds):
-        logger.error("Number of opacity bounds does not match the number of components")
-        raise ValueError("Number of opacity bounds does not match the number of components")
 
     # setting ejecta properties for every component
     for i,ci in enumerate(comps):
@@ -195,37 +210,35 @@ def initialize_knprior(comps, bands, mej_bounds, vel_bounds, opac_bounds, t_gps,
     dict['cosi']   =  Parameter(name='cosi', min=-1., max=+1.)
 
     # use NR fits for dynamical ejecta and baryonic wind
-    if use_nr_ejecta_fit:
+    if approx=='GrossmanKBP-2-NRfits':
 
-        if len(comps) < 2:
-            logger.warning("Unable to use NR ejecta fits, the model has only {} component and at least 2-comp model is requested. Ignoring NR fits.".format(len(comps)))
-        else:
+        logger.warning("Activating NR fits for ejecta properties. This option works only with joint KN+GW model. Please be sure you are using the correct framework.")
+        # NOTE: the NR fits work only if the prior already includes the BNS parameters, i.e. mchirp, q, lambda1, lambda2.
+        # These parameters are used to determined the predictions of the fits and they are automatically included by the
+        # GW initialization routine. So the NR ejecta fits work only with GW+KN framework.
 
-            logger.warning("Activating NR fits for ejecta properties. This option works only with joint KN+GW model. Please be sure you are using the correct framework.")
-            # NOTE: the NR fits work only if the prior already includes the BNS parameters, i.e. mchirp, q, lambda1, lambda2.
-            # These parameters are used to determined the predictions of the fits and they are automatically included by the
-            # GW initialization routine. So the NR ejecta fits work only with GW+KN framework.
+        dyn_tag     = comps[0]
+        wind_tag    = comps[1]
 
-            dyn_tag     = comps[0]
-            wind_tag    = comps[1]
+        from ..obs.kn.utils import NRfit_recal_mass_dyn, NRfit_recal_vel_dyn, NRfit_recal_mass_wind
 
-            from ..obs.kn.utils import NRfit_recal_mass_dyn, NRfit_recal_vel_dyn, NRfit_recal_mass_wind
+        # include calibrations and disk fracion
+        dict['disk_frac']         = Parameter(name='disk_frac',         min = 0.,   max = 1.,   prior='uniform')
+        dict['NR_fit_recal_mdyn'] = Parameter(name='NR_fit_recal_mdyn', min = -1.,  max = 1.,   prior='normal', mu=0., sigma=0.136)
+        dict['NR_fit_recal_vdyn'] = Parameter(name='NR_fit_recal_vdyn', min = -1.,  max = 1.,   prior='normal', mu=0., sigma=0.21)
 
-            # include calibrations and disk fracion
-            dict['disk_frac']         = Parameter(name='disk_frac',         min = 0.,   max = 1.,   prior='uniform')
-            dict['NR_fit_recal_mdyn'] = Parameter(name='NR_fit_recal_mdyn', min = -1.,  max = 1.,   prior='normal', mu=0., sigma=0.136)
-            dict['NR_fit_recal_vdyn'] = Parameter(name='NR_fit_recal_vdyn', min = -1.,  max = 1.,   prior='normal', mu=0., sigma=0.21)
-
-            # fix (m-dyn, v-dyn, m-wind) with NR fits
-            dict['mej_{}'.format(dyn_tag)]  = Variable(name='mej_{}'.format(dyn_tag),   func=NRfit_recal_mass_dyn)
-            dict['vel_{}'.format(dyn_tag)]  = Variable(name='vel_{}'.format(dyn_tag),   func=NRfit_recal_vel_dyn)
-            dict['mej_{}'.format(wind_tag)] = Variable(name='mej_{}'.format(wind_tag),  func=NRfit_recal_mass_wind)
+        # fix (m-dyn, v-dyn, m-wind) with NR fits
+        dict['mej_{}'.format(dyn_tag)]  = Variable(name='mej_{}'.format(dyn_tag),   func=NRfit_recal_mass_dyn)
+        dict['vel_{}'.format(dyn_tag)]  = Variable(name='vel_{}'.format(dyn_tag),   func=NRfit_recal_vel_dyn)
+        dict['mej_{}'.format(wind_tag)] = Variable(name='mej_{}'.format(wind_tag),  func=NRfit_recal_mass_wind)
 
     # include theoretical error
     if use_calib_sigma:
         for bi in bands:
-            dict['LC_calib_sigma_{}'.format(bi)]   = Parameter(name='LC_calib_sigma_{}'.format(bi),
-                                                               min = 1e-3, max = 25., prior='log-uniform')
+            # use uniform prior in log_calib_sigma since it is easier for the sampler
+            # sigma ~ 1/sigma (log-uniform), then log(sigma) ~ 1
+            dict['log_sigma_mag_{}'.format(bi)]   = Parameter(name='log_sigma_mag_{}'.format(bi),
+                                                              min = -10., max = 5., prior='uniform')
 
     # set fixed parameters
     if len(fixed_names) != 0 :
@@ -243,6 +256,8 @@ def initialize_knprior(comps, bands, mej_bounds, vel_bounds, opac_bounds, t_gps,
     logger.info("Setting parameters for sampling ...")
     for pi in params:
         logger.info(" - {} in range [{:.2f},{:.2f}]".format(pi.name , pi.bound[0], pi.bound[1]))
+
+    # logger.info("Setting variable properties ...")
 
     logger.info("Setting constant properties ...")
     for ci in const:

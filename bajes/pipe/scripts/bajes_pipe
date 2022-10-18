@@ -497,7 +497,7 @@ def write_setup_string(config, tags, outdir):
         if 'alpha' in list_keys_in_data:
             run_string += '--alpha {}'.format(config['gw-data']['alpha'])
 
-        run_string += '--approx {} '.format(config['gw-prior']['approx'])
+        run_string += '--gw-approx {} '.format(config['gw-prior']['approx'])
 
         if 'roq' in list_keys_in_prior:
             if int(config['gw-prior']['roq']):
@@ -659,6 +659,8 @@ def write_setup_string(config, tags, outdir):
             from bajes.obs.kn import __photometric_bands__
             logger.warning("Invalid or missing photometric wavelength in config file. Using default values.")
             lambdas = [__photometric_bands__[bi] for bi in bands]
+
+        run_string += '--kn-approx {} '.format(config['kn-prior']['approx'])
 
         for bi,li in zip(bands,lambdas):
             run_string += '--band {} --lambda {}  '.format(bi, li)
