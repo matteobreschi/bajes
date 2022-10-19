@@ -663,7 +663,7 @@ def write_setup_string(config, tags, outdir):
         run_string += '--kn-approx {} '.format(config['kn-prior']['approx'])
 
         for bi,li in zip(bands,lambdas):
-            run_string += '--band {} --lambda {}  '.format(bi, li)
+            run_string += '--band {} --lambda {} '.format(bi, li)
 
         if 'dered' in list_keys_in_data:
             if int(config['kn-data']['dered']):
@@ -681,32 +681,48 @@ def write_setup_string(config, tags, outdir):
             logger.error("Missing path to magnitude data folder in config file. Please specify the mag-folder in [kn-data] section.")
             raise BajesPipeError("Missing path to magnitude data folder in config file. Please specify the mag-folder in [kn-data] section.")
 
-        comps       = config['kn-prior']['comps'].split(',')
-        mej_max     = config['kn-prior']['mej-max'].split(',')
-        mej_min     = config['kn-prior']['mej-min'].split(',')
-        vel_max     = config['kn-prior']['vel-max'].split(',')
-        vel_min     = config['kn-prior']['vel-min'].split(',')
-        opac_max    = config['kn-prior']['opac-max'].split(',')
-        opac_min    = config['kn-prior']['opac-min'].split(',')
+        #estimate number of component from approximant string
+        ncomps      = int(config['kn-prior']['approx'].split('-')[1])
 
-        if len(comps) != len(mej_max):
-            logger.error("Number of components ({}) does not match number of upper bounds for ejected mass ({}).".format(len(comps), len(mej_max)))
-            raise BajesPipeError("Number of components ({}) does not match number of upper bounds for ejected mass ({}).".format(len(comps), len(mej_max)))
-        if len(comps) != len(mej_min):
-            logger.error("Number of components ({}) does not match number of lower bounds for ejected mass ({}).".format(len(comps), len(mej_min)))
-            raise BajesPipeError("Number of components ({}) does not match number of lower bounds for ejected mass ({}).".format(len(comps), len(mej_min)))
-        if len(comps) != len(vel_max):
-            logger.error("Number of components ({}) does not match number of upper bounds for velocity ({}).".format(len(comps), len(vel_max)))
-            raise BajesPipeError("Number of components ({}) does not match number of upper bounds for velocity ({}).".format(len(comps), len(vel_max)))
-        if len(comps) != len(vel_min):
-            logger.error("Number of components ({}) does not match number of lower bounds for velocity ({}).".format(len(comps), len(vel_min)))
-            raise BajesPipeError("Number of components ({}) does not match number of lower bounds for velocity ({}).".format(len(comps), len(vel_min)))
-        if len(comps) != len(opac_max):
-            logger.error("Number of components ({}) does not match number of upper bounds for opacity ({}).".format(len(comps), len(opac_max)))
-            raise BajesPipeError("Number of components ({}) does not match number of upper bounds for opacity ({}).".format(len(comps), len(opac_max)))
-        if len(comps) != len(opac_min):
-            logger.error("Number of components ({}) does not match number of lower bounds for opacity ({}).".format(len(comps), len(opac_min)))
-            raise BajesPipeError("Number of components ({}) does not match number of lower bounds for opacity ({}).".format(len(comps), len(opac_min)))
+        mej_max     = list(config['kn-prior']['mej-max'].split(','))
+        mej_min     = list(config['kn-prior']['mej-min'].split(','))
+        vel_max     = list(config['kn-prior']['vel-max'].split(','))
+        vel_min     = list(config['kn-prior']['vel-min'].split(','))
+        opac_max    = list(config['kn-prior']['opac-max'].split(','))
+        opac_min    = list(config['kn-prior']['opac-min'].split(','))
+
+        # check prior inputs
+        for ti, li in zip(['ejecta mass upper', 'ejecta mass lower', 'velocity upper',
+                           'velocity lower', 'opacity upper', 'opacity lower',],
+                          [mej_max, mej_min, vel_max, vel_min, opac_max, opac_min]):
+
+            ninput = len(li)
+
+            if (ncomps > ninput):
+                logger.warning("Number of model components ({}) is larger than the number of {} bounds ({}). Repeating the largest values.".format(ncomps, ti, len(li)))
+                while len(li)<ncomps : li.append(np.max(li))
+            elif (ncomps < ninput):
+                logger.warning("Number of model components ({}) is smaller than the number of {} bounds ({}). Removing the smallest values.".format(ncomps, ti, len(li)))
+                li = np.flip(np.sort(li))[:ncomps]
+
+        # if ncomps != len(mej_max):
+        #     logger.error("Number of components ({}) does not match number of upper bounds for ejected mass ({}).".format(len(comps), len(mej_max)))
+        #     raise BajesPipeError("Number of components ({}) does not match number of upper bounds for ejected mass ({}).".format(len(comps), len(mej_max)))
+        # if ncomps != len(mej_min):
+        #     logger.error("Number of components ({}) does not match number of lower bounds for ejected mass ({}).".format(len(comps), len(mej_min)))
+        #     raise BajesPipeError("Number of components ({}) does not match number of lower bounds for ejected mass ({}).".format(len(comps), len(mej_min)))
+        # if ncomps != len(vel_max):
+        #     logger.error("Number of components ({}) does not match number of upper bounds for velocity ({}).".format(len(comps), len(vel_max)))
+        #     raise BajesPipeError("Number of components ({}) does not match number of upper bounds for velocity ({}).".format(len(comps), len(vel_max)))
+        # if ncomps != len(vel_min):
+        #     logger.error("Number of components ({}) does not match number of lower bounds for velocity ({}).".format(len(comps), len(vel_min)))
+        #     raise BajesPipeError("Number of components ({}) does not match number of lower bounds for velocity ({}).".format(len(comps), len(vel_min)))
+        # if ncomps != len(opac_max):
+        #     logger.error("Number of components ({}) does not match number of upper bounds for opacity ({}).".format(len(comps), len(opac_max)))
+        #     raise BajesPipeError("Number of components ({}) does not match number of upper bounds for opacity ({}).".format(len(comps), len(opac_max)))
+        # if ncomps != len(opac_min):
+        #     logger.error("Number of components ({}) does not match number of lower bounds for opacity ({}).".format(len(comps), len(opac_min)))
+        #     raise BajesPipeError("Number of components ({}) does not match number of lower bounds for opacity ({}).".format(len(comps), len(opac_min)))
 
         for ci, mui, mli, vui, vli, oui, oli in zip(comps, mej_max, mej_min, vel_max, vel_min, opac_max, opac_min):
             run_string += '--comp {} --mej-max {} --mej-min {} --vel-max {} --vel-min {} --opac-max {} --opac-min {} '.format(ci, mui, mli, vui, vli, oui, oli)

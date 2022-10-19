@@ -13,6 +13,7 @@ def initialize_knlikelihood_kwargs(opts):
     from ..obs.kn.filter import Filter
 
     # initial check
+    # NOTE: this works only with GrossmanKBP models
     ncomps = int(opts.kn_approx.split('-')[1])
 
     if (ncomps != len(opts.mej_min)) or (ncomps != len(opts.mej_max)):
@@ -24,6 +25,11 @@ def initialize_knlikelihood_kwargs(opts):
     if (ncomps != len(opts.opac_min)) or (ncomps != len(opts.opac_max)):
         logger.error("Number of components does not match the number of opacity bounds. Please give in input the same number of arguments in the respective order.")
         raise ValueError("Number of components does not match the number of opacity bounds. Please give in input the same number of arguments in the respective order.")
+
+    if opts.time_shift_max == None:
+        logger.warning("Upper bound for time shift is not provided. Setting default to 1 hr.")
+        opts.time_shift_max == 3600
+
     if opts.time_shift_min == None:
         opts.time_shift_min = -opts.time_shift_max
 
