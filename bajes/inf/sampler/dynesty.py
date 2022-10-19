@@ -497,11 +497,12 @@ class BajesDynestyProposal(object):
         """
 
         # Unzipping.
-        if int(dynesty.__version__.split('.')[1])>=2:
-            (u, loglstar, axes, scale, prior_transform, loglikelihood, seedsequence, kwargs) = args
-        else:
+        vers = dynesty.__version__.split('.')
+        if (int(vers[0])==1) and (int(vers[1])<2):
             (u, loglstar, axes, scale, prior_transform, loglikelihood, kwargs) = args
-            
+        else:
+            (u, loglstar, axes, scale, prior_transform, loglikelihood, seedsequence, kwargs) = args
+
         rstate = np.random
 
         # Bounds
