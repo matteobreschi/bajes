@@ -1,6 +1,6 @@
 ## Changelog
 
-# [v0.2.2] June 2022
+# [v0.3.0] June 2022
 * Include ROQ approximation `JenpyROQ` in pipeline
 
 # [v0.2.2] January 2022
