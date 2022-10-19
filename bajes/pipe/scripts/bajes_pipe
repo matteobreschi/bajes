@@ -692,40 +692,20 @@ def write_setup_string(config, tags, outdir):
         opac_min    = list(config['kn-prior']['opac-min'].split(','))
 
         # check prior inputs
-        for ti, li in zip(['ejecta mass upper', 'ejecta mass lower', 'velocity upper',
-                           'velocity lower', 'opacity upper', 'opacity lower',],
-                          [mej_max, mej_min, vel_max, vel_min, opac_max, opac_min]):
-
+        list_of_bounds  = [mej_max, mej_min, vel_max, vel_min, opac_max, opac_min]
+        list_of_names   = ['ejecta mass upper', 'ejecta mass lower', 'velocity upper', 'velocity lower', 'opacity upper', 'opacity lower']
+        for i, (ti, li) in enumerate(zip(list_of_names,list_of_bounds)):
             ninput = len(li)
-
             if (ncomps > ninput):
                 logger.warning("Number of model components ({}) is larger than the number of {} bounds ({}). Repeating the largest values.".format(ncomps, ti, len(li)))
-                while len(li)<ncomps : li.append(np.max(li))
+                while len(list_of_bounds[i])<ncomps : list_of_bounds[i].append(np.max(li))
             elif (ncomps < ninput):
                 logger.warning("Number of model components ({}) is smaller than the number of {} bounds ({}). Removing the smallest values.".format(ncomps, ti, len(li)))
-                li = np.flip(np.sort(li))[:ncomps]
+                list_of_bounds[i] = np.flip(np.sort(li))[:ncomps]
 
-        # if ncomps != len(mej_max):
-        #     logger.error("Number of components ({}) does not match number of upper bounds for ejected mass ({}).".format(len(comps), len(mej_max)))
-        #     raise BajesPipeError("Number of components ({}) does not match number of upper bounds for ejected mass ({}).".format(len(comps), len(mej_max)))
-        # if ncomps != len(mej_min):
-        #     logger.error("Number of components ({}) does not match number of lower bounds for ejected mass ({}).".format(len(comps), len(mej_min)))
-        #     raise BajesPipeError("Number of components ({}) does not match number of lower bounds for ejected mass ({}).".format(len(comps), len(mej_min)))
-        # if ncomps != len(vel_max):
-        #     logger.error("Number of components ({}) does not match number of upper bounds for velocity ({}).".format(len(comps), len(vel_max)))
-        #     raise BajesPipeError("Number of components ({}) does not match number of upper bounds for velocity ({}).".format(len(comps), len(vel_max)))
-        # if ncomps != len(vel_min):
-        #     logger.error("Number of components ({}) does not match number of lower bounds for velocity ({}).".format(len(comps), len(vel_min)))
-        #     raise BajesPipeError("Number of components ({}) does not match number of lower bounds for velocity ({}).".format(len(comps), len(vel_min)))
-        # if ncomps != len(opac_max):
-        #     logger.error("Number of components ({}) does not match number of upper bounds for opacity ({}).".format(len(comps), len(opac_max)))
-        #     raise BajesPipeError("Number of components ({}) does not match number of upper bounds for opacity ({}).".format(len(comps), len(opac_max)))
-        # if ncomps != len(opac_min):
-        #     logger.error("Number of components ({}) does not match number of lower bounds for opacity ({}).".format(len(comps), len(opac_min)))
-        #     raise BajesPipeError("Number of components ({}) does not match number of lower bounds for opacity ({}).".format(len(comps), len(opac_min)))
-
-        for ci, mui, mli, vui, vli, oui, oli in zip(comps, mej_max, mej_min, vel_max, vel_min, opac_max, opac_min):
-            run_string += '--comp {} --mej-max {} --mej-min {} --vel-max {} --vel-min {} --opac-max {} --opac-min {} '.format(ci, mui, mli, vui, vli, oui, oli)
+        mej_max, mej_min, vel_max, vel_min, opac_max, opac_min = list_of_bounds
+        for mui, mli, vui, vli, oui, oli in zip(mej_max, mej_min, vel_max, vel_min, opac_max, opac_min):
+            run_string += '--mej-max {} --mej-min {} --vel-max {} --vel-min {} --opac-max {} --opac-min {} '.format(mui, mli, vui, vli, oui, oli)
 
         run_string += '--dist-min {} '.format(config['kn-prior']['dist-min'])
         run_string += '--dist-max {} '.format(config['kn-prior']['dist-max'])

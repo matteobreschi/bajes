@@ -16,5 +16,5 @@ This module should contains only Bayesian methods and techniques aiming to gener
 * The `obs` module containes tools for the physical characterization of the observational data with the purpose of defining a full Bayesian model.
 Each kind of physical model should be fully contained in a related sub-module, such as `gw` and `kn`.
 * It is important to keep track of the relevant changes of the software in the
-[`CHANGELOG`](https://github.com/matteobreschi/bajes/tree/release/v0.3.0/CHANGELOG.md).
+[`CHANGELOG`](https://github.com/matteobreschi/bajes/tree/release/v1.0.0/CHANGELOG.md).
 If you are going to implement major changes, please update this file with the relevant information.

@@ -36,10 +36,10 @@ and the package can be installed with `setuptools` routines,
         sudo -E python setup.py install
 
 Once *bajes* is installed, it is possible to perform Bayesian inference on arbitrary models,
-see [`inf_tutorial`](https://github.com/matteobreschi/bajes/tree/release/v0.3.0/docs/inf_tutorial.ipynb).
+see [`inf_tutorial`](https://github.com/matteobreschi/bajes/tree/release/v1.0.0/docs/inf_tutorial.ipynb).
 
 The execution of the provided pipeline can be handled with a configuration file,
-see [`conifg_example`](https://github.com/matteobreschi/bajes/tree/release/v0.3.0/docs/conifg_example.ini).
+see [`conifg_example`](https://github.com/matteobreschi/bajes/tree/release/v1.0.0/docs/conifg_example.ini).
 In order to execute the gravitational-wave pipeline routines,
 the user should install additional packages depending on the requested template:
 * [`TEOBResumS`](https://bitbucket.org/eob_ihes/teobresums)

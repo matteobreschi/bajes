@@ -1,13 +1,13 @@
 ## Changelog
 
-# [v0.3.0] August 2022
+# [v1.0.0] October 2022
 * Unify pipeline core with `__main__` routine
 * Improve `Waveform` object and introduce `approx_dict`
 * Improve `Lightcurve` object and introduce `approx_dict`
 * Switch to `argparse` for option parsing
 * Fix compatibility with `dynesty==1.2.3`
 
-# [v0.2.2] June 2022
+# [v0.3.0] June 2022
 * Include ROQ approximation `JenpyROQ` in pipeline
 
 # [v0.2.2] January 2022
