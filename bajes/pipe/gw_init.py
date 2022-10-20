@@ -739,25 +739,48 @@ def initialize_gwprior(ifos,
 
     # include NRPMw additional parameters
     if 'NRPMw' in approx:
-        dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0., periodic=1)   # post-merger phase [rads]
+
         dict['NRPMw_t_coll']    = Parameter(name='NRPMw_t_coll',    max=3000, min=1)                        # time of collapse after merger [mass-rescaled geom. units]
         dict['NRPMw_df_2']      = Parameter(name='NRPMw_df_2',      max=1e-4, min=-1e-4)                    # f_2 slope [mass-rescaled geom. units]
 
-    # include NRPMw recalibration parameters
-    if approx == 'NRPMw_recal':
-        from ..obs.gw.approx.nrpmw import __recalib_names__, __ERRS__, __BNDS__
-        for ni in __recalib_names__:
-            dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,
-                                                max = __BNDS__[ni][1], min = __BNDS__[ni][0],
-                                                prior='normal', mu = 0., sigma = __ERRS__[ni])
+        # if we remove the merger wavelet and we do not use inspiral template,
+        # NRPMw_phi_pm is degenerate with phi_ref. Then we do not include NRPMw_phi_pm in the sampling.
+        if 'NRPMw_pmonly' in approx:
+            dict['NRPMw_phi_pm']    = Constant('NRPMw_phi_pm',  0.)
+        else:
+            dict['NRPMw_phi_pm']    = Parameter(name='NRPMw_phi_pm',    max = 2.*np.pi, min = 0., periodic=1)   # post-merger phase [rads]
 
-    # include NRPMw recalibration parameters
-    if approx == 'TEOBResumSPA_NRPMw_recal' or approx == 'MLGW_BNS_NRPMw_recal':
-        from ..obs.gw.approx.nrpmw import __recalib_names_attach__, __ERRS__, __BNDS__
-        for ni in __recalib_names_attach__:
-            dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,
-                                                max = __BNDS__[ni][1], min = __BNDS__[ni][0],
-                                                prior='normal', mu = 0., sigma = __ERRS__[ni])
+        # NRPMw_f2free requires NRPMw_f_2 parameter (in kilohertz)
+        if 'f2free' in approx:
+            dict['NRPMw_f_2'] = Parameter(name='NRPMw_f_2', max=5., min= 1.5)
+
+        # include NRPMw recalibration parameters (including merger properties)
+        if approx == 'NRPMw_recal':
+            from ..obs.gw.approx.nrpmw import __recalib_names__, __ERRS__, __BNDS__
+            for ni in __recalib_names__:
+                dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,
+                                                    max = __BNDS__[ni][1], min = __BNDS__[ni][0],
+                                                    prior='normal', mu = 0., sigma = __ERRS__[ni])
+
+        # include NRPMw recalibration parameters (excluding merger properties).
+        # If NRPMw_recal is in approx name, then NRPMw is going to be attached to an inspiral-merger model.
+        # If approx == NRPMw_pmonly_recal, we do not include merger in the model.
+        elif ('NRPMw_recal' in approx) or (approx == 'NRPMw_pmonly_recal'):
+            from ..obs.gw.approx.nrpmw import __recalib_names_attach__, __ERRS__, __BNDS__
+            for ni in __recalib_names_attach__:
+                dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,
+                                                    max = __BNDS__[ni][1], min = __BNDS__[ni][0],
+                                                    prior='normal', mu = 0., sigma = __ERRS__[ni])
+
+        # include NRPMw recalibration parameters (excluding f2 properties).
+        # If NRPMw_recal is in approx name, then NRPMw is going to be attached to an inspiral-merger model.
+        # If approx == NRPMw_pmonly_recal, we do not include merger in the model.
+        elif approx == 'NRPMw_f2free_recal':
+            from ..obs.gw.approx.nrpmw import __recalib_names_f2free__, __ERRS__, __BNDS__
+            for ni in __recalib_names_f2free__:
+                dict['NRPMw_recal_'+ni] = Parameter(name='NRPMw_recal_'+ni,
+                                                    max = __BNDS__[ni][1], min = __BNDS__[ni][0],
+                                                    prior='normal', mu = 0., sigma = __ERRS__[ni])
 
     # include NRPM recalibration and extended parameters
     if 'NRPM_ext' in approx:

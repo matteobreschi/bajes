@@ -92,10 +92,15 @@ __BNDS__ = {    'f_2':      [-0.25,0.25],
                 'G_2':      [-1.,4.]
 }
 
-__recalib_names__ = list(__CS__.keys())
-__recalib_names_attach__ = np.delete(__recalib_names__,[__recalib_names__.index('f_m'),
-                                                        __recalib_names__.index('a_m'),
-                                                        __recalib_names__.index('df_m')])
+__recalib_names__               = list(__CS__.keys())
+__recalib_names_attach__        = np.delete(__recalib_names__,[__recalib_names__.index('f_m'),
+                                                               __recalib_names__.index('a_m'),
+                                                               __recalib_names__.index('df_m')])
+__recalib_names_f2free__        = np.delete(__recalib_names__,[__recalib_names__.index('f_2')])
+__recalib_names_f2free_attach__ = np.delete(__recalib_names__,[__recalib_names__.index('f_m'),
+                                                               __recalib_names__.index('a_m'),
+                                                               __recalib_names__.index('df_m'),
+                                                               __recalib_names__.index('f_2')])
 
 def __downsampling__(a, window):
     pad_size = int(np.ceil(a.size/window)*window - a.size)
@@ -126,7 +131,7 @@ def __fit_func__(pars, key):
     _lo = (1.+ _d1 * kkk + _d2 * kkk **2.)
     return a0 * (1. + a1*qqq) * (1. + p1s*sss) *  _up / _lo
 
-def _nrpmw_fits(pars, recalib=False, attach=False):
+def _nrpmw_fits(pars, recalib=False, attach=False, f2free=False):
     """
         Compute PM empirical relations given pars (dict)
     """
@@ -138,8 +143,12 @@ def _nrpmw_fits(pars, recalib=False, attach=False):
     pars['Shat']    = (pars['s1z'] * pars['q']**2 + pars['s2z']) / (1. + pars['q'])**2
     pars['k2t']     = lambda_2_kappa(m1, m2, pars['lambda1'], pars['lambda2'])
     # compute fits
-    if attach:
+    if attach and f2free:
+        _names = __recalib_names_f2free_attach__
+    elif attach:
         _names = __recalib_names_attach__
+    elif f2free:
+        _names = __recalib_names_f2free__
     else:
         _names = __recalib_names__
 
@@ -170,6 +179,12 @@ def _nrpmw_fits(pars, recalib=False, attach=False):
     pars['t_1']  = min(pars['NRPMw_t_coll'], pars['t_0'] + dt0)
     pars['t_2']  = min(pars['NRPMw_t_coll'], pars['t_0'] + 2.*dt0)
     pars['t_3']  = min(pars['NRPMw_t_coll'], pars['t_0'] + 3.*dt0)
+
+    # if free-f2, f2 is in samples in kHz,
+    # then we have to convert it to geometric units
+    if f2free:
+        pars['f_2'] = pars['NRPMw_f_2']*1e3*pars['mtot']*MTSUN_SI
+
     return pars
 
 #####################################################
@@ -413,24 +428,25 @@ def _fm_wavelet_func(freq, eta, alpha, beta, tau, tshift, Omega, Delta, Gamma, P
 #                                                   #
 #####################################################
 
-def NRPMw(freqs, params, recalib=False):
+def NRPMw(freqs, params, recalib=False, attach=False, f2free=False):
     """
         Compute NRPMw model given frequency axis (np.array) and parameters (dict)
     """
 
     freqs  = freqs*MTSUN_SI*params['mtot']
-    params = _nrpmw_fits(params, recalib=recalib)
+    params = _nrpmw_fits(params, recalib=recalib, attach=False, f2free=f2free)
 
     # initialize complex array
     h22 = np.zeros(len(freqs), dtype=complex)
 
-    # h_fusion,
-    # early post-merger corresponding to the fusion of the NS cores
-    h22 = h22 + _wavelet_func(freqs,
-                              eta     = params['a_m'],
-                              alpha   = np.log(params['a_0']/params['a_m'])/(params['t_0']**2)-1j*np.pi*params['df_m'],
-                              beta    = -1j*TWOPI*params['f_m'],
-                              tau     = params['t_0'])
+    if not attach:
+        # h_fusion,
+        # early post-merger corresponding to the fusion of the NS cores
+        h22 = h22 + _wavelet_func(freqs,
+                                  eta     = params['a_m'],
+                                  alpha   = np.log(params['a_0']/params['a_m'])/(params['t_0']**2)-1j*np.pi*params['df_m'],
+                                  beta    = -1j*TWOPI*params['f_m'],
+                                  tau     = params['t_0'])
 
     # if lambda1 or lambda2 = 0 , avoid PM segment
     if params['lambda1'] < 1 or params['lambda2'] < 1:
@@ -516,113 +532,108 @@ def NRPMw(freqs, params, recalib=False):
     h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
     return h22
 
-def NRPMw_attach(freqs, params, recalib=False):
-    """
-        Compute NRPMw model given frequency axis (np.array) and parameters (dict)
-    """
-
-    # initialize data
-    h22 = np.zeros(len(freqs), dtype=complex)
-
-    # if lambda1 or lambda2 = 0 , avoid PM segment
-    if params['lambda1'] < 1 or params['lambda2'] < 1:
-        return h22
-
-    # mass-scaled frequncy axis and quasiuniversal properties
-    freqs  = freqs*MTSUN_SI*params['mtot']
-    params = _nrpmw_fits(params, recalib=recalib, attach=True)
-
-    if params['NRPMw_t_coll'] > params['t_0'] :
-
-        # h_recoil,
-        # bounce-back of the remnant after the quasi-spherical node
-        sin_fact    = np.sin(TWOPI*params['f_0']*(params['t_1']-params['t_0'])) #- np.sin(params['NRPMw_phi_fm'])
-        if params['f_0'] > 0:
-            dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
-        else:
-            dphi_mod    = TWOPI*params['f_2']*(params['t_1']-params['t_0'])
-        phi_bounce  = params['NRPMw_phi_pm']
-        _dt         = 0.005/MTSUN_SI/params['mtot']
-        h22 = h22 - _fm_wavelet_func(freqs,
-                                     eta     = params['a_1']*np.exp(-1j*(phi_bounce+dphi_mod)),
-                                     alpha   = np.log(params['a_0']/params['a_1'])/(params['t_1']-params['t_0'])**2 ,
-                                     beta    = -1j*TWOPI*params['f_2'],
-                                     tau     = params['t_0'] - params['t_1'] - _dt,
-                                     tshift  = params['t_1'],
-                                     Omega   = TWOPI*params['f_0'],
-                                     Delta   = params['D_2'],
-                                     Gamma   = 0.,
-                                     Phi     = PIHALF)
-
-    if params['NRPMw_t_coll'] > params['t_1'] :
-
-        # h_pulse,
-        # coupled portion with (2,0) mode
-        phi_pulse   = phi_bounce + dphi_mod
-        mu          = 1 - params['a_2']/np.sqrt(params['a_1']*params['a_3'])
-        b_pulse     = np.log(params['a_3']/params['a_1'])/(params['t_3']-params['t_1'])
-        h22 = h22 + sum([(1-mu/2.)*_fm_wavelet_func(freqs,
-                                                    eta     = params['a_1']*np.exp(-1j*phi_pulse),
-                                                    alpha   = 0.,
-                                                    beta    = b_pulse-1j*TWOPI*params['f_2'],
-                                                    tau     = params['t_3'] - params['t_1'],
-                                                    tshift  = params['t_1'],
-                                                    Omega   = TWOPI*params['f_0'],
-                                                    Delta   = params['D_2'],
-                                                    Gamma   = params['G_2'],
-                                                    Phi     = PIHALF),
-                         (mu/4.)*_fm_wavelet_func(freqs,
-                                                  eta     = params['a_1']*np.exp(-1j*phi_pulse),
-                                                  alpha   = 0.,
-                                                  beta    = b_pulse-1j*TWOPI*(params['f_2']-params['f_0']),
-                                                  tau     = params['t_3'] - params['t_1'],
-                                                  tshift  = params['t_1'],
-                                                  Omega   = TWOPI*params['f_0'],
-                                                  Delta   = params['D_2'],
-                                                  Gamma   = params['G_2'],
-                                                  Phi     = PIHALF),
-                         (mu/4.)*_fm_wavelet_func(freqs,
-                                                  eta     = params['a_1']*np.exp(-1j*phi_pulse),
-                                                  alpha   = 0.,
-                                                  beta    = b_pulse-1j*TWOPI*(params['f_2']+params['f_0']),
-                                                  tau     = params['t_3'] - params['t_1'],
-                                                  tshift  = params['t_1'],
-                                                  Omega   = TWOPI*params['f_0'],
-                                                  Delta   = params['D_2'],
-                                                  Gamma   = params['G_2'],
-                                                  Phi     = PIHALF)])
-
-    if params['NRPMw_t_coll'] > params['t_3'] :
-
-        # h_rotating,
-        # quasi-Lorentzian peak centered around f2
-        phi_tail = phi_pulse + 2*np.pi*params['f_2']*(params['t_3']-params['t_1'])
-        h22 = h22 + _fm_wavelet_func(freqs,
-                                     eta     = params['a_3']*np.exp(-1j*phi_tail),
-                                     alpha   = -1j*np.pi*params['NRPMw_df_2'],
-                                     beta    = -params['B_2']-1j*TWOPI*params['f_2'],
-                                     tau     = params['NRPMw_t_coll'] - params['t_3'],
-                                     tshift  = params['t_3'],
-                                     Omega   = TWOPI*params['f_0'],
-                                     Delta   = params['D_2']*np.exp(-params['G_2']*(params['t_3'] - params['t_1'])),
-                                     Gamma   = params['G_2'],
-                                     Phi     = PIHALF)
-
-    # compute hp,hc
-    h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
-    return h22
+# def NRPMw_attach(freqs, params, recalib=False, f2free=False):
+#     """
+#         Compute NRPMw model given frequency axis (np.array) and parameters (dict)
+#     """
+#
+#     # initialize data
+#     h22 = np.zeros(len(freqs), dtype=complex)
+#
+#     # if lambda1 or lambda2 = 0 , avoid PM segment
+#     if params['lambda1'] < 1 or params['lambda2'] < 1:
+#         return h22
+#
+#     # mass-scaled frequncy axis and quasiuniversal properties
+#     freqs  = freqs*MTSUN_SI*params['mtot']
+#     params = _nrpmw_fits(params, recalib=recalib, attach=True, f2free=f2free)
+#
+#     if params['NRPMw_t_coll'] > params['t_0'] :
+#
+#         # h_recoil,
+#         # bounce-back of the remnant after the quasi-spherical node
+#         sin_fact    = np.sin(TWOPI*params['f_0']*(params['t_1']-params['t_0'])) #- np.sin(params['NRPMw_phi_fm'])
+#         if params['f_0'] > 0:
+#             dphi_mod    = params['D_2']*sin_fact/(TWOPI*params['f_0']) + TWOPI*params['f_2']*(params['t_1']-params['t_0'])
+#         else:
+#             dphi_mod    = TWOPI*params['f_2']*(params['t_1']-params['t_0'])
+#         phi_bounce  = params['NRPMw_phi_pm']
+#         _dt         = 0.005/MTSUN_SI/params['mtot']
+#         h22 = h22 - _fm_wavelet_func(freqs,
+#                                      eta     = params['a_1']*np.exp(-1j*(phi_bounce+dphi_mod)),
+#                                      alpha   = np.log(params['a_0']/params['a_1'])/(params['t_1']-params['t_0'])**2 ,
+#                                      beta    = -1j*TWOPI*params['f_2'],
+#                                      tau     = params['t_0'] - params['t_1'] - _dt,
+#                                      tshift  = params['t_1'],
+#                                      Omega   = TWOPI*params['f_0'],
+#                                      Delta   = params['D_2'],
+#                                      Gamma   = 0.,
+#                                      Phi     = PIHALF)
+#
+#     if params['NRPMw_t_coll'] > params['t_1'] :
+#
+#         # h_pulse,
+#         # coupled portion with (2,0) mode
+#         phi_pulse   = phi_bounce + dphi_mod
+#         mu          = 1 - params['a_2']/np.sqrt(params['a_1']*params['a_3'])
+#         b_pulse     = np.log(params['a_3']/params['a_1'])/(params['t_3']-params['t_1'])
+#         h22 = h22 + sum([(1-mu/2.)*_fm_wavelet_func(freqs,
+#                                                     eta     = params['a_1']*np.exp(-1j*phi_pulse),
+#                                                     alpha   = 0.,
+#                                                     beta    = b_pulse-1j*TWOPI*params['f_2'],
+#                                                     tau     = params['t_3'] - params['t_1'],
+#                                                     tshift  = params['t_1'],
+#                                                     Omega   = TWOPI*params['f_0'],
+#                                                     Delta   = params['D_2'],
+#                                                     Gamma   = params['G_2'],
+#                                                     Phi     = PIHALF),
+#                          (mu/4.)*_fm_wavelet_func(freqs,
+#                                                   eta     = params['a_1']*np.exp(-1j*phi_pulse),
+#                                                   alpha   = 0.,
+#                                                   beta    = b_pulse-1j*TWOPI*(params['f_2']-params['f_0']),
+#                                                   tau     = params['t_3'] - params['t_1'],
+#                                                   tshift  = params['t_1'],
+#                                                   Omega   = TWOPI*params['f_0'],
+#                                                   Delta   = params['D_2'],
+#                                                   Gamma   = params['G_2'],
+#                                                   Phi     = PIHALF),
+#                          (mu/4.)*_fm_wavelet_func(freqs,
+#                                                   eta     = params['a_1']*np.exp(-1j*phi_pulse),
+#                                                   alpha   = 0.,
+#                                                   beta    = b_pulse-1j*TWOPI*(params['f_2']+params['f_0']),
+#                                                   tau     = params['t_3'] - params['t_1'],
+#                                                   tshift  = params['t_1'],
+#                                                   Omega   = TWOPI*params['f_0'],
+#                                                   Delta   = params['D_2'],
+#                                                   Gamma   = params['G_2'],
+#                                                   Phi     = PIHALF)])
+#
+#     if params['NRPMw_t_coll'] > params['t_3'] :
+#
+#         # h_rotating,
+#         # quasi-Lorentzian peak centered around f2
+#         phi_tail = phi_pulse + 2*np.pi*params['f_2']*(params['t_3']-params['t_1'])
+#         h22 = h22 + _fm_wavelet_func(freqs,
+#                                      eta     = params['a_3']*np.exp(-1j*phi_tail),
+#                                      alpha   = -1j*np.pi*params['NRPMw_df_2'],
+#                                      beta    = -params['B_2']-1j*TWOPI*params['f_2'],
+#                                      tau     = params['NRPMw_t_coll'] - params['t_3'],
+#                                      tshift  = params['t_3'],
+#                                      Omega   = TWOPI*params['f_0'],
+#                                      Delta   = params['D_2']*np.exp(-params['G_2']*(params['t_3'] - params['t_1'])),
+#                                      Gamma   = params['G_2'],
+#                                      Phi     = PIHALF)
+#
+#     # compute hp,hc
+#     h22 *= _prefact*(params['mtot']**2./params['distance'])*np.exp(-1j*params['phi_ref'])
+#     return h22
 
 # NRPMw wrappers are the actual calls of the Waveform object
-def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
+def _wrapper_nrpmw(freqs, params, attach=False, recalib=False, f2free=False):
 
-    if attach:
-        nrpmw_func = NRPMw_attach
-    else:
-        nrpmw_func = NRPMw
-
-    # Since the maximum length of the post-merger signal is ~60ms, it is useless to compute it with the typical frequency spacing
+    # Since the maximum length of the post-merger signal is ~100ms, it is useless to compute it with the typical frequency spacing
     # (df = 1/T, with T~[1-100] s, where T, the duration of the signal, is identified as 'seglen' below) used in GW analysis of inspiral signals.
-    # Hence, we down-sample the frequency axis, imposing a uniform spacing of 16Hz (i.e. df = 16 Hz = 1/62.5ms).
+    # Hence, we down-sample the frequency axis, imposing a uniform spacing of 16Hz (i.e. df = 10 Hz = 1/100ms).
     # Then, we use linear interpolation to output the model on the initial requested frequency axis.
     # This has been tested and does not cause a loss of accuracy, since PM signals from BNS remnants have broad spectral features
     # (consistent with the maximum duration discussed above).
@@ -633,27 +644,41 @@ def _wrapper_nrpmw(freqs, params, attach=False, recalib=False):
     # Skip downsampling if:
     # i)  there would be less than two frequency points after decimating
     # ii) the requested seglen is smaller than the maximum lenghts of a PM signal
-    #     (i.e. 60ms = 1/16 s, in which case decimate_factor=0, since `int` returns the closest smaller integer).
+    #     (i.e. 100ms = 1/10 s, in which case decimate_factor=0, since `int` returns the closest smaller integer).
     if (len(freqs)>decimate_factor) and (decimate_factor>0):
         fr  = __downsampling__(freqs, decimate_factor)
-        hf  = nrpmw_func(fr, params, recalib=recalib)
+        hf  = NRPMw(fr, params, recalib=recalib, attach=attach, f2free=f2free)
         hf  = __linear_interp__(freqs, fr, hf)
     else:
-        hf = nrpmw_func(freqs, params, recalib=recalib)
+        hf = NRPMw(freqs, params, recalib=recalib, attach=attach, f2free=f2free)
     return hf*(0.5*(1.+params['cos_iota']**2.)), hf*(params['cos_iota']*EmIPIHALF)
 
-def nrpmw_wrapper(freqs, params):
-    return _wrapper_nrpmw(freqs, params, attach=False, recalib=False)
-
+# NRPMw (w/o downsampling)
 def nrpmw_wrapper_nodownsampling(freqs, params):
     hf = NRPMw(freqs, params, recalib=False)
     return hf*(0.5*(1.+params['cos_iota']**2.)), hf*(params['cos_iota']*EmIPIHALF)
 
-def nrpmw_attach_wrapper(freqs, params):
-    return _wrapper_nrpmw(freqs, params, attach=True, recalib=False)
+# NRPMw (w/ downsampling)
+def nrpmw_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=False, recalib=False, f2free=False)
 
-def nrpmw_attach_recal_wrapper(freqs, params):
-    return _wrapper_nrpmw(freqs, params, attach=True, recalib=True)
-
+# NRPMw (w/ downsampling) + recalibration parameters fo QUR
 def nrpmw_recal_wrapper(freqs, params):
-    return _wrapper_nrpmw(freqs, params, attach=False, recalib=True)
+    return _wrapper_nrpmw(freqs, params, attach=False, recalib=True, f2free=False)
+
+# NRPMw (w/ downsampling) + free f2 param
+def nrpmw_f2free_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=False, recalib=False, f2free=True)
+
+# NRPMw (w/ downsampling) + recalibration parameters fo QUR + free f2 param
+def nrpmw_f2free_recal_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=False, recalib=True, f2free=True)
+
+# NRPMw (w/ downsampling) + without merger wavelet
+# note: the "attach" removes the merger portion making the template smoother
+def nrpmw_attach_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=True, recalib=False, f2free=False)
+
+# NRPMw (w/ downsampling) + recalibration parameters fo QUR + without merger wavelet
+def nrpmw_attach_recal_wrapper(freqs, params):
+    return _wrapper_nrpmw(freqs, params, attach=True, recalib=True, f2free=False)
