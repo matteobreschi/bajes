@@ -12,6 +12,18 @@ from ..utils import estimate_nmcmc, list_2_dict
 def void():
     pass
 
+def check_updated_version(vers):
+    v       = vers.split('.')
+    v_maj   = int(v[0])
+    v_min   = int(v[1])
+
+    if (v_maj >= 2):
+        return True
+    elif (v_maj == 1) and (v_min >= 2):
+        return True
+    else:
+        return False
+
 def unitcheck(u, nonbounded=None):
     """Check whether `u` is inside the unit cube. Given a masked array
     `nonbounded`, also allows periodic boundaries conditions to exceed
@@ -240,10 +252,9 @@ class SamplerDynesty(SamplerBody):
         del sampler._PROPOSE
         del sampler._UPDATE
 
-        # from dynesty==1.2.3, the package employs a random.Generator
-        logger.warning("FIXING FOR DYNESTY>=2.0.0")
-        if int(dynesty_version.split('.')[1]) >= 2 :    sampler.rstate = np.random.default_rng(seed=self.seed)
-        else:                                           sampler.rstate = np.random
+        # from dynesty==1.2.3 or dynesty>=2, the package employs a random.Generator
+        if check_updated_version(dynesty_version):  sampler.rstate = np.random.default_rng(seed=self.seed)
+        else:                                       sampler.rstate = np.random
 
         return sampler
 
@@ -257,10 +268,9 @@ class SamplerDynesty(SamplerBody):
             self.sampler.pool   = pool
             self.sampler.M      = pool.map
 
-        # from dynesty==1.2.3, the package employs a random.Generator
-        dynesty_version = dynesty.__version__
-        logger.warning("FIXING FOR DYNESTY>=2.0.0")
-        if int(dynesty_version.split('.')[1]) >= 2 :    self.sampler.rstate = np.random.default_rng(seed=self.seed)
+        # from dynesty==1.2.3 or dynesty>=2, the package employs a random.Generator
+        # THIS STEP DO NOT PRESERVE REPRODUCIBILITY!
+        if check_updated_version(dynesty.__version__):  self.sampler.rstate = np.random.default_rng(seed=self.seed)
         else:                                           self.sampler.rstate = np.random
 
     def __run__(self):
@@ -399,13 +409,6 @@ class SamplerDynestyDynamic(SamplerDynesty):
     def _initialize_sampler(self, like_fn, ptform_fn, proposals, kwargs):
         logger.info("Initializing nested sampler ...")
         return dynesty.DynamicNestedSampler(like_fn, ptform_fn, **kwargs)
-
-    def __getstate__(self):
-        state   = self.__dict__.copy()
-        state['sampler'].pool   = None
-        state['sampler'].M      = None
-        # state['sampler'].rstate = None
-        return state
 
     def __run__(self):
 
