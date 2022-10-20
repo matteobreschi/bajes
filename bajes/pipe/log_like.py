@@ -191,6 +191,7 @@ class KNLikelihood(Likelihood):
                  prior_grid=900, kind='linear',
                  v_min=1.e-7, n_v=400,
                  n_time=400, t_start=1., t_scale='linear',
+                 use_calib_sigma_lc=False,
                  **kwargs):
 
         # run standard initialization
@@ -235,11 +236,7 @@ class KNLikelihood(Likelihood):
         self.light      = Lightcurve(times=t_axis, lambdas=filters.lambdas, approx=approx, **light_kwargs)
 
         # calib_sigma flag
-        self.use_calib_sigma = False
-        for ni in priors.names:
-            if 'LC_calib_sigma' in ni:
-                self.use_calib_sigma = True
-                break
+        self.use_calib_sigma = use_calib_sigma_lc
 
     def log_like(self, params):
 

@@ -248,7 +248,41 @@ class korobkin_barnes_grossman_perego_et_al_two_equatorial_polar_wrapper(Korobki
         # initialize flux factor interpolator
         self.ff_interp  = initialize_flux_factors(n_rays)
 
-class korobkin_barnes_grossman_perego_et_al_two_nrfit_wrapper(KorobkinBarnesGrossmanPeregoEtAl):
+class korobkin_barnes_grossman_perego_et_al_two_nrfit_isotropic_wrapper(KorobkinBarnesGrossmanPeregoEtAl):
+
+    def __init__(self, times, lambdas, v_min=1.e-7, n_v=400, t_start=1., **kwargs):
+
+        # initialize angular axis
+        # obs. the inclinations angle is divided in 12 slices
+        n_rays = 12
+        angles, omegas  = initialize_angular_axis(n_rays//2)
+        self.angles = angles
+        self.omegas = omegas
+
+        # initialize nuclear heating rate model
+        heat    = Heating()
+
+        # check time axis
+        if any(times < 0.):
+            times += t_start - times[0]
+        self.times  = times
+
+        # initialize shell components
+        self.ncomponents    = 2
+        self.components     = [Shell(name='dyn',    geom='isotropic',   time=times,
+                                     angles=angles, omegas=omegas,      heat=heat,
+                                     v_min=v_min,   n_v=n_v),
+                               Shell(name='wind',   geom='isotropic',   time=times,
+                                     angles=angles, omegas=omegas,      heat=heat,
+                                     v_min=v_min,   n_v=n_v)]
+
+        # initialize quantities
+        self.lambdas    = lambdas
+
+        # initialize flux factor interpolator
+        self.ff_interp  = initialize_flux_factors(n_rays)
+
+class korobkin_barnes_grossman_perego_et_al_two_nrfit_anisotropic_wrapper(KorobkinBarnesGrossmanPeregoEtAl):
 
     def __init__(self, times, lambdas, v_min=1.e-7, n_v=400, t_start=1., **kwargs):
 

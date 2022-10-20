@@ -57,13 +57,14 @@ def initialize_knlikelihood_kwargs(opts):
 
     # initialize likelihood keyword arguments
     l_kwargs = {}
-    l_kwargs['approx']      = opts.kn_approx
-    l_kwargs['filters']     = Filter(opts.mag_folder, lambdas, dered=opts.dered)
-    l_kwargs['v_min']       = opts.vgrid_min
-    l_kwargs['n_v']         = opts.n_v
-    l_kwargs['n_time']      = opts.n_t
-    l_kwargs['t_start']     = opts.init_t
-    l_kwargs['t_scale']     = opts.t_scale
+    l_kwargs['approx']              = opts.kn_approx
+    l_kwargs['filters']             = Filter(opts.mag_folder, lambdas, dered=opts.dered)
+    l_kwargs['v_min']               = opts.vgrid_min
+    l_kwargs['n_v']                 = opts.n_v
+    l_kwargs['n_time']              = opts.n_t
+    l_kwargs['t_start']             = opts.init_t
+    l_kwargs['t_scale']             = opts.t_scale
+    l_kwargs['use_calib_sigma_lc']  = opts.use_calib_sigma_lc
 
     # set intrinsic parameters bounds
     mej_bounds  = [[mmin, mmax] for mmin, mmax in zip(opts.mej_min, opts.mej_max)]
@@ -216,7 +217,7 @@ def initialize_knprior(approx,
     dict['cos_iota']   =  Parameter(name='cos_iota', min=-1., max=+1.)
 
     # use NR fits for dynamical ejecta and baryonic wind
-    if approx=='GrossmanKBP-2-NRfits':
+    if 'GrossmanKBP-2-NRfits' in approx:
 
         logger.warning("Activating NR fits for ejecta properties. This option works only with joint KN+GW model. Please be sure you are using the correct framework.")
         # NOTE: the NR fits work only if the prior already includes the BNS parameters, i.e. mchirp, q, lambda1, lambda2.
