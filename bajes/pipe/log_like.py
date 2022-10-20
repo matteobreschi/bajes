@@ -217,6 +217,8 @@ class KNLikelihood(Likelihood):
 
         if t_scale=='linear':
             t_axis  = np.linspace(t_start, t_size+t_start, n_time)
+        elif t_scale=='geom':
+            t_axis  = np.geomspace(t_start, t_size+t_start, n_time)
         elif t_scale=='log':
             t_axis  = np.logspace(np.log10(t_start), np.log10(t_size+t_start), num=n_time)
         elif t_scale=='mixed':

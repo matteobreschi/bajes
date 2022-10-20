@@ -2,9 +2,16 @@ from __future__ import division, unicode_literals, absolute_import
 import numpy as np
 import os
 
+import logging, warnings
+logger = logging.getLogger(__name__)
+
+__url__ = 'https://pypi.org/project/gwsurrogate/'
+
 try:
     import gwsurrogate
-except Exception:
+except ImportError:
+    warnings.warn("Unable to import GWSurrogate package. Please see related documentation at: {}".format(__url__))
+    logger.warning("Unable to import GWSurrogate package. Please see related documentation at: {}".format(__url__))
     pass
 
 class nrsur7dq4_wrapper(object):

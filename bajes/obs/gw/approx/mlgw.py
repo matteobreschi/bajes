@@ -1,14 +1,23 @@
 from __future__ import division, unicode_literals, absolute_import
 import numpy as np
 
+import logging, warnings
+logger = logging.getLogger(__name__)
+
+__url__ = 'https://pypi.org/project/mlgw/'
 try:
     import mlgw.GW_generator as generator
 except ImportError:
+    warnings.warn("Unable to import MLGW package. Please see related documentation at: {}".format(__url__))
+    logger.warning("Unable to import MLGW package. Please see related documentation at: {}".format(__url__))
     pass
 
+__url__ = 'https://pypi.org/project/mlgw-bns/'
 try:
     from mlgw_bns import Model, ParametersWithExtrinsic
 except ImportError:
+    warnings.warn("Unable to import MLGW-BNS package. Please see related documentation at: {}".format(__url__))
+    logger.warning("Unable to import MLGW-BNS package. Please see related documentation at: {}".format(__url__))
     pass
 
 __bns_pars__ = ['mass_ratio', 'lambda_1', 'lambda_2', 'chi_1', 'chi_2',

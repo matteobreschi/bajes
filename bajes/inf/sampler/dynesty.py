@@ -241,6 +241,7 @@ class SamplerDynesty(SamplerBody):
         del sampler._UPDATE
 
         # from dynesty==1.2.3, the package employs a random.Generator
+        logger.warning("FIXING FOR DYNESTY>=2.0.0")
         if int(dynesty_version.split('.')[1]) >= 2 :    sampler.rstate = np.random.default_rng(seed=self.seed)
         else:                                           sampler.rstate = np.random
 
@@ -255,6 +256,12 @@ class SamplerDynesty(SamplerBody):
         else:
             self.sampler.pool   = pool
             self.sampler.M      = pool.map
+
+        # from dynesty==1.2.3, the package employs a random.Generator
+        dynesty_version = dynesty.__version__
+        logger.warning("FIXING FOR DYNESTY>=2.0.0")
+        if int(dynesty_version.split('.')[1]) >= 2 :    self.sampler.rstate = np.random.default_rng(seed=self.seed)
+        else:                                           self.sampler.rstate = np.random
 
     def __run__(self):
 

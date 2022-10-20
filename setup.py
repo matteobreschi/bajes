@@ -42,43 +42,48 @@ if 'install' in sys.argv:
               shutil.rmtree(path)
 
 setup(# metadata
-      name='bajes',
-      version=VERSION,
-      description='Bayesian Jenaer Software',
-      long_description=open(os.path.join(dir_path, 'README.md')).read(),
-      long_description_content_type="text/markdown",
-      author='Matteo Breschi et al.',
-      author_email='matteo.breschi@uni-jena.de',
-      url='https://github.com/matteobreschi/bajes',
-      license='MIT',
+      name                          = 'bajes',
+      version                       = VERSION,
+      description                   = 'Bayesian Jenaer Software',
+      long_description              = open(os.path.join(dir_path, 'README.md')).read(),
+      long_description_content_type = "text/markdown",
+      author                        = 'Matteo Breschi et al.',
+      author_email                  = 'matteo.breschi@uni-jena.de',
+      url                           = 'https://github.com/matteobreschi/bajes',
+      license                       = 'MIT',
 
       # list of packages and data
-      packages=find_packages(),
-      package_dir={"bajes": "bajes"},
-      package_data={"bajes": ["pipe/data/gw/asd/events/*/*.txt",
-                              "pipe/data/gw/asd/design/*.txt",
-                              "pipe/data/gw/spcal/events/*/*.txt",
-                              "pipe/data/kn/filter/AT2017gfo/*.txt",
-                              "obs/kn/approx/GrossmanKBP/fluxfactors/*.dat"]},
+      packages                      = find_packages(),
+      package_dir                   = {"bajes": "bajes"},
+      package_data                  = {"bajes": ["pipe/data/gw/asd/events/*/*.txt",
+                                                 "pipe/data/gw/asd/design/*.txt",
+                                                 "pipe/data/gw/spcal/events/*/*.txt",
+                                                 "pipe/data/kn/filter/AT2017gfo/*.txt",
+                                                 "obs/kn/approx/grossman_kbp/fluxfactors/*.dat"]},
 
       # make scripts executable
-      scripts   = ['bajes/pipe/scripts/bajes_pipe',
-                   'bajes/pipe/scripts/bajes_setup',
-                   'bajes/pipe/scripts/bajes_inject',
-                   'bajes/pipe/scripts/bajes_read_gwosc',
-                   'bajes/pipe/scripts/bajes_postproc'],
+      scripts                       = ['bajes/pipe/scripts/bajes_pipe',
+                                       'bajes/pipe/scripts/bajes_setup',
+                                       'bajes/pipe/scripts/bajes_inject',
+                                       'bajes/pipe/scripts/bajes_read_gwosc',
+                                       'bajes/pipe/scripts/bajes_postproc'],
 
       # set mandatory requirements
-      python_requires='>=3.7',
-      install_requires=['numpy>=1.18.0',
-                        'scipy>=1.4.0',
-                        'astropy>=4.0.0'],
+      python_requires               = '>=3.7',
+      install_requires              = ['numpy>=1.18.0',
+                                       'scipy>=1.4.0',
+                                       'astropy>=4.0.0'],
 
       # classifiers
-      classifiers=["License :: OSI Approved :: MIT License",
-                   "Operating System :: OS Independent",
-                   'Programming Language :: Python :: 3.7',
-                   'Programming Language :: Python :: 3.9'],
+      classifiers                   = ["Development Status :: 5 - Production/Stable",
+                                       "License :: OSI Approved :: MIT License",
+                                       "Operating System :: OS Independent",
+                                       "Programming Language :: Python :: 3.7",
+                                       "Programming Language :: Python :: 3.8",
+                                       "Programming Language :: Python :: 3.9",
+                                       "Intended Audience :: Science/Research",
+                                       "Topic :: Scientific/Engineering :: Astronomy",
+                                       "Topic :: Scientific/Engineering :: Physics"],
       )
 
 if 'install' in sys.argv:

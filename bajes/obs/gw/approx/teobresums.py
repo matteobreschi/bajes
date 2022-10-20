@@ -1,9 +1,5 @@
 from __future__ import division, unicode_literals, absolute_import
 import numpy as np
-import warnings
-
-import logging
-logger = logging.getLogger(__name__)
 
 # Note: Running with TEOBResumS requires the EOBRun_module to be installed.
 #
@@ -20,10 +16,15 @@ logger = logging.getLogger(__name__)
 # $ git checkout development
 # $ make -f Makefile.TEOBResumS pywrap
 
+import logging, warnings
+logger = logging.getLogger(__name__)
+
+__url__ = 'https://bitbucket.org/eob_ihes/teobresums/'
 try:
     import EOBRun_module as EOB
-except Exception:
-    warnings.warn("Unable to import TEOBResumS module")
+except ImportError:
+    warnings.warn("Unable to import TEOBResumS package. Please see related documentation at: {}".format(__url__))
+    logger.warning("Unable to import TEOBResumS package. Please see related documentation at: {}".format(__url__))
     pass
 
 from .... import MTSUN_SI

@@ -575,12 +575,12 @@ def initialize_gwprior(ifos,
             raise ValueError("Unable to read tidal flag for Prior. Please use one of the following: 'no-tides', 'bns-tides', 'bhns-tides', 'nsbh-tides' or flags for parametrized EOS.")
 
     # setting sky position
-    dict['ra']  = Parameter(name='ra', min=0., max=2.*np.pi, periodic=1)
-    dict['dec'] = Parameter(name='dec', min=-np.pi/2., max=np.pi/2., prior='cosinusoidal')
+    dict['ra']  = Parameter(name='ra',  min=0.,         max=2.*np.pi,   periodic=1)
+    dict['dec'] = Parameter(name='dec', min=-np.pi/2.,  max=np.pi/2.,   prior='cosinusoidal')
 
     # setting other extrinsic parameters
-    dict['cos_iota']    = Parameter(name='cos_iota', min=-1., max=+1.)
-    dict['psi']         = Parameter(name='psi', min=0., max=np.pi, periodic=1)
+    dict['cos_iota']    = Parameter(name='cos_iota', min=-1.,   max=+1.)
+    dict['psi']         = Parameter(name='psi',      min=0.,    max=np.pi, periodic=1)
 
     # setting distance
     if dist_min == None and dist_max == None:

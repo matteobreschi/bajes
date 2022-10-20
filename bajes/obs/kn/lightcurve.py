@@ -14,26 +14,30 @@ logger = logging.getLogger(__name__)
 
 __approx_dict__ = { ### TIME-DOMAIN
                     # funcs
+                    'KilonovaHeatingRate-1':                {'path': 'bajes.obs.kn.approx.kilonova_heating_rate.kilonova_heating_rate_one_wrapper',
+                                                             'type': 'fnc'},
+                    'KilonovaHeatingRate-2':                {'path': 'bajes.obs.kn.approx.kilonova_heating_rate.kilonova_heating_rate_two_wrapper',
+                                                             'type': 'fnc'},
                     # classes
-                    'GrossmanKBP-1-isotropic':              {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_isotropic_wrapper',
+                    'GrossmanKBP-1-isotropic':              {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_isotropic_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-1-equatorial':             {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_equatorial_wrapper',
+                    'GrossmanKBP-1-equatorial':             {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_equatorial_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-1-polar':                  {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_polar_wrapper',
+                    'GrossmanKBP-1-polar':                  {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_polar_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-2-isotropic':              {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_isotropic_isotropic_wrapper',
+                    'GrossmanKBP-2-isotropic':              {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_two_isotropic_isotropic_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-2-equatorial':             {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_isotropic_equatorial_wrapper',
+                    'GrossmanKBP-2-equatorial':             {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_two_isotropic_equatorial_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-2-polar':                  {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_isotropic_polar_wrapper',
+                    'GrossmanKBP-2-polar':                  {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_two_isotropic_polar_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-2-eq+pol':                 {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_equatorial_polar_wrapper',
+                    'GrossmanKBP-2-eq+pol':                 {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_two_equatorial_polar_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-2-NRfits':                 {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_two_nrfit_wrapper',
+                    'GrossmanKBP-2-NRfits':                 {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_two_nrfit_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-3-isotropic':              {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_three_isotropic_wrapper',
+                    'GrossmanKBP-3-isotropic':              {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_three_isotropic_wrapper',
                                                              'type': 'cls'},
-                    'GrossmanKBP-3-anisotropic':            {'path': 'bajes.obs.kn.approx.GrossmanKBP.korobkin_barnes_grossman_perego_et_al_three_anisotropic_wrapper',
+                    'GrossmanKBP-3-anisotropic':            {'path': 'bajes.obs.kn.approx.grossman_kbp.korobkin_barnes_grossman_perego_et_al_three_anisotropic_wrapper',
                                                              'type': 'cls'},
                   }
 
@@ -107,4 +111,6 @@ class Lightcurve(object):
         else:
             raise KeyError("Unable to read inclination parameter, information is missing. Please use iota or cosi.")
 
-        return self.light_func(params)
+        # include band information in params
+        params['photometric-lambdas'] = self.lambdas
+        return self.light_func(self.times, params)

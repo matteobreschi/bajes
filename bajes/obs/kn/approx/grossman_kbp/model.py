@@ -28,7 +28,7 @@ def initialize_flux_factors(nrays):
     from scipy.interpolate import InterpolatedUnivariateSpline
     from ..... import __path__
     view_angles     = np.linspace(0.0,90.,91)
-    data_location   = __path__[0] + '/obs/kn/approx/GrossmanKBP/fluxfactors/'
+    data_location   = __path__[0] + '/obs/kn/approx/grossman_kbp/fluxfactors/'
     flux_factors    = np.array([np.loadtxt(data_location+'/ff_ray_%d.dat'%i,unpack=True,usecols=([1])) for i in range(int(nrays))])
     return [InterpolatedUnivariateSpline(view_angles,f) for f in flux_factors]
 
@@ -236,7 +236,7 @@ class KorobkinBarnesGrossmanPeregoEtAl(object):
 
         return Rph, Lbol, Teff
 
-    def __call__(self, params):
+    def __call__(self, times, params):
 
         # convert iota and distance
         _iota = params['iota']*180./np.pi
