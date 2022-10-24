@@ -107,13 +107,11 @@ class Parameter(object):
             from . import __known_probs__
 
             if not isinstance(prior, str):
-                _all = ''
-                for kpi in __known_probs__ : _all = _all + kpi +', '
+                _all = ', '.join(__known_probs__)
                 raise AttributeError("Unable to initialize parameter {}, prior argument is not a string. Please use one of the followings: {} or a customized function using the func argument".format(name,_all))
 
             if prior not in __known_probs__:
-                _all = ''
-                for kpi in __known_probs__ : _all = _all + kpi +', '
+                _all = ', '.join(__known_probs__)
                 raise AttributeError("Unable to initialize parameter {}, unknown prior argument. Please use one of the followings: {} or a customized function using the func argument".format(name,_all))
 
             # if func == None, read prior from prior string
