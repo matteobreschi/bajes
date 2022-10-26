@@ -864,6 +864,7 @@ if __name__ == "__main__":
     else: raise ValueError("The 'outdir' option is required. Aborting.")
     if opts.seed is not None: np.random.seed(opts.seed)
 
+    outdir     = os.path.abspath(outdir)
     ppdir      = os.path.abspath(outdir+'/postproc')
     wf_dir     = os.path.abspath(os.path.join(ppdir, 'waveform'))
     hist_dir   = os.path.abspath(os.path.join(ppdir, 'hist'))
@@ -883,26 +884,47 @@ if __name__ == "__main__":
     logger.info("The reported uncertainties correpond to 90% credible regions.")
     logger.info("The contours of the corner plots represent 50%, 90% credible regions.")
 
+    # list possible output directories of previous commands
     run_dir_output = os.path.join(outdir, 'run')
+    pkl_dir_output = os.path.join(outdir, 'pkl')
+    list_of_dirs   = [outdir, run_dir_output, pkl_dir_output]
 
-    # extract posterior and prior object from pickle
-    if not(os.path.exists(run_dir_output)):
-        posterior = np.genfromtxt( os.path.join(outdir, 'posterior.dat'),     names=True)
-        pkl_dir_output = os.path.join(outdir, 'pkl')
+    # find posterior.dat, inf.pkl and gw_obs.pkl
+    posterior   = None
+    dc          = None
+    dc_gw       = None
 
-    else:
-        posterior = np.genfromtxt( os.path.join(outdir, 'run/posterior.dat'), names=True)
-        pkl_dir_output = os.path.join(run_dir_output, 'pkl')
+    for dir in list_of_dirs:
 
-    if os.path.exists(pkl_dir_output):
-        dc        = data_container(os.path.join(pkl_dir_output, 'inf.pkl'))
-        dc_gw     = data_container(os.path.join(pkl_dir_output, 'gw_obs.pkl'))
-    elif os.path.exists(run_dir_output):
-        dc        = data_container(os.path.join(run_dir_output, 'inf.pkl'))
-        dc_gw     = data_container(os.path.join(run_dir_output, 'gw_obs.pkl'))
-    else:
-        dc        = data_container(os.path.join(outdir, 'inf.pkl'))
-        dc_gw     = data_container(os.path.join(outdir, 'gw_obs.pkl'))
+        if posterior is None:
+            this_path = os.path.join(dir, 'posterior.dat')
+            if os.path.exists(this_path):
+                logger.info("Reading posterior from file ({}) ...".format(this_path))
+                posterior = np.genfromtxt( this_path,     names=True)
+
+        if dc is None:
+            this_path = os.path.join(dir, 'inf.pkl')
+            if os.path.exists(this_path):
+                logger.info("Loading model from file ({}) ...".format(this_path))
+                dc = data_container(this_path)
+
+        if dc_gw is None:
+            this_path = os.path.join(dir, 'gw_obs.pkl')
+            if os.path.exists(this_path):
+                logger.info("Loading GW data from file ({}) ...".format(this_path))
+                dc_gw = data_container(this_path)
+
+    if posterior is None:
+        logger.error("Unable to find posterior.dat file in {}. Aborting.".format(list_of_dirs))
+        raise RuntimeError("Unable to find posterior.dat file in {}. Aborting.".format(list_of_dirs))
+
+    if dc is None:
+        logger.error("Unable to find inf.pkl file in {}. Aborting.".format(list_of_dirs))
+        raise RuntimeError("Unable to find inf.pkl file in {}. Aborting.".format(list_of_dirs))
+
+    if dc_gw is None:
+        logger.error("Unable to find gw_obs.pkl file in {}. Aborting.".format(list_of_dirs))
+        raise RuntimeError("Unable to find gw_obs.pkl file in {}. Aborting.".format(list_of_dirs))
 
     container_inf = dc.load()
     container_gw  = dc_gw.load()
