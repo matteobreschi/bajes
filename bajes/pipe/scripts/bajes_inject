@@ -439,7 +439,7 @@ if __name__ == "__main__":
 
     logger.info("  - right ascenscion = {:.3f}".format(opts.ra))
     logger.info("  - declination      = {:.3f}".format(opts.dec))
-    logger.info("  - polarization     = {:.3f}".format(opts.pol))
+    logger.info("  - polarization     = {:.3f}".format(opts.psi))
 
     # injection
     logger.info("... injecting waveform into detectors ...")
