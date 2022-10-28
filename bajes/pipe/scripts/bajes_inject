@@ -103,8 +103,7 @@ def make_injection_plot(ifo, time, inj_strain, wave_strain, noise, f_min, outdir
 
 class Injection(object):
 
-    def __init__(self, ifos, dets, noises, data_path, seglen, srate, f_min, ra, dec, psi, t_gps, wind_flag, zero_flag,
-                 tukey=0.1, seed=None):
+    def __init__(self, ifos, dets, noises, data_path, seglen, srate, f_min, ra, dec, psi, t_gps, wind_flag, zero_flag, tukey=0.1):
 
         self.ifos   = ifos
         self.dets   = dets
@@ -152,9 +151,6 @@ class Injection(object):
 
             self.data_path  = os.path.abspath(data_path)
             tag             = self.data_path.split('.')[-1]
-
-            if seed is not None:
-                np.random.seed(seed)
 
             # read injection section using txt/dat polarizations
             if tag == 'txt' or tag == 'dat':
@@ -363,26 +359,37 @@ class Injection(object):
 def bajes_inject_parser():
 
     parser=ap.ArgumentParser(prog='bajes_inject', usage='bajes_inject [opts]')
+    # detectors and ASDs
     parser.add_argument('--ifo',        dest='ifos',    type=str,  action="append",    help="Single IFO tag. This option needs to be passed separately for every ifo in which the injection is requested. The order must correspond to the one in which the '--asd' commands are passed. Available options: ['H1', 'L1', 'V1', 'K1', 'G1'].")
     parser.add_argument('--asd',        dest='asds',    type=str,  action="append",    help="Single path to ASD file. This option needs to be passed separately for every ifo in which the injection is requested.  The order must correspond to the one in which the '--ifo' commands are passed.")
 
+    # data properties
     parser.add_argument('--wave',       dest='wave',    type=str,  default='',     help='path to strain data to inject, the file should contains 3 cols [t, reh, imh]. If empty, pure noise is generated.')
     parser.add_argument('--srate',      dest='srate',   type=float,   help='sampling rate of the injected waveform [Hz] and it will be the srate of the sampling, please check that everything is consistent')
     parser.add_argument('--seglen',     dest='seglen',  type=float,   help='length of the segment of the injected waveform [sec], if it is not a power of 2, the final segment will be padded')
-
     parser.add_argument('--f-min',      dest='f_min',   type=float,   default=20.,            help='minimum frequency [Hz], default 20Hz')
     parser.add_argument('--t-gps',      dest='t_gps',   type=float,   default=1187008882,     help='GPS time of the series, default 1187008882 (GW170817)')
 
-    parser.add_argument('--zero-noise', dest='zero',    action="store_true",    default=False,  help='use zero noise')
+    # random seed - used for noise generation and random sky location
     parser.add_argument('--seed',       dest='seed',    type=int,             default=None,   help='seed for random number generator')
 
+    # zero-noise flag
+    parser.add_argument('--zero-noise', dest='zero',    action="store_true",    default=False,  help='use zero noise')
+
+    # sky location option
+    parser.add_argument('--best-sky-loc',               dest='best_sky_loc',            type=str,  default='',                  help='inject signal with optimal sky location for requessted detector')
+    parser.add_argument('--random-sky-loc',             dest='random_sky_loc',          action="store_true",    default=False,  help='inject signal with random sky location')
     parser.add_argument('--ra',         dest='ra',      default=None,       type=float,                       help='right ascencion location of the injected source. Default optimal location for the first IFO.')
     parser.add_argument('--dec',        dest='dec',     default=None,       type=float,                       help='declination location of the injected source. Default optimal location for the first IFO.')
-    parser.add_argument('--pol',        dest='psi',     default=0.,         type=float,                       help='polarization angle of the injected source. Default: 0.')
-    parser.add_argument('--window',     dest='window',  default='low',      type=str,                      help="Location of the window. Available options: ['low', 'both', 'none']. Default: 'low'.")
 
+    # polarization angle
+    parser.add_argument('--pol',        dest='psi',     default=0.,         type=float,                       help='polarization angle of the injected source. Default: 0.')
+
+    # time-domain window options
+    parser.add_argument('--window',     dest='window',  default='low',      type=str,                      help="Location of the window. Available options: ['low', 'both', 'none']. Default: 'low'.")
     parser.add_argument('--tukey',      dest='tukey',   default=0.1,        type=float,                       help='tukey window parameter')
 
+    # output directory
     parser.add_argument('-o','--outdir', dest='outdir', default=None,       type=str,                      help='Output directory. Default: None.')
 
     return parser.parse_args()
@@ -393,16 +400,23 @@ if __name__ == "__main__":
     dets    = {}
     noises  = {}
 
+    # set outdir
     if opts.outdir == None:
         raise ValueError("Passing an output directory is mandatory. Please pass a value through the '--outdir' option.")
 
     opts.outdir = os.path.abspath(opts.outdir)
     ensure_dir(opts.outdir)
 
+    # set logger
     global logger
     logger = set_logger(outdir=opts.outdir, label='bajes_inject')
     logger.info("Running bajes inject:")
 
+    # set random seed
+    if opts.seed is not None:
+        np.random.seed(opts.seed)
+
+    # get detector and noise objects
     for i in range(len(opts.ifos)):
         ifo = opts.ifos[i]
         logger.info("... setting detector {} for injection ...".format(ifo))
@@ -412,21 +426,29 @@ if __name__ == "__main__":
         fr,asd      = read_asd(opts.asds[i], ifo)
         noises[ifo] = Noise(fr, asd, f_min = opts.f_min, f_max = opts.srate/2.)
 
-    if opts.ra == None and opts.dec == None:
-        logger.info("... no input sky position, using optimal location for {} ...".format(opts.ifos[0]))
-        opts.ra , opts.dec = dets[opts.ifos[0]].optimal_orientation(opts.t_gps)
+    # check sky location
+    if opts.random_sky_loc:
+        logger.info("... injecting signal with random sky location ...")
+        opts.ra , opts.dec = 2*np.pi*np.random.uniform(0,1), np.arccos(np.random.uniform(-1,1))-np.pi/2
+    elif (opts.ra is not None and opts.dec is not None):
+        logger.info("... injecting signal with sky location specified by the user ...")
     else:
-        logger.info("... locating the source at input sky position ...")
+        if opts.best_sky_loc not in list(dets.keys()): opts.best_sky_loc = opts.ifos[0]
+        logger.info("... injecting signal with optimal sky location for {} ...".format(opts.best_sky_loc))
+        opts.ra , opts.dec = dets[opts.best_sky_loc].optimal_orientation(opts.t_gps)
 
     logger.info("  - right ascenscion = {:.3f}".format(opts.ra))
-    logger.info("  - declination = {:.3f}".format(opts.dec))
+    logger.info("  - declination      = {:.3f}".format(opts.dec))
+    logger.info("  - polarization     = {:.3f}".format(opts.pol))
 
+    # injection
     logger.info("... injecting waveform into detectors ...")
     if not opts.wave:
         logger.warning("Waveform option is empty, generating pure noise injection.")
     inj = Injection(opts.ifos, dets, noises, opts.wave, opts.seglen, opts.srate, opts.f_min,
-                    opts.ra, opts.dec, opts.psi, opts.t_gps, opts.window, opts.zero, opts.tukey, opts.seed)
+                    opts.ra, opts.dec, opts.psi, opts.t_gps, opts.window, opts.zero, opts.tukey)
 
+    # save output
     logger.info("... writing strain data files ...")
     inj.write_injections(opts.outdir)
 
