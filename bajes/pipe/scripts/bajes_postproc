@@ -855,7 +855,7 @@ if __name__ == "__main__":
     parser.add_argument('--N-samples-prior',dest='nprior',          default=None,           type=int,                           help="Optional: Number of prior samples. Default: min(N_posterior_samples, 10000).")
     parser.add_argument('--spin-flag',      dest='spin_flag',       default='no-spins',     type=str,                        help="Optional: Spin prior flag. Default: 'no-spins'. Available options: ['no-spins', 'align', 'precess'].")
     parser.add_argument('--tidal-flag',     dest='lambda_flag',     default='no-tides',     type=str,                        help="Optional: Spin prior flag. Default: 'no-tides'. Available options: ['no-tides', 'bns-tides', 'bhns-tides'].")
-    parser.add_argument('--cosmo',          dest='cosmo',           default='Planck18_arXiv_v2',     type=str,               help="Optional: Cosmology model for redshift computation. Default: 'Planck18_arXiv_v2'. Available options: ['MISSING']. ")
+    parser.add_argument('--cosmo',          dest='cosmo',           default='Planck18',     type=str,               help="Optional: Cosmology model for redshift computation. Default: 'Planck18'. Available options: ['Planck13', 'Planck15', 'Planck18', 'WMAP1', 'WMAP3', 'WMAP5', 'WMAP7', 'WMAP9']. ")
     parser.add_argument('--seed',           dest='seed',            default=None,           type=int,                           help="Optional: Seed for pseudo-random number generator.")
 
     opts = parser.parse_args()

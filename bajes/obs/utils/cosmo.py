@@ -21,7 +21,10 @@ class Cosmology(object):
             logger.error("Unable to initialize cosmology class. Both cosmology name and keyword arguments are None.")
             raise RuntimeError("Unable to initialize cosmology class. Both cosmology name and keyword arguments are None.")
         elif cosmo != None and kwargs == None:
-            self.cosmo = cosmology.__dict__[cosmo]
+            if cosmo not in cosmology.available:
+                logger.error("Unavalable cosmology model {}. Please use one of the followings:".format(cosmo, cosmology.available))
+                raise RuntimeError("Unavalable cosmology model {}. Please use one of the followings:".format(cosmo, cosmology.available))
+            self.cosmo = getattr(cosmology, cosmo)
         elif cosmo == None and kwargs != None:
             H0          = kwargs.get('H0',      70.)
             Om0         = kwargs.get('Om0',     0.3)
@@ -32,7 +35,13 @@ class Cosmology(object):
             self.cosmo  = cosmology.FlatLambdaCDM(H0, Om0, Tcmb0, Neff, m_nu, Ob0)
         else:
             logger.warning("Both cosmology name and keyword arguments are passed to Cosmology class. Ignoring keyword arguments.")
-            self.cosmo = cosmology.__dict__[cosmo]
+            H0          = kwargs.get('H0',      70.)
+            Om0         = kwargs.get('Om0',     0.3)
+            Tcmb0       = kwargs.get('Tcmb0',   2.725)
+            Neff        = kwargs.get('Neff',    3.04)
+            m_nu        = kwargs.get('m_nu',    [0., 0., 0.])
+            Ob0         = kwargs.get('Ob0',     None)
+            self.cosmo  = cosmology.FlatLambdaCDM(H0, Om0, Tcmb0, Neff, m_nu, Ob0)
 
         # initialize arguments for z_at_value method
         self._zmax   = zmax
@@ -47,7 +56,7 @@ class Cosmology(object):
     def dl_to_z(self,dlum):
         return self._z_at_value(self.cosmo.luminosity_distance, u.Quantity(dlum, unit=u.Mpc),
                                 zmin=self._zmin, zmax=self._zmax, ztol=self._ztol, maxfun=self._maxfun)
-    
+
     def dl_to_vc(self,dlum):
         z = self._z_at_value(self.cosmo.luminosity_distance, u.Quantity(dlum, unit=u.Mpc),
                              zmin=self._zmin, zmax=self._zmax, ztol=self._ztol, maxfun=self._maxfun)
