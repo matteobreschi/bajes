@@ -367,9 +367,11 @@ class Waveform(object):
                 params['lambda2'] = tov.tidal_deformability(m2)
                 logger.debug("Estimated lambda={} for mass={}".format(params['lambda2'], m2))
 
-        # include iota
+        # include iota params
         if 'cos_iota' in list(params.keys()):
             params['iota'] = np.arccos(params['cos_iota'])
+        elif 'iota' in list(params.keys()):
+            params['cos_iota'] = np.cos(params['iota'])
 
         # compute hplus and hcross according with approx
         hp , hc = self.wave_func(self.freqs, params)
