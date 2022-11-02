@@ -108,7 +108,7 @@ __approx_dict__ = { ### TIME-DOMAIN
                     'NRPMw_f2free':                         {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_f2free_wrapper',
                                                               'type': 'fnc',
                                                               'domain': 'freq'},
-                    'NRPMw_f2free_recal':                   {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_f2free_recal_wrappers',
+                    'NRPMw_f2free_recal':                   {'path': 'bajes.obs.gw.approx.nrpmw.nrpmw_f2free_recal_wrapper',
                                                               'type': 'fnc',
                                                               'domain': 'freq'},
                     # classes
