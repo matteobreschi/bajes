@@ -94,7 +94,11 @@ def mlgw_bns_merger_time_shift(mt, q, lambda1, lambda2, chi1, chi2):
     X_corr          = (1 + c0*X + c1*X*X)/(1 + c2*X + c3*X*X)
     Chi_corr        = (1 + e0*ce + e1*ce**2 + e2*X*ce)/(1 + e3*ce)**2
     fx              = fx_q1_s0_corr * X_corr * Chi_corr
-    corr            = b0*ld**2 + b1*ls*np.log(ls) + b3*X*ld + b4*X*ls + b5*X + b6*X*ce + b7*ce + b8*ce*lt + b9*X*(chi1-chi2)
+    if ls>1:
+        corr        = b0*ld**2 + b1*ls*np.log(ls) + b3*X*ld + b4*X*ls + b5*X + b6*X*ce + b7*ce + b8*ce*lt + b9*X*(chi1-chi2)
+    else:
+        corr        = b0*ld**2 + b3*X*ld + b4*X*ls + b5*X + b6*X*ce + b7*ce + b8*ce*lt + b9*X*(chi1-chi2)
+
     dt_m28          = fx + corr
 
     return dt_m28*mt/2.8
