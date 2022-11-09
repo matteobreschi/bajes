@@ -115,7 +115,7 @@ def mlgw_bns_merger_time_shift(mt, q, lambda1, lambda2, chi1, chi2):
 
     correct1    = cs['b0']*ld**2 + cs['b1']*ls**2 + cs['bx']*ls*ld
     correct2    = cs['b2']*X *(1. + cs['b3']*ld  + cs['b4']*ls)
-    correct3    = b5*ce*(1 + b6*X + b7*lt) + b8*X*(chi1-chi2)
+    correct3    = cs['b5']*ce*(1 + cs['b6']*X + cs['b7']*lt) + cs['b8']*X*(chi1-chi2)
 
     dt_m28      = fx_q1_s0 * X_corr * S_corr + correct1 + correct2 + correct3
     return dt_m28*mt/2.8
