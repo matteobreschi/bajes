@@ -116,6 +116,22 @@ class data_container(object):
             logger.warning("Exception ({}) occurred while loading {}. Returning empty container.".format(e, self.__file__))
             return None
 
+# MPI helpers
+def check_mpi_world(exit=True):
+
+    import sys
+    from .mpi import get_mpi_world
+
+    try:
+        mpi = get_mpi_world()
+    except ImportError:
+        # if ImportError, most likely mpi4py is not installed and we assume MPI is not used
+        mpi = None
+
+    if mpi is not None:
+        if ((mpi.COMM_WORLD.rank > 0) and exit):
+            sys.exit()
+
 # auxiliary GW priors
 
 def log_prior_spin_align_volumetric(x, spin_max):

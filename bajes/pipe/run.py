@@ -34,7 +34,27 @@ def finalize(inference):
     # get posterior samples and produces plots
     logger.info("Saving posterior samples ...")
     inference.get_posterior()
+
+    # print medians from posterior
+    try:
+
+        import numpy as np 
+        posterior_samples = inference.posterior_samples.T
+        names             = inference.names
+
+        logger.info(" - recovered parameters (median and 90% percentiles)")
+        for i,ni in enumerate(names):
+            md = np.median(posterior_samples[i])
+            up = np.percentile(posterior_samples[i], 95)
+            lo = np.percentile(posterior_samples[i], 5)
+            logger.info(" * {} = {} + {} - {}".format(ni, md, up-md, md-lo))
+
+    except AttributeError:
+        pass
+
+    logger.info("Producing output plots ...")
     inference.make_plots()
+
     logger.info("Sampling done.")
 
 def run_main(opts, pool=None, close_pool=None):

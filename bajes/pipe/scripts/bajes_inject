@@ -416,12 +416,15 @@ if __name__ == "__main__":
     if opts.seed is not None:
         np.random.seed(opts.seed)
 
+    # check provided inputs
+    if (len(opts.ifos) != len(opts.asds)):
+        logger.error("Number of requested detectors does not match number of given ASDs. Aborting.")
+        raise RuntimeError("Number of requested detectors does not match number of given ASDs. Aborting.")
+
     # get detector and noise objects
     for i in range(len(opts.ifos)):
         ifo = opts.ifos[i]
         logger.info("... setting detector {} for injection ...".format(ifo))
-        if not(ifo in opts.asds[i]):
-            logger.info("WARNING: the name of ASD file does not correspond to selected IFO. Please check that IFO and ASD were passed in the right order.")
         dets[ifo]   = Detector(ifo,opts.t_gps)
         fr,asd      = read_asd(opts.asds[i], ifo)
         noises[ifo] = Noise(fr, asd, f_min = opts.f_min, f_max = opts.srate/2.)

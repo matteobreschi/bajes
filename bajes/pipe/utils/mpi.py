@@ -15,10 +15,9 @@ def get_mpi_world():
         from mpi4py import MPI as _MPI
 
     except ImportError:
-        raise ImportError("Unable to initialize MPI pool, mpi4py is missing.")
+        logger.error("Unable to initialize MPI communicator. Please check that mpi4py is correctly installed.")
+        raise ImportError("Unable to initialize MPI communicator. Please check that mpi4py is correctly installed.")
 
-    # MPI = _MPI
-    # return MPI
     return _MPI
 
 class MPIPool(object):

@@ -842,7 +842,8 @@ def Initialise_pyROQ_Jena_for_inference(path, approx, f_min, f_max, df, freqs_fu
 
     except:
 
-        logger.info("Assuming old PyROQ-refactored format. Skipping basis compatibility check and cutting the last frequency element.")
+        __url__ = 'https://github.com/bernuzzi/PyROQ'
+        logger.info("Assuming old PyROQ-refactored format (see {}). Skipping basis compatibility check and cutting the last frequency element.".format(__url__))
         # Old PyROQ basis had one frequency element less.
         data_f, psd, freqs_full = data_f[:-1], psd[:-1], freqs_full[:-1]
 
@@ -859,6 +860,7 @@ def Initialise_pyROQ_Jena_for_inference(path, approx, f_min, f_max, df, freqs_fu
     # Each element of the list `omega`, composed by elements `omega_j` is a list over time of the weight computed at `f_j`.
     from .. import eval_func_tuple
 
+    # TODO: do we want to parallelize this step?
     args_linear_weights_tc    = (df, linear_interpolant, data_f, psd, freqs_full)
     linear_weights_tcs_matrix = np.transpose(list(map(eval_func_tuple, zip(repeat(compute_linear_weights), tcs, repeat(args_linear_weights_tc)))))
     linear_weights_interp     = interp1d(tcs, linear_weights_tcs_matrix, kind = 'cubic', bounds_error=False, fill_value=-np.inf)

@@ -5,7 +5,7 @@ import os
 import logging
 import numpy as np
 
-from bajes.pipe import set_logger, ensure_dir, parse_setup_options
+from bajes.pipe import set_logger, ensure_dir, parse_setup_options, check_mpi_world
 
 # Necessary to add cwd to path when script run
 # by SLURM (since it executes a copy)
@@ -51,18 +51,21 @@ def init_inf(opts):
 
 def save_opts(opts):
 
-    from bajes import __version__
-    output  = 'bajes\t= {}'.format(__version__) + '\n'
+    from bajes import __version__, __path__
+    output  = 'bajes_version\t= {}'.format(__version__) + '\n' + 'bajes_path\t= {}'.format(__path__) + '\n' 
     all     = opts.__dict__
 
     for ki in all.keys():
         output = output + ki + '\t= ' + str(all[ki]) + '\n'
 
-    file = open(os.path.abspath(opts.outdir+'/../settings.txt'), 'w')
+    file = open(os.path.abspath(opts.outdir+'/settings.txt'), 'w')
     file.write(output)
     file.close()
 
 if __name__ == "__main__":
+
+    # check MPI and exit if not master rank
+    check_mpi_world()
 
     # parse input arguments
     opts = parse_setup_options()
