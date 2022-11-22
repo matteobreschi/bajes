@@ -149,6 +149,59 @@ def teobresums_wrapper(freqs, params):
     t , hp , hc     = teobresums(params_teob)
     return hp , hc
 
+def teobresums_a6cfree_wrapper(freqs, params):
+
+    # unwrap lm modes
+    if params['lmax'] == 0:
+        modes = [1]
+    else:
+        modes = l_to_k(params['lmax'])
+
+    # set TEOB dict
+    params_teob = { 'M':                    params['mtot'],
+                    'q':                    params['q'],
+                    'chi1':                 params['s1z'],
+                    'chi2':                 params['s2z'],
+                    'chi1z':                params['s1z'],
+                    'chi2z':                params['s2z'],
+                    'LambdaAl2':            params['lambda1'],
+                    'LambdaBl2':            params['lambda2'],
+                    'distance':             params['distance'],
+                    'inclination':          params['iota'],
+                    'initial_frequency':    params['f_min'],
+                    'coalescence_angle':    params['phi_ref'],
+                    'use_geometric_units':  "no",
+                    'output_hpc':           "no",
+                    'interp_uniform_grid':  "yes",
+                    'output_multipoles':    "no",
+                    'use_mode_lm':          modes,
+                    'srate':                params['srate'],
+                    'srate_interp':         params['srate'],
+                    'domain':               0,
+                    'a6c':                  params['TEOBResumS_a6c']
+                    }
+
+    if params['eccentricity'] != 0:
+        params_teob['ecc'] = params['eccentricity']
+
+    if params['s1x'] != 0:
+        params_teob['chi1x'] = params['s1x']
+    if params['s1y'] != 0:
+        params_teob['chi1y'] = params['s1y']
+    if params['s2x'] != 0:
+        params_teob['chi2x'] = params['s2x']
+    if params['s2y'] != 0:
+        params_teob['chi2y'] = params['s2y']
+    check = params['s1x']**2+params['s1y']**2+params['s2x']**2+params['s2y']**2
+    if check > 1e-7:
+        params_teob['use_spins'] = 2
+
+    # check for additional options
+    additional_opts(params_teob, params)
+
+    t , hp , hc     = teobresums(params_teob)
+    return hp , hc
+
 # Requires the teob eccentric branch
 def teobresums_ecc_wrapper(freqs, params):
     # unwrap lm modes

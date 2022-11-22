@@ -146,6 +146,11 @@ def initialize_gwlikelihood_kwargs(opts):
     else:
         ecc_bounds=None
 
+    if opts.a6c_min != None and opts.a6c_max != None:
+        a6c_bounds = [opts.a6c_min,opts.a6c_max]
+    else:
+        a6c_bounds = None
+
     # check spins
     if opts.spin_max is None and opts.spin_flag != 'no-spins':
         # try to set individual spin priors
@@ -185,6 +190,7 @@ def initialize_gwlikelihood_kwargs(opts):
                                                                                   energ_bounds=e_bounds,
                                                                                   angmom_bounds=j_bounds,
                                                                                   ecc_bounds=ecc_bounds,
+                                                                                  a6c_bounds=a6c_bounds,
                                                                                   marg_phi_ref = opts.marg_phi_ref,
                                                                                   marg_time_shift = opts.marg_time_shift,
                                                                                   tukey_alpha = opts.alpha,
@@ -255,6 +261,7 @@ def initialize_gwprior(ifos,
                        energ_bounds      = None,
                        angmom_bounds     = None,
                        ecc_bounds        = None,
+                       a6c_bounds        = None,
                        marg_phi_ref      = False,
                        marg_time_shift   = False,
                        tukey_alpha       = None,
@@ -736,6 +743,13 @@ def initialize_gwprior(ifos,
         dict['eccentricity'] = Parameter(name='eccentricity', min=ecc_bounds[0], max=ecc_bounds[1])
     else:
         dict['eccentricity'] = Constant('eccentricity', 0.)
+
+    # include TEOB additional parameters
+    if approx == 'TEOBResumS_a6cfree':
+        if a6c_bounds == None:
+            logger.warning("Requested bounds for a6c parameter is empty. Setting standard bound [-65, -10]")
+            a6c_bounds = [-65, -10]
+        dict['TEOBResumS_a6c']  = Parameter(name='TEOBResumS_a6c', min=a6c_bounds[0], max=a6c_bounds[1])
 
     # include NRPMw additional parameters
     if 'NRPMw' in approx:

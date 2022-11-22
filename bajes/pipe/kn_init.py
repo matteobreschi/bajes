@@ -123,7 +123,7 @@ def initialize_knprior(approx,
     elif approx=='GrossmanKBP-2-equatorial':    comps = ['isotropic', 'equatorial']
     elif approx=='GrossmanKBP-2-polar':         comps = ['isotropic', 'polar']
     elif approx=='GrossmanKBP-2-eq+pol':        comps = ['equatorial', 'polar']
-    elif approx=='GrossmanKBP-2-NRfits':        comps = ['dyn', 'wind']
+    elif 'GrossmanKBP-2-NRfits' in approx:      comps = ['dyn', 'wind']
     elif approx=='GrossmanKBP-3-isotropic':     comps = ['isotropic1', 'isotropic2', 'isotropic3']
     elif approx=='GrossmanKBP-3-anisotropic':   comps = ['isotropic', 'equatorial', 'polar']
 

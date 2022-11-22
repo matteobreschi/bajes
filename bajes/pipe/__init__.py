@@ -396,6 +396,8 @@ def parse_setup_options():
     parser.add_argument('--j-max',             dest='j_max',           default=None,      type=float,                           help='Upper angular momentum prior bound')
     parser.add_argument('--ecc-min',           dest='ecc_min',         default=None,      type=float,                           help='Lower eccentricity prior bound')
     parser.add_argument('--ecc-max',           dest='ecc_max',         default=None,      type=float,                           help='Upper eccentricity prior bound')
+    parser.add_argument('--a6c-min',           dest='a6c_min',         default=None,      type=float,                           help='Lower a6c prior bound (TEOBResumS_a6cfree option)')
+    parser.add_argument('--a6c-max',           dest='a6c_max',         default=None,      type=float,                           help='Upper a6c prior bound (TEOBResumS_a6cfree option)')
 
     # Optional, marginalize over phi_ref and/or time_shift
     parser.add_argument('--marg-phi-ref',      dest='marg_phi_ref',    default=False,                     action="store_true",  help='Phi-ref marginalization flag')
