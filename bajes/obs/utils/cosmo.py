@@ -21,10 +21,14 @@ class Cosmology(object):
             logger.error("Unable to initialize cosmology class. Both cosmology name and keyword arguments are None.")
             raise RuntimeError("Unable to initialize cosmology class. Both cosmology name and keyword arguments are None.")
         elif cosmo != None and kwargs == None:
-            if cosmo not in cosmology.available:
-                logger.error("Unavalable cosmology model {}. Please use one of the followings:".format(cosmo, cosmology.available))
-                raise RuntimeError("Unavalable cosmology model {}. Please use one of the followings:".format(cosmo, cosmology.available))
-            self.cosmo = getattr(cosmology, cosmo)
+            try:
+                if cosmo not in cosmology.available:
+                    logger.error("Unavailable cosmology model {}. Please use one of the followings:".format(cosmo, cosmology.available))
+                    raise RuntimeError("Unavailable cosmology model {}. Please use one of the followings:".format(cosmo, cosmology.available))
+                self.cosmo = getattr(cosmology, cosmo)
+            except AttributeError:
+                logger.warning("Unable to get cosmology model with astropy==5.1 methods. Reading attribute withouth control check.")
+                self.cosmo = getattr(cosmology, cosmo)
         elif cosmo == None and kwargs != None:
             H0          = kwargs.get('H0',      70.)
             Om0         = kwargs.get('Om0',     0.3)

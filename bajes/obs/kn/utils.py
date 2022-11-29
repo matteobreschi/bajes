@@ -27,7 +27,7 @@ def NRfit_recal_mass_wind(mchirp, q, lambda1, lambda2, disk_frac, **kwargs):
     mtot        = mchirp / (q/(1+q)**2)**0.6
     log_m_disk  = NRfit_log_mass_disk(mtot, q, lambda1, lambda2)
     mwind       = mtot * np.exp(log_m_disk) * disk_frac
-    return np.max([0., mdyn])
+    return np.max([0., mwind])
 
 def NRfit_log_mass_dyn(mtot, q, lambda1, lambda2):
     """
