@@ -613,7 +613,12 @@ def initialize_gwprior(ifos,
                                        prior='quadratic')
     elif dist_flag=='com':
         from ..obs.utils.cosmo import Cosmology
-        cosmo = Cosmology(cosmo='Planck18_arXiv_v2', kwargs=None)
+        from .utils import _get_astropy_version
+        _av = _get_astropy_version()
+        if int(_av[0])>=5:
+            cosmo = Cosmology(cosmo='Planck18')
+        else:
+            cosmo = Cosmology(cosmo='Planck18_arXiv_v2')
         dict['distance']   = Parameter(name='distance',
                                        min=dist_min,
                                        max=dist_max,
@@ -622,7 +627,12 @@ def initialize_gwprior(ifos,
                                        interp_kwarg=interp_kwarg)
     elif dist_flag=='src':
         from ..obs.utils.cosmo import Cosmology
-        cosmo = Cosmology(cosmo='Planck18_arXiv_v2', kwargs=None)
+        from .utils import _get_astropy_version
+        _av = _get_astropy_version()
+        if int(_av[0])>=5:
+            cosmo = Cosmology(cosmo='Planck18')
+        else:
+            cosmo = Cosmology(cosmo='Planck18_arXiv_v2')
         dict['distance']   = Parameter(name='distance',
                                        min=dist_min,
                                        max=dist_max,

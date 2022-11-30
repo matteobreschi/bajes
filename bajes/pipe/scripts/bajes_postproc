@@ -746,9 +746,9 @@ def reconstruct_waveform(outdir, posterior, container_inf, container_gw, N_sampl
 
 def compute_cosmology_and_masses(names, cosmo, posterior_samples, prior_samples, map_fn):
 
-    cosmo  = Cosmology(cosmo=cosmo, kwargs=None)
-    post_dict = {}
-    prio_dict = {}
+    cosmo       = Cosmology(cosmo=cosmo)
+    post_dict   = {}
+    prio_dict   = {}
 
     if 'distance' in names:
 
@@ -769,7 +769,7 @@ def compute_cosmology_and_masses(names, cosmo, posterior_samples, prior_samples,
     else:
         logger.warning("Unable to compute redshift from posterior samples. Skipping this quantity.")
 
-    return post_dict, prio_dict
+    return post_dict, prio_dict, cosmo_args
 
 def make_final_summary(outdir,
                        posterior_samples, prior_samples,
@@ -949,6 +949,7 @@ if __name__ == "__main__":
 
     # compute redshift
     logger.info("Computing redshifts...")
+    logger.info("Looking for {} cosmological metric...".format(opts.cosmo))
     z_post, z_prio = compute_cosmology_and_masses(priors.names, opts.cosmo, posterior, prior_samples, map_fn)
 
     # produce histogram plots

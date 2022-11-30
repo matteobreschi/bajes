@@ -10,42 +10,46 @@ from scipy.misc import derivative
 
 class Cosmology(object):
 
-    def __init__(self, cosmo=None, kwargs=None, zmin=1.e-8, zmax=1.e2, ztol=1.e-8, maxfun=500):
+    def __init__(self, cosmo=None, zmin=1.e-8, zmax=1.e2, ztol=1.e-8, maxfun=500, **kwargs):
 
         # import useful objects
         from astropy import cosmology
         self._z_at_value    = cosmology.z_at_value
 
+        from ...pipe.utils import _get_astropy_version
+        _av = _get_astropy_version()
+
         # initialize cosmology metric
-        if cosmo == None and kwargs == None:
-            logger.error("Unable to initialize cosmology class. Both cosmology name and keyword arguments are None.")
-            raise RuntimeError("Unable to initialize cosmology class. Both cosmology name and keyword arguments are None.")
-        elif cosmo != None and kwargs == None:
-            try:
+        # if cosmo == None:
+        #     logger.error("Unable to initialize cosmology class. Both cosmology name and keyword arguments are None.")
+        #     raise RuntimeError("Unable to initialize cosmology class. Both cosmology name and keyword arguments are None.")
+        if cosmo is not None:
+            if int(_av[0])>=5:
                 if cosmo not in cosmology.available:
                     logger.error("Unavailable cosmology model {}. Please use one of the followings:".format(cosmo, cosmology.available))
                     raise RuntimeError("Unavailable cosmology model {}. Please use one of the followings:".format(cosmo, cosmology.available))
                 self.cosmo = getattr(cosmology, cosmo)
-            except AttributeError:
-                logger.warning("Unable to get cosmology model with astropy==5.1 methods. Reading attribute withouth control check.")
+            else:
+                logger.warning("Detected astropy version=={}. Reading {} attribute directly from astropy.cosmology module (unsafely).".format('.'.join(_av), cosmo))
                 self.cosmo = getattr(cosmology, cosmo)
-        elif cosmo == None and kwargs != None:
-            H0          = kwargs.get('H0',      70.)
-            Om0         = kwargs.get('Om0',     0.3)
-            Tcmb0       = kwargs.get('Tcmb0',   2.725)
-            Neff        = kwargs.get('Neff',    3.04)
-            m_nu        = kwargs.get('m_nu',    [0., 0., 0.])
-            Ob0         = kwargs.get('Ob0',     None)
-            self.cosmo  = cosmology.FlatLambdaCDM(H0, Om0, Tcmb0, Neff, m_nu, Ob0)
         else:
-            logger.warning("Both cosmology name and keyword arguments are passed to Cosmology class. Ignoring keyword arguments.")
-            H0          = kwargs.get('H0',      70.)
-            Om0         = kwargs.get('Om0',     0.3)
+            logger.warning("Unspecified cosmological metric. The cosmological parameters are going to extracted from keyword args or switched to default settings (Planck18).")
+            H0          = kwargs.get('H0',      67.7)
+            Om0         = kwargs.get('Om0',     0.31)
             Tcmb0       = kwargs.get('Tcmb0',   2.725)
-            Neff        = kwargs.get('Neff',    3.04)
-            m_nu        = kwargs.get('m_nu',    [0., 0., 0.])
-            Ob0         = kwargs.get('Ob0',     None)
+            Neff        = kwargs.get('Neff',    3.05)
+            m_nu        = kwargs.get('m_nu',    [0., 0., 0.06])
+            Ob0         = kwargs.get('Ob0',     0.049)
             self.cosmo  = cosmology.FlatLambdaCDM(H0, Om0, Tcmb0, Neff, m_nu, Ob0)
+        # else:
+            # logger.warning("Both cosmology name and keyword arguments are passed to Cosmology class. Ignoring keyword arguments.")
+            # H0          = kwargs.get('H0',      70.)
+            # Om0         = kwargs.get('Om0',     0.3)
+            # Tcmb0       = kwargs.get('Tcmb0',   2.725)
+            # Neff        = kwargs.get('Neff',    3.04)
+            # m_nu        = kwargs.get('m_nu',    [0., 0., 0.])
+            # Ob0         = kwargs.get('Ob0',     None)
+            # self.cosmo  = cosmology.FlatLambdaCDM(H0, Om0, Tcmb0, Neff, m_nu, Ob0)
 
         # initialize arguments for z_at_value method
         self._zmax   = zmax

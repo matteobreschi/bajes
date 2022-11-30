@@ -439,3 +439,8 @@ def extract_snr_sample_phi_marg(ifos, detectors, hphc, pars, domain, ngrid=500):
     snr_opt = np.sqrt(snr_opt2)
 
     return phi_ref, snr_mf, snr_mf_per_det, snr_opt, snr_opt_per_det
+
+# external modules helpers
+def _get_astropy_version():
+    from astropy import __version__ as astro_version
+    return astro_version.split('.')

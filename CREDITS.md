@@ -36,7 +36,7 @@ The posterior samples computed with the *bajes* pipeline of the gravitational-wa
 In order to perform the sampling, *bajes* relies on external libraries,
 * `emcee`, the mcmc hammer, [github](https://github.com/dfm/emcee), [documentation](https://emcee.readthedocs.io/), [arxiv](https://arxiv.org/abs/1202.3665)
 * `ptmcmc` is based on `ptemcee`, [github](https://github.com/willvousden/ptemcee), [documentation](https://ptemcee.readthedocs.io/en/stable/), [arxiv](https://arxiv.org/abs/1501.05823)
-* `cpnest`, parallel nested sapling, [github](https://github.com/johnveitch/cpnest), [documentation](https://johnveitch.github.io/cpnest/)
+* `cpnest`, parallel nested sampling, [github](https://github.com/johnveitch/cpnest), [documentation](https://johnveitch.github.io/cpnest/)
 * `dynesty`, dynamic nested sampling, [github](https://github.com/joshspeagle/dynesty), [documentation](https://dynesty.readthedocs.io/), [arxiv](https://arxiv.org/abs/1904.02180)
 * `ultranest`, advanced nested sampling, [github](https://github.com/JohannesBuchner/UltraNest), [documentation](https://johannesbuchner.github.io/UltraNest/), [arxiv](https://arxiv.org/abs/2101.09604)
 
@@ -46,13 +46,12 @@ If you use one of the following gravitational-wave approximants, please provide 
 * `TEOBResumS`: A. Nagar et al., [arxiv](https://arxiv.org/abs/1806.01772)
     * Precessing contributions are discussed in S. Akcay et al., [arxiv](https://arxiv.org/abs/2005.05338)
     * Eccentric model is described in D. Chiaramello and A. Nagar, [arxiv](https://arxiv.org/abs/2001.11736)
-    * Template for hyperbolic captures is introduced in A. Nagar et al., [arxiv](https://arxiv.org/abs/2009.12857)
 * `TEOBResumSPA`: R. Gamba et al., [arxiv](https://arxiv.org/abs/2012.00027)
 * `HypTEOBResumS`: A. Nagar et al., [arxiv](https://arxiv.org/abs/2009.12857)
 * `NRPM`: M. Breschi et al., [arxiv](https://arxiv.org/abs/1908.11418)
 * `NRPMw`: M. Breschi et al., [arxiv](https://arxiv.org/abs/2205.09112)
 * `MLGW`: S. Schmidt et al., [arxiv](https://arxiv.org/abs/2011.01958)
-* `MLGW_BNS`: J. Tissino et al., (in preparation)
+* `MLGW_BNS`: J. Tissino et al., [arxiv](https://arxiv.org/abs/2210.15684)
 * `NRSur7dq4`: V. Varma et al., [arxiv](https://arxiv.org/abs/1905.09300)
 * `NRHybSur3dq8`: V. Varma et al., [arxiv](https://arxiv.org/abs/1812.07865)
 * `NRHybSur3dq8Tidal`: K. Barkett et al., [arxiv](https://arxiv.org/abs/1911.10440)
@@ -60,7 +59,7 @@ If you use one of the following gravitational-wave approximants, please provide 
     * `7.5PNTides` are taken from T. Damour et al., [arxiv](https://arxiv.org/abs/1203.4352)
     * `7.5PNTides2020` corresponds to Q. Henry et al., [arxiv](https://arxiv.org/abs/2005.13367)
 * For the documentation of `LALSimulation` waveforms, please visit this [link](https://lscsoft.docs.ligo.org/lalsuite/)
-* `JenpyROQ`: see documentation at this [link](https://github.com/GCArullo/JenpyROQ)
+* `JenpyROQ`: see documentation at this [link](https://github.com/GCArullo/JenpyROQ), [arxiv](https://arxiv.org/abs/2210.15684)
 
 The *bajes* repository contains the official ASDs and the calibration envelopes
 released with GWTC-1 (LVC, [arxiv](https://arxiv.org/abs/1811.12907)) and the design
