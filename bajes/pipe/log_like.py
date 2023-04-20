@@ -118,7 +118,7 @@ class GWLikelihood(Likelihood):
         # the requested parameters are unphysical
         # Then, return -inf
         if not any(wave.plus):
-            logger.warning("Likelihood method returned NaN for the set of parameters: {}.".format(x))
+            logger.warning("Likelihood method returned NaN for the set of parameters: {}.".format(params))
             return -np.inf
 
         if(np.any(np.isnan(wave.plus)) or np.any(np.isnan(wave.cross))):

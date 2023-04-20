@@ -769,7 +769,7 @@ def compute_cosmology_and_masses(names, cosmo, posterior_samples, prior_samples,
     else:
         logger.warning("Unable to compute redshift from posterior samples. Skipping this quantity.")
 
-    return post_dict, prio_dict, cosmo_args
+    return post_dict, prio_dict
 
 def make_final_summary(outdir,
                        posterior_samples, prior_samples,
