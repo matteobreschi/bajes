@@ -32,9 +32,10 @@ if __name__ == "__main__":
         from bajes.obs.gw import __known_events_metadata__ as known_events_metadata
         if opts.event not in list(known_events_metadata.keys()):
             logger.warning("Unable to identify event {}, this is not a known trigger".format(opts.event))
-        opts.t_gps = int(known_events_metadata[opts.event]['t_gps'])
+        opts.t_gps = int(np.ceil(known_events_metadata[opts.event]['t_gps']))
     elif opts.event is None and opts.t_gps:
         logger.info("... setting GPS time from input ...")
+        opts.t_gps = int(np.ceil(opts.t_gps))
     else:
         logger.warning("Unable to set GPS time, please provide this information in the command line")
 

@@ -346,9 +346,11 @@ def parse_setup_options():
 
     # Data and PSDs information
     parser.add_argument('--ifo',               dest='ifos',           default=[],        type=str,  action="append",      help='Detector to be considered in the analysis. Has to be passed once per detector, and sets the order for similar commands to pass strains and psds. Available options: [`H1`, `L1`, `V1`, `K1`, `G1`].')
+    parser.add_argument('--ifo-channel',       dest='ifo_channels',   default=[],        type=str,  action="append",      help='For GWF, specify the channel to be used in the analysis for each included IFO, e.g. L1:LDAS-STRAIN')
     parser.add_argument('--strain',            dest='strains',        default=[],        type=str,  action="append",      help='Path to strain data. Has to be passed once per detector and in the same order as the `--ifo` options.')
     parser.add_argument('--asd',               dest='asds',           default=[],        type=str,  action="append",      help='Path to ASD data. Has to be passed once per detector and in the same order as the `--ifo` options.')
-    parser.add_argument('--alpha',             dest='alpha',          default=None,      type=float,                         help='Alpha parameter of the Tukey window. Default: 0.4/seglen.')
+    parser.add_argument('--alpha',             dest='alpha',          default=None,      type=float,                      help='Alpha parameter of the Tukey window. Default: 0.4/seglen.')
+    parser.add_argument('--fd-inject',         dest='fd_inj',         default=False,                action="store_true",  help='perform injection in frequcy-domain')
 
     # Calibration envelopes (optional)
     parser.add_argument('--spcal',             dest='spcals',         default=[],        type=str,  action="append",      help='Path to calibration envelope. Has to be passed once per detector and in the same order as the `--ifo` options.')
@@ -760,7 +762,7 @@ def get_likelihood_and_prior(opts):
                         data_freq      = l_kwas['datas'][ifo].freq_series[f_min_max_mask]
                         psd            = l_kwas['noises'][ifo].interp_psd_pad(freqs_full)
 
-                        logger.info("Computing ROQ weights for the {} detector.".format(ifo))
+                        logger.info("Computing ROQ weights for the {} detector ...".format(ifo))
                         roq_freqs_join, roq_mask_psi, roq_mask_omega, roq_psi_weights, roq_omega_weights_interp = initialize_roq(opts.roq_path     ,
                                                                                                                                  opts.roq_tc_points,
                                                                                                                                  freqs_full        ,

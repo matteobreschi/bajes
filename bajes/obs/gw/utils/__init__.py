@@ -213,21 +213,66 @@ def read_gwosc(ifo, GPSstart, GPSend, srate=4096, version=None):
     t   = np.arange(len(s))*(1./srate) + GPSstart
     return t , s
 
-def read_data(data_path, srate):
+def convert_gwf_to_numpy(path, channel):
 
-    time, data = np.genfromtxt(data_path, unpack=True)
-    srate_dt = 1./float(time[1] - time[0])
+    from gwpy.timeseries import TimeSeries
+    data = TimeSeries.read(path, channel)
 
-    if (srate > srate_dt):
-        logger.error("Requested sampling rate is larger than the data sampling rate. Please request a sampling rate equal to or smaller than {} Hz.".format(srate_dt))
-        raise ValueError("Requested sampling rate is larger than the data sampling. Please request a sampling rate equal to or smaller than {} Hz.".format(srate_dt))
-    elif (srate < srate_dt):
-        logger.warning('Requested sampling rate is lower than data sampling rate. Downsampling detector data from {} to {} Hz, decimate factor {}'.format(srate_dt, srate, int(srate_dt/srate)))
-        data = decimate(data, int(srate_dt/srate), zero_phase=True)
+    s   = np.array(data.value)
+    t   = np.array(data.times)
+
+    return t , s, float(data.sample_rate)
+
+def read_data_fd(data_path, srate, seglen, f_min, f_max):
+
+    freq, r_data, i_data = np.genfromtxt(data_path, unpack=True)
+    data                 = r_data + 1j*i_data
+
+    if f_min is not None:
+        if (f_min < np.min(freq)):
+            logger.error("Requested f-min ({} Hz) is smaller than the data axis ({} Hz)".format(f_min, np.min(freq)))
+            raise ValueError("Requested f-min ({} Hz) is smaller than the data axis ({} Hz)".format(f_min, np.min(freq)))
+
+    if f_max is not None:
+        if (f_max > np.max(freq)):
+            logger.error("Requested f-max ({} Hz) is larger than the data axis ({} Hz)".format(f_max, np.max(freq)))
+            raise ValueError("Requested f-max ({} Hz) is larger than the data axis ({} Hz)".format(f_max, np.max(freq)))
+
+    seglen_df = 1./float(freq[1] - freq[0])
+    if (seglen != seglen_df) :
+        logger.warning('Requested duration ({} s) is different from data duration ({} s). Interpolating data from df={} to df={} Hz'.format(seglen, seglen_df, 1./seglen_df, 1./seglen))
+        f_out       = np.linspace(0, srate/2., int(seglen*srate//2)+1)
+        amp_out     = np.interp(f_out, freq, np.abs(data),              left=0., right=0.)
+        phi_out     = np.interp(f_out, freq, np.unwrap(np.angle(data)), left=0., right=0.)
+        freq        = f_out
+        data        = amp_out*np.exp(1j*phi_out)
+
+    return freq, data
+
+def read_data(data_path, srate, ifo_channel):
+
+    if data_path.split('.')[-1] == 'gwf':
+
+        logger.info("Reading data from GWF file from {} channel ...".format(ifo_channel))
+        time, data, _srate = convert_gwf_to_numpy(data_path, ifo_channel)
+        if float(_srate) != float(srate):
+            logger.warning("Inconsistent sampling rate detected between user input ({} Hz) and time series ({} Hz)".format(srate, _srate))
+
     else:
-        pass
 
-    return data
+        time, data = np.genfromtxt(data_path, unpack=True)
+        srate_dt = 1./float(time[1] - time[0])
+
+        if (srate > srate_dt):
+            logger.error("Requested sampling rate is larger than the data sampling rate. Please request a sampling rate equal to or smaller than {} Hz.".format(srate_dt))
+            raise ValueError("Requested sampling rate is larger than the data sampling. Please request a sampling rate equal to or smaller than {} Hz.".format(srate_dt))
+        elif (srate < srate_dt):
+            logger.warning('Requested sampling rate is lower than data sampling rate. Downsampling detector data from {} to {} Hz, decimate factor {}'.format(srate_dt, srate, int(srate_dt/srate)))
+            data = decimate(data, int(srate_dt/srate), zero_phase=True)
+        else:
+            pass
+
+    return data, time[0]
 
 def read_asd(asd_path, ifo):
     from .. import __known_events__

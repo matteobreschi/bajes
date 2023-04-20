@@ -1,5 +1,9 @@
 ## Changelog
 
+# [v1.0.1] February 2023
+* Include conversions for `.gwf` format
+* Include options for frequency-domain injections
+
 # [v1.0.0] October 2022
 * Unify pipeline core with `__main__` routine
 * Improve `Waveform` object and introduce `approx_dict`

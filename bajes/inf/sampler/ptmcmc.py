@@ -16,7 +16,7 @@ from itertools import repeat
 
 from . import SamplerBody
 from ..utils import apply_bounds, autocorr_integrated_time, thermodynamic_integration_log_evidence
-from ...pipe import eval_func_tuple
+from ...pipe import eval_func_tuple, ensure_dir
 from .proposal import ModelTuple, _init_proposal_methods
 
 def initialize_proposals(like, priors, use_slice=False, use_gw=False):
@@ -853,7 +853,7 @@ class SamplerPTMCMC(SamplerBody):
         # estimate evidence
         logz , logzerr  = self.sampler.log_evidence_estimate()
         evidence_file = open(self.outdir + '/evidence.dat', 'w')
-        evidence_file.write('betas  = {}\n'.format(self._betas))
+        evidence_file.write('betas  = {}\n'.format(self.sampler._betas))
         evidence_file.write('logZ   = {} +/- {}\n'.format(logz,logzerr))
         evidence_file.close()
 
@@ -864,27 +864,60 @@ class SamplerPTMCMC(SamplerBody):
         except Exception:
             logger.warning("Impossible to produce standard plots. Cannot import matplotlib.")
 
+        # create plot directory
+        plot_dir = os.path.join(self.outdir,'ptmcmc')
+        ensure_dir(plot_dir)
+
         try:
 
-            for i in range(self._ntemps):
+            # plot sample chains
+            chain_samples  = np.transpose(self.outchain[self.sampler.untemp_index])
+            for i,ni in enumerate(self.names):
 
-                    fig = plt.figure()
-                    ax1 = fig.add_subplot(211)
-                    ax2 = fig.add_subplot(212)
-                    ax1.plot(self.sampler._loglikelihood[i], lw=0.3)
-                    ax2.plot(self.sampler._logposterior[i], lw=0.3)
+                fig = plt.figure()
+                plt.scatter(np.arange(len(chain_samples[i])), chain_samples[i], marker='.')
+                # plt.axvline(self.nburn*self.sampler.nwalkers, color='k', ls='--', label='burn-in')
+                plt.ylabel(ni)
+                plt.xlabel('iteration')
 
-                    ax1.set_title("T={:.5f}".format(1./self.sampler._betas[i]))
-                    ax1.set_ylabel('lnL')
-                    ax1.set_xticks([])
+                plt.legend()
+                plt.savefig(plot_dir+'/chain_{}.png'.format(ni), dpi=200)
+                plt.close()
 
-                    ax2.set_ylabel('lnP')
-                    ax2.set_xlabel('iteration')
+            # plot logL chains
+            for i in range(self.sampler.ntemps):
 
-                    plt.subplots_adjust(hspace=0.)
-                    plt.savefig(self.outdir+'/chain_logP_{}.png'.format(i), dpi=200)
+                fig = plt.figure()
+                ax1 = fig.add_subplot(211)
+                ax2 = fig.add_subplot(212)
+                ax1.plot(self.sampler._loglikelihood[i], lw=0.3)
+                ax2.plot(self.sampler._logposterior[i], lw=0.3)
 
-                    plt.close()
+                ax1.set_title("T={:.5f}".format(1./self.sampler._betas[i]))
+                ax1.set_ylabel('lnL')
+                ax1.set_xticks([])
+
+                ax2.set_ylabel('lnP')
+                ax2.set_xlabel('iteration')
+
+                plt.subplots_adjust(hspace=0.)
+                plt.savefig(plot_dir+'/chain_logP_{}.png'.format(i), dpi=200)
+
+                plt.close()
+
+        except Exception:
+            pass
+
+        try:
+
+            import corner
+
+            corner.corner(self.posterior_samples,
+                          smooth=True, smooth1d=True, labels=self.names,
+                          quantiles=[0.50,0.90])
+
+            plt.savefig(plot_dir+'/corner.png'.format(i), dpi=200)
+            plt.close()
 
         except Exception:
             pass

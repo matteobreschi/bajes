@@ -1,6 +1,4 @@
-from __future__        import division, unicode_literals, absolute_import
-from numpy             import cos, sin
-from scipy.interpolate import splev
+from __future__ import division, unicode_literals, absolute_import
 import numpy as np
 
 from .utils  import tdwf_2_fdwf, fdwf_2_tdwf
@@ -26,7 +24,7 @@ def compute_psdweights(ifo, nweights, len_weights, params):
 
 # project array in time-domain
 # function used for inject waveform from txt file
-def calc_project_array_td(det, hp, hc, dt, ra, dec, psi, t_gps):
+def calc_project_array(det, hp, hc, dt, ra, dec, psi, t_gps, t_peak=0, domain='time', ax=None):
     """ Project given waveform on detector
         ----------
         det = Detector class
@@ -41,11 +39,15 @@ def calc_project_array_td(det, hp, hc, dt, ra, dec, psi, t_gps):
         h = F+ h+ + Fx hx , projected strain
         """
 
-    fplus , fcross  = det.antenna_pattern(ra, dec, psi, t_gps)
-    time_delay      = det.time_delay_from_earth_center(ra , dec , t_gps)
+    fplus , fcross  = det.antenna_pattern(ra, dec, psi, t_gps+t_peak)
+    time_delay      = det.time_delay_from_earth_center(ra , dec , t_gps+t_peak)+t_peak
 
     h = fplus*hp + fcross*hc
-    proj_series = lagging(h, int(round(time_delay/dt)))
+    if domain == 'time':
+        proj_series = lagging(h, int(round(time_delay/dt)))
+    elif domain == 'freq':
+        if ax is None: logger.warning("Unable to compute frequency-domain series projection without frequency axis.")
+        proj_series = h * np.exp(-2j*np.pi*time_delay*ax)
     return proj_series
 
 def get_detector_information(ifo):
@@ -203,9 +205,15 @@ class Detector(object):
         self.compute_gmst_reference()
 
     def compute_response(self):
+        """
+            Compute detector response tensor
+        """
         return 0.5 * (np.einsum('i,j->ij', self.x_arm, self.x_arm) - np.einsum('i,j->ij', self.y_arm, self.y_arm))
 
     def compute_location(self):
+        """
+            Compute detector location vector
+        """
         # define semi-major and semi-minor axes of Earth [m]
         semi_major_axis = 6378137
         semi_minor_axis = 6356752.314
@@ -216,12 +224,18 @@ class Detector(object):
         return np.array([x_comp, y_comp, z_comp])
 
     def compute_arm(self, arm_tilt, arm_azimuth):
+        """
+            Compute arm vector given arm_tilt and arm_azimuth
+        """
         e_long  = np.array([-np.sin(self.longitude), np.cos(self.longitude), 0])
         e_lat   = np.array([-np.sin(self.latitude) * np.cos(self.longitude), -np.sin(self.latitude) * np.sin(self.longitude), np.cos(self.latitude)])
         e_h     = np.array([np.cos(self.latitude) * np.cos(self.longitude), np.cos(self.latitude) * np.sin(self.longitude), np.sin(self.latitude)])
         return (np.cos(arm_tilt) * np.cos(arm_azimuth) * e_long + np.cos(arm_tilt) * np.sin(arm_azimuth) * e_lat + np.sin(arm_tilt) * e_h)
 
     def compute_gmst_reference(self):
+        """
+            Compute Greenwich mean sidereal time
+        """
         if self.reference_time is not None:
             from astropy.units.si import sday
             self.sday = float(sday.si.scale)
@@ -269,16 +283,16 @@ class Detector(object):
         # t_gps is measured from the center of the Earth,
         # then we have to take into account the time delay
 
-        geometric_delay = self.time_delay_from_earth_center(right_ascension, declination, t_gps)
+        geometric_delay = self.time_delay_from_earth_center(right_ascension, declination, t_gps) # this step requires vectorization for time/freq-dependent response
         t_gps   += geometric_delay
         gha     = self.gmst_estimate(t_gps) - right_ascension
 
-        cosgha = cos(gha)
-        singha = sin(gha)
-        cosdec = cos(declination)
-        sindec = sin(declination)
-        cospsi = cos(polarization)
-        sinpsi = sin(polarization)
+        cosgha = np.cos(gha)
+        singha = np.sin(gha)
+        cosdec = np.cos(declination)
+        sindec = np.sin(declination)
+        cospsi = np.cos(polarization)
+        sinpsi = np.sin(polarization)
 
         x0 = -cospsi * singha - sinpsi * cosgha * sindec
         x1 = -cospsi * cosgha + sinpsi * singha * sindec
@@ -332,11 +346,11 @@ class Detector(object):
                 - t_gps             : float, the GPS time (in s) of the signal.
         """
         ra_angle = self.gmst_estimate(t_gps) - right_ascension
-        cosd = cos(declination)
+        cosd = np.cos(declination)
 
-        e0 = cosd * cos(ra_angle)
-        e1 = cosd * -sin(ra_angle)
-        e2 = sin(declination)
+        e0 = cosd * np.cos(ra_angle)
+        e1 = cosd * -np.sin(ra_angle)
+        e2 = np.sin(declination)
 
         ehat    = np.array([e0, e1, e2])
         dx      = other_location - self.location
@@ -389,7 +403,7 @@ class Detector(object):
             Return:
                 - projected wave : np.array, waveform projected on this detector in the frequency-domain
         """
-        
+
         # compute F+,Fx for the detecor at the moment t-gps + time-shift
         fplus, fcross = self.antenna_pattern(params['ra'], params['dec'], params['psi'], params['t_gps']+params['time_shift'])
         # compute delay from Earth geocenter to detector
@@ -498,7 +512,7 @@ class Detector(object):
 
         # The hphc waveform was already time-shifted to the center of the segment (seglen/2.), now add `time_shift` and the time delay, together with projection onto the detector.
         wav = self.project_fdwave(hphc, params, tag, roq=roq)
-        
+
         # apply calibration envelopes
         if self.nspcal > 0:
             cal = compute_spcalenvs(self.ifo, self.nspcal, params)

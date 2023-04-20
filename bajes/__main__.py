@@ -14,6 +14,8 @@ if __name__ == "__main__":
     opts = parse_main_options()
 
     # make output directory
+    if opts.outdir is None:
+        opts.outdir = './run/'
     opts.outdir = os.path.abspath(opts.outdir)
     ensure_dir(opts.outdir)
 
@@ -75,6 +77,7 @@ if __name__ == "__main__":
                 logger.debug("Using logger with debugging mode")
             else:
                 logger = set_logger(outdir=opts.outdir, silence=opts.silence)
+            logger.info("Running inference in output directory {}".format(opts.outdir))
 
             # execute run
             from .pipe.run import run_main_mpi_ultranest
@@ -97,6 +100,7 @@ if __name__ == "__main__":
                     logger.debug("Using logger with debugging mode")
                 else:
                     logger = set_logger(outdir=opts.outdir, silence=opts.silence)
+                logger.info("Running inference in output directory {}".format(opts.outdir))
 
             else:
 
@@ -133,6 +137,7 @@ if __name__ == "__main__":
             logger.debug("Using logger with debugging mode")
         else:
             logger = set_logger(outdir=opts.outdir, silence=opts.silence)
+        logger.info("Running inference in output directory {}".format(opts.outdir))
 
         # initialize multi-threading pool (if needed)
         if (opts.engine != 'cpnest' and opts.nprocs>1):

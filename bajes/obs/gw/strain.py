@@ -372,7 +372,10 @@ class Series(object):
             logger.error("Type of series not specified or wrong. Please use 'time' or 'freq'.")
             raise AttributeError("Type of series not specified or wrong. Please use 'time' or 'freq'.")
 
-        if isinstance(self.freqs, (np.ndarray, list)):
+        if isinstance(self.freqs, np.ndarray):
+            self.mask = np.where((self.freqs>=self.f_min)&(self.freqs<=self.f_max))
+        else:
+            self.freqs = np.array(self.freqs)
             self.mask = np.where((self.freqs>=self.f_min)&(self.freqs<=self.f_max))
 
     def __add__(self,   other):

@@ -13,7 +13,7 @@ def initialize_gwlikelihood_kwargs(opts):
     from ..obs.gw.noise    import Noise
     from ..obs.gw.strain   import Series
     from ..obs.gw.detector import Detector
-    from ..obs.gw.utils    import read_data, read_asd, read_spcal
+    from ..obs.gw.utils    import read_data, read_data_fd, read_asd, read_spcal
 
     # initial checks
     if len(opts.ifos) != len(opts.strains):
@@ -32,6 +32,11 @@ def initialize_gwlikelihood_kwargs(opts):
         raise ValueError("Requested f_max greater than f_Nyquist=sampling_rate/2, which will induce information loss, see https://en.wikipedia.org/wiki/Nyquist–Shannon_sampling_theorem. Please use f_max <= f_Nyquist.")
     if opts.time_shift_min == None:
         opts.time_shift_min = -opts.time_shift_max
+
+    # t-gps information
+    if (opts.t_gps - int(np.ceil(opts.t_gps)) != 0):
+        logger.warning("Non-integer GPS time has been passed. This value will be approximated to the closest integer value.")
+        opts.t_gps  = int(np.ceil(opts.t_gps))
 
     # initialise dictionaries for detectors, noises, data, etc
     strains = {}
@@ -52,44 +57,63 @@ def initialize_gwlikelihood_kwargs(opts):
         logger.warning("Requested PSD weights > 0 and frequency binning. These two options are not supported together, PSD-weights are fixed to 0.")
         opts.nweights = 0
 
+    # check channels
+    if len(opts.ifos)!=len(opts.ifo_channels):
+        if (len(opts.ifo_channels) == 0):
+            logger.warning("IFO channels are empty, assuming TXT input.")
+            opts.ifo_channels = [str('') for _ in range(len(opts.ifos))]
+        else:
+            logger.warning("Number of IFO channels does not match number of requested IFOs. This will create problems during the pipeline. Please provide the same number for GWF or leave the IFO-channels empty for TXT injection.")
+
     # set up data, detectors and PSDs
     for i,ifo in enumerate(opts.ifos):
+
         # read data
-        ifo        = opts.ifos[i]
-        data       = read_data(opts.strains[i], opts.srate)
+        if opts.fd_inj:
+            freq, data      = read_data_fd(opts.strains[i],
+                                           srate=opts.srate, seglen=opts.seglen,
+                                           f_min=opts.f_min, f_max=opts.f_max)
+            strains[ifo]    = Series('freq',
+                                     data,
+                                     srate       = opts.srate,
+                                     seglen      = opts.seglen,
+                                     f_min       = opts.f_min,
+                                     f_max       = opts.f_max,
+                                     t_gps       = opts.t_gps,
+                                     only        = True,
+                                     importfreqs = freq,
+                                     alpha_taper = opts.alpha)
+        else:
+
+            data, gps_ini   = read_data(opts.strains[i], opts.srate, opts.ifo_channels[i])
+
+            data_gps        = int(gps_ini+opts.seglen/2)
+            user_gps        = int(opts.t_gps)
+
+            if (data_gps != user_gps):
+                logger.warning("User-provided GPS time ({}) does not match the data GPS time ({}). Overwriting user prescription and promoting data value.".format(user_gps, data_gps))
+                opts.t_gps = data_gps
+
+            strains[ifo]    = Series('time',
+                                     data,
+                                     srate       = opts.srate,
+                                     seglen      = opts.seglen,
+                                     f_min       = opts.f_min,
+                                     f_max       = opts.f_max,
+                                     t_gps       = opts.t_gps,
+                                     only        = False,
+                                     alpha_taper = opts.alpha)
+
+        # read ASD
         f_asd, asd = read_asd(opts.asds[i], ifo)
 
-        # check ASD domain
         f_asd_min, f_asd_max = np.min(f_asd), np.max(f_asd)
         if (opts.f_min < f_asd_min) or ((opts.f_max-1./opts.seglen) > f_asd_max):
             logger.error("The provided ASD for the {} IFO does not have support over the full requested [f-min, f-max] = [{}, {}] range. While, the ASD has [{}, {}]".format(ifo, opts.f_min, opts.f_max, f_asd_min, f_asd_max))
             raise ValueError("The provided ASD for the {} IFO does not have support over the full requested [f-min, f-max] = [{}, {}] range. While, the ASD has [{}, {}]".format(ifo, opts.f_min, opts.f_max, f_asd_min, f_asd_max))
 
-        if opts.binning:
-            # WORK IN PROGRESS: if frequency binning is on, the frequency series does not need to be cut
-            strains[ifo] = Series('time',
-                                  data,
-                                  srate       = opts.srate,
-                                  seglen      = opts.seglen,
-                                  f_min       = opts.f_min,
-                                  f_max       = opts.f_max,
-                                  t_gps       = opts.t_gps,
-                                  only        = False,
-                                  alpha_taper = opts.alpha)
-
-        else:
-            strains[ifo] = Series('time',
-                                  data,
-                                  srate       = opts.srate,
-                                  seglen      = opts.seglen,
-                                  f_min       = opts.f_min,
-                                  f_max       = opts.f_max,
-                                  t_gps       = opts.t_gps,
-                                  only        = False,
-                                  alpha_taper = opts.alpha)
-
         dets[ifo]       = Detector(ifo, t_gps=opts.t_gps)
-        noises[ifo]     = Noise(f_asd, asd, f_max=opts.f_max)
+        noises[ifo]     = Noise(f_asd, asd, f_max=opts.f_max, f_min=opts.f_min)
 
         if opts.nspcal > 0:
             spcals[ifo] = read_spcal(opts.spcals[i], ifo)
