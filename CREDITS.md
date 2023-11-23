@@ -52,7 +52,7 @@ If you use one of the following gravitational-wave approximants, please provide 
 * `NRPM`: M. Breschi et al., [arxiv](https://arxiv.org/abs/1908.11418)
 * `NRPMw`: M. Breschi et al., [arxiv](https://arxiv.org/abs/2205.09112)
 * `MLGW`: S. Schmidt et al., [arxiv](https://arxiv.org/abs/2011.01958)
-* `MLGW_BNS`: J. Tissino et al., (in preparation)
+* `MLGW_BNS`: J. Tissino et al., [arxiv](https://arxiv.org/abs/2210.15684)
 * `NRSur7dq4`: V. Varma et al., [arxiv](https://arxiv.org/abs/1905.09300)
 * `NRHybSur3dq8`: V. Varma et al., [arxiv](https://arxiv.org/abs/1812.07865)
 * `NRHybSur3dq8Tidal`: K. Barkett et al., [arxiv](https://arxiv.org/abs/1911.10440)
