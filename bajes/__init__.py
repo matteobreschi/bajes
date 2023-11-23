@@ -29,7 +29,7 @@ def _get_git_hast():
 
     return git_hash
 
-__version__ = '1.0.1'
+__version__ = '1.1.0'
 __doc__     = "bajes [baɪɛs], Bayesian Jenaer Software. Python package for Bayesian inference \
                developed at Friedrich-Schiller-Universtät Jena and specialized in the analysis \
                of gravitational-wave and multi-messenger transients. The software is designed to be state-of-art, \
