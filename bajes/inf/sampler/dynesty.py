@@ -291,7 +291,7 @@ class SamplerDynesty(SamplerBody):
 
     def __update__(self):
 
-        (worst, ustar, vstar, loglstar, logvol, logwt, logz, logzvar, h, nc, worst_it, boundidx, bounditer, eff, delta_logz) = self._last_iter
+        (worst, ustar, vstar, loglstar, logvol, logwt, logz, logzvar, h, nc, worst_it, boundidx, bounditer, eff, delta_logz, blob) = self._last_iter
 
         args = {'it' :      self.sampler.it,
                 'eff' :     '{:.2f}%'.format(eff),
@@ -317,10 +317,10 @@ class SamplerDynesty(SamplerBody):
 
             this_params = list_2_dict(self.nested_samples[i], self.names)
             logpr       = self.log_prior_fn(this_params)
-            logl        = np.float(self.results.logl[i])
+            logl        = float(self.results.logl[i])
 
             ns.append(np.append(self.nested_samples[i], [logl, logpr]))
-            wt.append(np.float(self.results.logwt[i]-self.results.logz[-1]))
+            wt.append(float(self.results.logwt[i]-self.results.logz[-1]))
 
         ns      = np.array(ns)
         wt      = np.array(wt)

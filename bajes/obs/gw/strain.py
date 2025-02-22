@@ -1,7 +1,6 @@
 from __future__ import division, unicode_literals, absolute_import
 import numpy as np
-from scipy.signal import tukey
-
+from scipy.signal.windows import tukey
 import logging
 logger = logging.getLogger(__name__)
 

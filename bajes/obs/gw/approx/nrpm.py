@@ -98,7 +98,8 @@ def NRPM_TaperBeforeMerger( ti , Mtot , eta , f_merg , A_merg ):
 
 
 def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
-         f_merg = None, alpha  = None, beta = None, phi_kick = None, recal = None):
+         f_merg = None, alpha  = None, beta = None, phi_kick = None, recal = None, 
+         output = False):
 
     deltaT      = 1./srate
     Npt         = int(seglen*srate)
@@ -162,25 +163,31 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
     # initialize hs
     hplus   = np.zeros(Npt)
     hcross  = np.zeros(Npt)
+    h22     = np.zeros(Npt, dtype=complex)
 
     # compute taper pre-merger
     amppre, phipre, dfreq = NRPM_TaperBeforeMerger(time[indspre], Mtot , q, fm, am)
     phipre -= phipre[-1] + phi_merg
     hplus[indspre]  = spherharm_norm*inc_plus*amppre*np.cos(phipre)/distance
     hcross[indspre] = spherharm_norm*inc_cross*amppre*np.sin(phipre)/distance
-
+    h22[indspre]    = amppre*np.exp(-1j*phipre)
+    
     phi_0 = phi_merg
     if t0 > 0:
         amp0 = NRPM_AmpModel_plus(time[inds0], am , a0 , 0.0 , t0 )
         phi0 = NRPM_PhaseModel0(time[inds0],fm,dfreq[-1],f1,t0) + phi_merg
         hplus[inds0]  = spherharm_norm*inc_plus*amp0*np.cos(phi0)/distance
         hcross[inds0] = spherharm_norm*inc_cross*amp0*np.sin(phi0)/distance
+        h22[inds0]    = amp0*np.exp(-1j*phi0)
         phi_0 += NRPM_PhaseModel0( t0, fm , dfreq[-1] , f1 , t0)
 
     # if kappa2T < 60, it is assumed that
     # no post-merger radiation occurs due to prompt collapse
     if kappa2T < 60 :
-        return hplus, hcross
+        if output:
+            return hplus, hcross, h22
+        else:
+            return hplus, hcross
 
     # additional phase-shift after merger
     if phi_kick == None:
@@ -192,6 +199,7 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
         phi1 = NRPM_PhaseModel1(time[inds1], t0, f1) + phi_0
         hplus[inds1]  = spherharm_norm*inc_plus*amp1*np.cos(phi1)/distance
         hcross[inds1] = spherharm_norm*inc_cross*amp1*np.sin(phi1)/distance
+        h22[inds1]    = amp1*np.exp(-1j*phi1)
         phi_0 += NRPM_PhaseModel1(t1, t0, f1)
 
     if t2 > t1:
@@ -199,6 +207,7 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
         phi2 = NRPM_PhaseModel2(time[inds2], f1 , f3 , t1, t2) + phi_0
         hplus[inds2]  = spherharm_norm*inc_plus*amp2*np.cos(phi2)/distance
         hcross[inds2] = spherharm_norm*inc_cross*amp2*np.sin(phi2)/distance
+        h22[inds2]    = amp2*np.exp(-1j*phi2)
         phi_0 += NRPM_PhaseModel2(t2, f1 , f3 , t1, t2)
 
     if t3 > t2:
@@ -206,14 +215,19 @@ def NRPM(srate, seglen, Mtot, q, kappa2T, distance, inclination, phi_merg,
         phi3 = NRPM_PhaseModel3(time[inds3], f2 , f3 , t2 , t3)  + phi_0
         hplus[inds3]  = spherharm_norm*inc_plus*amp3*np.cos(phi3)/distance
         hcross[inds3] = spherharm_norm*inc_cross*amp3*np.sin(phi3)/distance
+        h22[inds3]    = amp3*np.exp(-1j*phi3)
         phi_0 += NRPM_PhaseModel3(t3, f2 , f3 , t2 , t3)
 
     amp4 = NRPM_AmpModel_exp(time[inds4], am , a3 , t3 , tc , alpha)
     phi4 = NRPM_PhaseModel4(time[inds4], f2 , t3, beta) + phi_0
     hplus[inds4]  = spherharm_norm*inc_plus*amp4*np.cos(phi4)/distance
     hcross[inds4] = spherharm_norm*inc_cross*amp4*np.sin(phi4)/distance
+    h22[inds4]    = amp4*np.exp(-1j*phi4)
 
-    return hplus, hcross
+    if output:
+        return hplus, hcross, h22
+    else:
+        return hplus, hcross
 
 def nrpm_wrapper(freqs, params):
 
